@@ -8,7 +8,7 @@
  */
 
 import { getSessionId, getPageContext, touchSessionTimestamp } from './sessionManager.js';
-import { recordActivity, recordFirstClick } from './timeTracker.js';
+import { recordActivity, recordFirstClick, getPendingInactivity } from './timeTracker.js';
 import { send } from './sender.js';
 
 // ── event_token vocab ──────────────────────────────────────────
@@ -142,6 +142,12 @@ function emit(eventType, data = {}) {
  */
 function emitSessionEnd(exitData = {}) {
   const now = Date.now();
+
+  // 비활성 중 세션이 종료된 경우 → pending inactivity 먼저 flush
+  const pending = getPendingInactivity();
+  if (pending) {
+    _dispatch('inactivity', pending, now);
+  }
 
   if (_cartItemCount > 0) {
     _dispatch('cart_abandon_flag', {

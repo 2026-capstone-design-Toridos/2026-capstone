@@ -308,27 +308,119 @@ console.log(JSON.stringify({ payloads: takeFetchEvents().map(entry => entry.payl
   assert.equal(rage.data.click_count, 3);
 });
 
-test('inactivity should not recursively reclassify itself as activity', () => {
+test('inactivity fires with correct duration when activity resumes', () => {
+  // 새 설계: 비활성 시작 시각 기록 → 다음 활동 시점에 duration 확정 후 emit
   const result = runScenario(`
 const { sdkA, sender } = globalThis.__ghostTrackerTest;
 sdkA.initA();
 sender.flush(false);
 state.fetchCalls.length = 0;
 
-advance(10_000);
-sender.flush(false);
-const firstBatch = takeFetchEvents().map(entry => entry.payload.events).flat();
+advance(10_000);               // t=10000: 타이머 발화 → inactivity_start_time 기록 (emit 안 함)
+advance(5_000);                // t=15000: 아직 비활성
 
-state.fetchCalls.length = 0;
-advance(10_000);
-sender.flush(false);
-const secondBatch = takeFetchEvents().map(entry => entry.payload.events).flat();
+// 다음 활동 발생 → inactivity duration=5000 확정 후 emit, 이후 click emit
+sdkA.emit('click', { click_position: { x: 1, y: 1 } });
 
-console.log(JSON.stringify({ firstBatch, secondBatch }));
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const inactivity = events.find(e => e.event_type === 'inactivity');
+const click      = events.find(e => e.event_type === 'click');
+console.log(JSON.stringify({ inactivity, click }));
 `);
 
-  assert.equal(result.firstBatch.filter((event) => event.event_type === 'inactivity').length, 1);
-  assert.equal(result.secondBatch.filter((event) => event.event_type === 'inactivity').length, 0);
+  assert.ok(result.inactivity,                                     'inactivity 이벤트가 있어야 함');
+  assert.equal(result.inactivity.data.inactivity_duration,  5_000, 'duration = 5s');
+  assert.equal(result.inactivity.data.inactivity_start_time, 10_000,'start_time = 10s');
+  assert.ok(result.click,                                          'click 이벤트도 있어야 함');
+  // inactivity는 클릭보다 seq가 앞서야 함 (활동 복귀 → inactivity emit → click emit 순)
+  assert.ok(result.inactivity.event_seq < result.click.event_seq, 'inactivity seq < click seq');
+});
+
+test('inactivity does not emit again without new activity', () => {
+  // 비활성 상태가 지속되는 동안 타이머가 두 번 발화되지 않아야 함
+  // 타임라인: t=0 init → t=10,000 타이머 발화(start 기록) → t=20,000 활동 복귀
+  // duration = 20,000 - 10,000 = 10,000 ms
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+advance(10_000);   // t=10000: 타이머 발화 → inactivity_start_time=10000
+advance(10_000);   // t=20000: 추가 타이머 없음 (타이머는 활동 복귀 전까지 재시작 안 됨)
+
+// 활동 복귀 → duration = 20000 - 10000 = 10000
+sdkA.emit('click', { click_position: { x: 1, y: 1 } });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({
+  inactivityCount: events.filter(e => e.event_type === 'inactivity').length,
+  duration: events.find(e => e.event_type === 'inactivity')?.data?.inactivity_duration,
+}));
+`);
+
+  assert.equal(result.inactivityCount, 1,      '비활성 이벤트는 정확히 1개');
+  assert.equal(result.duration,        10_000,  'duration = 10s (t=10000~t=20000)');
+});
+
+test('inactivity is flushed on session end if user never returns', () => {
+  // 비활성 중 세션 종료 → session_end 직전에 pending inactivity emit
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+state.beaconResult = false;
+
+advance(10_000);   // 비활성 감지
+advance(7_000);    // t=17000: 아직 활동 없음
+
+window.dispatchEvent({ type: 'beforeunload' });  // 비활성 상태로 세션 종료
+
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const inactivity  = events.find(e => e.event_type === 'inactivity');
+const sessionEnd  = events.find(e => e.event_type === 'session_end');
+console.log(JSON.stringify({ inactivity, sessionEnd }));
+`);
+
+  assert.ok(result.inactivity,                                      'inactivity 이벤트가 있어야 함');
+  assert.equal(result.inactivity.data.inactivity_duration,   7_000, 'duration = 7s');
+  assert.equal(result.inactivity.data.inactivity_start_time, 10_000,'start_time = 10s');
+  // inactivity가 session_end보다 앞서야 함
+  assert.ok(result.inactivity.event_seq < result.sessionEnd.event_seq, 'inactivity seq < session_end seq');
+});
+
+test('inactivity emit does not recursively restart activity timer', () => {
+  // inactivity 이벤트 자체는 recordActivity()를 호출하지 않으므로
+  // inactivity emit 후 타이머가 즉시 재시작되면 안 됨
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+advance(10_000);   // 비활성 감지
+
+// 활동 복귀 → inactivity emit + click emit
+sdkA.emit('click', { click_position: { x: 1, y: 1 } });
+
+// 다시 10s 비활성
+advance(10_000);
+
+// 두 번째 활동
+sdkA.emit('click', { click_position: { x: 2, y: 2 } });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({
+  inactivityCount: events.filter(e => e.event_type === 'inactivity').length,
+}));
+`);
+
+  // 총 2번의 비활성 주기 → 2개의 inactivity 이벤트
+  assert.equal(result.inactivityCount, 2);
 });
 
 test('session_end should keep the last real user event time', () => {

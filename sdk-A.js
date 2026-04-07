@@ -20,7 +20,7 @@
  */
 
 import { initSession, setPageContext, updatePageUrl, touchSessionTimestamp } from './core/sessionManager.js';
-import { recordPageEnter, getPageDwellTime, getLastEventTime, onInactive } from './core/timeTracker.js';
+import { recordPageEnter, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
 import { emit, emitSessionEnd } from './core/eventProcessor.js';
 import { flush } from './core/sender.js';
 
@@ -161,10 +161,11 @@ function _setupSessionEnd() {
 // ── 비활성 감지 ───────────────────────────────────────────────
 
 function _setupInactivityTracking() {
-  onInactive(({ startTime, lastEventTime }) => {
+  // 비활성이 끝나는 시점(다음 활동)에 호출됨 → duration 값 확정 후 emit
+  onInactive(({ inactivity_start_time, inactivity_duration }) => {
     emit('inactivity', {
-      inactivity_start_time: startTime,
-      last_event_time:       lastEventTime,
+      inactivity_start_time,
+      inactivity_duration,
     });
   });
 }
