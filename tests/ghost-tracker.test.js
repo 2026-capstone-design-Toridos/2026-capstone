@@ -279,7 +279,7 @@ console.log(JSON.stringify({ payloads }));
   assert.equal(events.filter((event) => event.event_type === 'time_to_first_click').length, 1);
   const click = events.find((event) => event.event_type === 'click');
   const ttfc = events.find((event) => event.event_type === 'time_to_first_click');
-  assert.equal(ttfc.data.derived_from_seq, click.seq);
+  assert.equal(ttfc.data.derived_from_seq, click.event_seq);
 });
 
 test('rage click fires once for three close clicks in 500ms', () => {
@@ -729,7 +729,7 @@ console.log(JSON.stringify({ events }));
     assert.ok(event.page_url,    `${event.event_type}: page_url 없음`);
     assert.ok(event.pathname,    `${event.event_type}: pathname 없음`);
     assert.ok(event.device_type, `${event.event_type}: device_type 없음`);
-    assert.ok(event.seq > 0,     `${event.event_type}: seq가 0 이하`);
+    assert.ok(event.event_seq > 0, `${event.event_type}: event_seq가 0 이하`);
   }
 });
 

@@ -2,7 +2,7 @@
 // 역할:
 // - 클릭 / 마우스이동 / 입력 / 포커스 / 붙여넣기 / 탭 이탈·복귀 / hover dwell / 미디어 / 검색
 // - raw 이벤트만 감지해서 handleRawEvent(eventType, data)로 전달
-// - session_id, seq, timestamp, 파생 이벤트 생성은 A가 담당
+// - session_id, event_seq, timestamp, 파생 이벤트 생성은 A가 담당
 
 let isInitialized = false;
 

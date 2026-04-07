@@ -102,7 +102,7 @@ let _cartItemCount = 0;
 /**
  * B·C 레이어에서 호출하는 단일 진입점
  * @param {string} eventType  EVENT_VOCAB 키
- * @param {object} data       raw 이벤트별 데이터 (session_id, seq 등은 여기 넣지 않는다)
+ * @param {object} data       raw 이벤트별 데이터 (session_id, event_seq 등은 여기 넣지 않는다)
  */
 function emit(eventType, data = {}) {
   const now = Date.now();
@@ -122,15 +122,15 @@ function emit(eventType, data = {}) {
     _cartItemCount = 0;
   }
 
-  // ── 원본 이벤트 먼저 dispatch (seq 확보) ─────────────────
-  const seq = _dispatch(eventType, data, now);
+  // ── 원본 이벤트 먼저 dispatch (event_seq 확보) ───────────
+  const event_seq = _dispatch(eventType, data, now);
 
   // ── click 파생 이벤트 ─────────────────────────────────────
   if (eventType === 'click') {
     const ttfc = recordFirstClick();
     if (ttfc !== null) {
-      // 원본 click(seq N) 먼저, 파생(seq N+1)에 derived_from_seq 첨부
-      _dispatch('time_to_first_click', { duration_ms: ttfc, derived_from_seq: seq }, now);
+      // 원본 click(event_seq N) 먼저, 파생(event_seq N+1)에 derived_from_seq 첨부
+      _dispatch('time_to_first_click', { duration_ms: ttfc, derived_from_seq: event_seq }, now);
     }
     _checkRageClick(data, now);
   }
@@ -164,7 +164,7 @@ function _dispatch(eventType, data, timestamp) {
     session_id:      getSessionId(),
     event_type:      eventType,
     timestamp,
-    seq:             _seq,
+    event_seq:       _seq,
     event_token:     EVENT_VOCAB[eventType] ?? 0,
     inter_event_gap,
     ...getPageContext(),  // page_url, pathname, referrer, utm_*, device_type 등 자동 부여
