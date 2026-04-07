@@ -1,0 +1,8 @@
+{
+  "name": "ghost-tracker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/SDK-A_test.js tests/integration.test.js"
+  }
+}
