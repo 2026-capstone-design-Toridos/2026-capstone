@@ -15,6 +15,7 @@ import { spawnSync }        from 'node:child_process';
 import { test }             from 'node:test';
 
 const REPO_ROOT = '/Users/parkjoehyun/Desktop/software/4grade/2026-capstone';
+const DEBUG_INTEGRATION_TEST = process.env.DEBUG_INTEGRATION_TEST === '1';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 테스트 러너
@@ -26,6 +27,12 @@ function run(body) {
     ['--input-type=module', '-e', `${prelude()}\n${body}`],
     { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 },
   );
+  if (DEBUG_INTEGRATION_TEST && result.stdout) {
+    process.stdout.write(result.stdout);
+  }
+  if (DEBUG_INTEGRATION_TEST && result.stderr) {
+    process.stderr.write(result.stderr);
+  }
   if (result.status !== 0) {
     throw new Error(`STDOUT:\n${result.stdout}\nSTDERR:\n${result.stderr}`);
   }
