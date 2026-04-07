@@ -208,6 +208,11 @@ function _setupScreenResize() {
 function _setupGTBridge() {
   window.__GT = window.__GT || {};
 
+  // C(IIFE)의 로컬 send()를 이것으로 교체하면 A 코어와 연결됨
+  //   function send(eventType, payload) { window.__GT?.emit(eventType, payload); }
+  window.__GT.emit = emit;
+
+  // subsection dwell: C의 IntersectionObserver가 진입/이탈 시 호출
   window.__GT.subsectionEnter = (subsection_id) => {
     _subsectionEnterTimes[subsection_id] = Date.now();
     emit('subsection_enter', { subsection_id });
@@ -221,7 +226,7 @@ function _setupGTBridge() {
     emit('subsection_dwell', { subsection_id, dwell_ms });
   };
 
-  // 외부 디버깅용 (개발 환경에서만 확인)
+  // 디버깅용
   window.__GT.getState = () => ({
     navigationPath: [..._navigationPath],
     hasInteracted:  _hasInteracted,

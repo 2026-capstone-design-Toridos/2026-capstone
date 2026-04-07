@@ -170,7 +170,12 @@ function _dispatch(eventType, data, timestamp) {
 }
 
 function _checkRageClick(data, now) {
-  const { x = 0, y = 0, target = '' } = data;
+  // B는 click_position: {x, y} 구조로 보냄.
+  // 직접 x/y가 오는 경우(테스트·직접 호출)도 지원.
+  const pos = data.click_position;
+  const x      = pos?.x      ?? data.x      ?? 0;
+  const y      = pos?.y      ?? data.y      ?? 0;
+  const target = data.click_target ?? data.target ?? '';
 
   if (_rageClickLastFiredAt !== null && (now - _rageClickLastFiredAt) < RAGE_CLICK_COOLDOWN_MS) {
     _recentClicks = [];
@@ -183,13 +188,16 @@ function _checkRageClick(data, now) {
     c => Math.abs(c.x - x) <= RAGE_CLICK_RADIUS_PX &&
          Math.abs(c.y - y) <= RAGE_CLICK_RADIUS_PX
   );
-  if (!isNearby) _recentClicks = [];
+  if (!isNearby) {
+    _recentClicks = [];
+  }
 
   _recentClicks.push({ x, y, target, timestamp: now });
 
   if (_recentClicks.length >= RAGE_CLICK_THRESHOLD) {
     _rageClickLastFiredAt = now;
-    _dispatch('rage_click', { x, y, target, click_count: _recentClicks.length }, now);
+    // click_target: B의 필드명(click_target)과 통일 — AI 팀이 일관되게 파싱 가능
+    _dispatch('rage_click', { x, y, click_target: target, click_count: _recentClicks.length }, now);
     _recentClicks = [];
   }
 }

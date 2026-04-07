@@ -478,3 +478,460 @@ console.log(JSON.stringify({
 
   assert.equal(result.sessionEndCount, 1);
 });
+
+// ═══════════════════════════════════════════════════════════════
+// B 통합 테스트
+// ═══════════════════════════════════════════════════════════════
+
+test('rage_click detects correctly with B-format click_position', () => {
+  // B는 { click_position: {x, y}, click_target } 구조로 emit
+  // data.x / data.y 직접 접근하면 rage_click이 항상 0,0으로 감지 실패하는 버그 수정 검증
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+state.now += 100;
+sdkA.emit('click', { click_position: { x: 200, y: 300 }, click_target: 'button#buy' });
+state.now += 100;
+sdkA.emit('click', { click_position: { x: 205, y: 298 }, click_target: 'button#buy' });
+state.now += 100;
+sdkA.emit('click', { click_position: { x: 198, y: 302 }, click_target: 'button#buy' });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({
+  rageCount: events.filter(e => e.event_type === 'rage_click').length,
+  rageData: events.find(e => e.event_type === 'rage_click')?.data,
+}));
+`);
+
+  assert.equal(result.rageCount, 1);
+  assert.equal(result.rageData.click_count, 3);
+  assert.equal(result.rageData.click_target, 'button#buy');
+});
+
+test('rage_click does not fire when clicks are far apart (>20px)', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+state.now += 100;
+sdkA.emit('click', { click_position: { x: 100, y: 100 }, click_target: 'a' });
+state.now += 100;
+sdkA.emit('click', { click_position: { x: 200, y: 200 }, click_target: 'b' }); // 100px 이상 떨어짐
+state.now += 100;
+sdkA.emit('click', { click_position: { x: 300, y: 300 }, click_target: 'c' });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({
+  rageCount: events.filter(e => e.event_type === 'rage_click').length,
+}));
+`);
+
+  assert.equal(result.rageCount, 0);
+});
+
+test('B event types all have non-zero event_token', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('hover_dwell',   { hover_target: 'price', hover_dwell_time_ms: 500, ghost_role: 'price' });
+sdkA.emit('tab_exit',      { tab_exit_count: 1 });
+sdkA.emit('tab_return',    { tab_exit_duration_ms: 3000 });
+sdkA.emit('input_change',  { input_target: 'input#name', input_length: 5 });
+sdkA.emit('field_focus',   { input_target: 'input#name', field_refocus_count: 0 });
+sdkA.emit('field_blur',    { input_target: 'input#name', input_length: 5 });
+sdkA.emit('input_abandon', { input_target: 'input#name' });
+sdkA.emit('paste_event',   { input_target: 'input#coupon' });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const tokenMap = Object.fromEntries(events.map(e => [e.event_type, e.event_token]));
+console.log(JSON.stringify({ tokenMap }));
+`);
+
+  assert.equal(result.tokenMap.hover_dwell,   20);
+  assert.equal(result.tokenMap.tab_exit,       30);
+  assert.equal(result.tokenMap.tab_return,     31);
+  assert.equal(result.tokenMap.input_change,   40);
+  assert.equal(result.tokenMap.field_focus,    41);
+  assert.equal(result.tokenMap.field_blur,     42);
+  assert.equal(result.tokenMap.input_abandon,  43);
+  assert.equal(result.tokenMap.paste_event,    44);
+});
+
+test('tab_exit and tab_return carry correct data through core', () => {
+  // B가 emit하는 tab_exit/return 데이터가 그대로 data 필드에 들어가는지 확인
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('tab_exit',   { tab_exit_count: 2 });
+state.now += 5000;
+sdkA.emit('tab_return', { tab_exit_duration_ms: 5000 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const tabExit   = events.find(e => e.event_type === 'tab_exit');
+const tabReturn = events.find(e => e.event_type === 'tab_return');
+console.log(JSON.stringify({ tabExit, tabReturn }));
+`);
+
+  assert.equal(result.tabExit.data.tab_exit_count,        2);
+  assert.equal(result.tabReturn.data.tab_exit_duration_ms, 5000);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// C 통합 테스트
+// ═══════════════════════════════════════════════════════════════
+
+test('C event types all have non-zero event_token', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('scroll_depth',            { depth_pct: 30 });
+sdkA.emit('scroll_milestone',        { milestone: 50 });
+sdkA.emit('scroll_stop',             { position: 800 });
+sdkA.emit('scroll_direction_change', { from: 'down', to: 'up' });
+sdkA.emit('scroll_speed',            { speed: 0.5 });
+sdkA.emit('section_enter',           { section: 'review' });
+sdkA.emit('section_exit',            { section: 'review' });
+sdkA.emit('section_revisit',         { section: 'review', count: 2 });
+sdkA.emit('section_transition',      { from: 'top', to: 'review' });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const tokenMap = Object.fromEntries(events.map(e => [e.event_type, e.event_token]));
+console.log(JSON.stringify({ tokenMap }));
+`);
+
+  assert.equal(result.tokenMap.scroll_depth,            60);
+  assert.equal(result.tokenMap.scroll_milestone,        61);
+  assert.equal(result.tokenMap.scroll_stop,             62);
+  assert.equal(result.tokenMap.scroll_direction_change, 63);
+  assert.equal(result.tokenMap.scroll_speed,            64);
+  assert.equal(result.tokenMap.section_enter,           70);
+  assert.equal(result.tokenMap.section_exit,            71);
+  assert.equal(result.tokenMap.section_revisit,         72);
+  assert.equal(result.tokenMap.section_transition,      73);
+});
+
+test('window.__GT.emit routes C-style events through core', () => {
+  // C(IIFE)의 로컬 send()를 window.__GT.emit으로 교체했을 때 정상 동작 검증
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+window.__GT.emit('section_enter',    { section: 'review' });
+window.__GT.emit('scroll_milestone', { milestone: 50 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({
+  eventTypes:  events.map(e => e.event_type),
+  tokenMap:    Object.fromEntries(events.map(e => [e.event_type, e.event_token])),
+  hasSessionId: events.every(e => !!e.session_id),
+}));
+`);
+
+  assert.ok(result.eventTypes.includes('section_enter'));
+  assert.ok(result.eventTypes.includes('scroll_milestone'));
+  assert.equal(result.tokenMap.section_enter,    70);
+  assert.equal(result.tokenMap.scroll_milestone, 61);
+  // C가 emit한 이벤트에도 session_id가 자동 부여되어야 함
+  assert.equal(result.hasSessionId, true);
+});
+
+test('subsection_dwell is calculated via window.__GT bridge', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+state.now += 1000;
+window.__GT.subsectionEnter('size-guide');
+state.now += 3500;
+window.__GT.subsectionExit('size-guide');
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const enterEvent = events.find(e => e.event_type === 'subsection_enter');
+const dwellEvent = events.find(e => e.event_type === 'subsection_dwell');
+console.log(JSON.stringify({ enterEvent, dwellEvent }));
+`);
+
+  assert.ok(result.enterEvent,                              'subsection_enter 이벤트가 있어야 함');
+  assert.ok(result.dwellEvent,                              'subsection_dwell 이벤트가 있어야 함');
+  assert.equal(result.dwellEvent.data.subsection_id,        'size-guide');
+  assert.equal(result.dwellEvent.data.dwell_ms,             3500);
+  assert.equal(result.dwellEvent.event_token,               92);
+});
+
+test('subsection_exit without prior enter does not emit subsection_dwell', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+// enter 없이 exit만 호출 — dwell 이벤트가 나가면 안 됨
+window.__GT.subsectionExit('orphan-section');
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({
+  hasDwell: events.some(e => e.event_type === 'subsection_dwell'),
+}));
+`);
+
+  assert.equal(result.hasDwell, false);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 공통 스키마 / 컨텍스트 테스트
+// ═══════════════════════════════════════════════════════════════
+
+test('all events from B and C carry page context automatically', () => {
+  // B/C는 emit(eventType, data)만 호출 — session_id, page_url 등은 A가 자동 부여
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('click',         { click_position: { x: 100, y: 200 } });
+sdkA.emit('section_enter', { section: 'review' });
+sdkA.emit('scroll_depth',  { depth_pct: 50 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({ events }));
+`);
+
+  for (const event of result.events) {
+    assert.ok(event.session_id,  `${event.event_type}: session_id 없음`);
+    assert.ok(event.page_url,    `${event.event_type}: page_url 없음`);
+    assert.ok(event.pathname,    `${event.event_type}: pathname 없음`);
+    assert.ok(event.device_type, `${event.event_type}: device_type 없음`);
+    assert.ok(event.seq > 0,     `${event.event_type}: seq가 0 이하`);
+  }
+});
+
+test('unknown event_type gets event_token 0', () => {
+  // vocab에 없는 이벤트가 들어와도 에러 없이 처리되어야 함
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('unknown_future_event', { some: 'data' });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const unknown = events.find(e => e.event_type === 'unknown_future_event');
+console.log(JSON.stringify({ token: unknown?.event_token }));
+`);
+
+  assert.equal(result.token, 0);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// bounce_flag / has_interacted 테스트
+// ═══════════════════════════════════════════════════════════════
+
+test('bounce_flag is true when no interaction and single page', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+state.beaconResult = false;
+
+// 클릭도, 내비게이션도 없이 이탈
+window.dispatchEvent({ type: 'beforeunload' });
+
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const sessionEnd = events.find(e => e.event_type === 'session_end');
+console.log(JSON.stringify({ bounceFlag: sessionEnd?.data?.bounce_flag }));
+`);
+
+  assert.equal(result.bounceFlag, true);
+});
+
+test('bounce_flag is false when user has clicked (has_interacted)', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+// document click 이벤트 발화 → _setupInteractionTracking의 markInteracted 호출
+const clickHandlers = state.listeners.get('click') || [];
+for (const fn of clickHandlers) fn({ type: 'click' });
+
+sender.flush(false);
+state.fetchCalls.length = 0;
+state.beaconResult = false;
+
+window.dispatchEvent({ type: 'beforeunload' });
+
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const sessionEnd = events.find(e => e.event_type === 'session_end');
+console.log(JSON.stringify({ bounceFlag: sessionEnd?.data?.bounce_flag }));
+`);
+
+  assert.equal(result.bounceFlag, false);
+});
+
+test('bounce_flag is false when user navigated to another page', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+history.pushState({}, '', '/checkout');  // 페이지 이동 → _navigationPath.length = 2
+sender.flush(false);
+state.fetchCalls.length = 0;
+state.beaconResult = false;
+
+window.dispatchEvent({ type: 'beforeunload' });
+
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const sessionEnd = events.find(e => e.event_type === 'session_end');
+console.log(JSON.stringify({ bounceFlag: sessionEnd?.data?.bounce_flag }));
+`);
+
+  assert.equal(result.bounceFlag, false);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 이커머스 흐름 테스트
+// ═══════════════════════════════════════════════════════════════
+
+test('cart_abandon_flag fires with correct item_count when items remain', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sdkA.emit('add_to_cart',    { product_id: 'SKU-001' });
+sdkA.emit('add_to_cart',    { product_id: 'SKU-002' });
+sdkA.emit('remove_from_cart', { product_id: 'SKU-001' }); // 1개 남음
+
+sender.flush(false);
+state.fetchCalls.length = 0;
+state.beaconResult = false;
+window.dispatchEvent({ type: 'beforeunload' });
+
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const abandon = events.find(e => e.event_type === 'cart_abandon_flag');
+console.log(JSON.stringify({ abandon }));
+`);
+
+  assert.ok(result.abandon);
+  assert.equal(result.abandon.data.cart_abandon_flag, true);
+  assert.equal(result.abandon.data.cart_item_count,   1);
+});
+
+test('cart_abandon_flag does not fire after purchase_click', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sdkA.emit('add_to_cart',   { product_id: 'SKU-001' });
+sdkA.emit('purchase_click', {});  // 결제 → cart 0으로 리셋
+
+sender.flush(false);
+state.fetchCalls.length = 0;
+state.beaconResult = false;
+window.dispatchEvent({ type: 'beforeunload' });
+
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({ hasAbandon: events.some(e => e.event_type === 'cart_abandon_flag') }));
+`);
+
+  assert.equal(result.hasAbandon, false);
+});
+
+test('cart_abandon_flag does not fire when cart is empty at session end', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sdkA.emit('add_to_cart',     { product_id: 'SKU-001' });
+sdkA.emit('remove_from_cart', { product_id: 'SKU-001' }); // 다시 제거 → 0
+
+sender.flush(false);
+state.fetchCalls.length = 0;
+state.beaconResult = false;
+window.dispatchEvent({ type: 'beforeunload' });
+
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+console.log(JSON.stringify({ hasAbandon: events.some(e => e.event_type === 'cart_abandon_flag') }));
+`);
+
+  assert.equal(result.hasAbandon, false);
+});
+
+test('ecommerce event types have correct tokens', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('product_click',   { product_id: 'SKU-001' });
+sdkA.emit('option_select',   { option: 'size', value: 'M' });
+sdkA.emit('add_to_cart',     { product_id: 'SKU-001' });
+sdkA.emit('remove_from_cart',{ product_id: 'SKU-001' });
+sdkA.emit('purchase_click',  {});
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const tokenMap = Object.fromEntries(events.map(e => [e.event_type, e.event_token]));
+console.log(JSON.stringify({ tokenMap }));
+`);
+
+  assert.equal(result.tokenMap.product_click,    80);
+  assert.equal(result.tokenMap.option_select,    81);
+  assert.equal(result.tokenMap.add_to_cart,      82);
+  assert.equal(result.tokenMap.remove_from_cart, 83);
+  assert.equal(result.tokenMap.purchase_click,   84);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// screen_resize 테스트
+// ═══════════════════════════════════════════════════════════════
+
+test('screen_resize emits after 500ms debounce', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+// 여러 번 resize 이벤트 발생 → 마지막 것만 emit되어야 함
+window.dispatchEvent({ type: 'resize' });
+advance(200);
+window.dispatchEvent({ type: 'resize' });
+advance(200);
+window.dispatchEvent({ type: 'resize' });
+advance(500); // 마지막 resize 후 500ms 경과 → emit
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const resizeEvents = events.filter(e => e.event_type === 'screen_resize');
+console.log(JSON.stringify({ resizeCount: resizeEvents.length, token: resizeEvents[0]?.event_token }));
+`);
+
+  assert.equal(result.resizeCount, 1);  // debounce로 1회만
+  assert.equal(result.token, 93);
+});
