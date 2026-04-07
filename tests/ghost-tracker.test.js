@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 
-const REPO_ROOT = '/Users/parkjoehyun/Desktop/software/4grade/2026-capstone/ghost-tracker';
+const REPO_ROOT = '/Users/parkjoehyun/Desktop/software/4grade/2026-capstone';
 
 function runScenario(body) {
   const script = `${createPrelude()}
@@ -198,7 +198,7 @@ function takeBeaconPayloads() {
   }));
 }
 
-const repoUrl = new URL('file:///Users/parkjoehyun/Desktop/software/4grade/2026-capstone/ghost-tracker/');
+const repoUrl = new URL('file:///Users/parkjoehyun/Desktop/software/4grade/2026-capstone/');
 const sessionManagerModule = await import(new URL('./core/sessionManager.js', repoUrl));
 const timeTrackerModule = await import(new URL('./core/timeTracker.js', repoUrl));
 const eventProcessorModule = await import(new URL('./core/eventProcessor.js', repoUrl));
