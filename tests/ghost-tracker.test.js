@@ -558,7 +558,7 @@ const tokenMap = Object.fromEntries(events.map(e => [e.event_type, e.event_token
 console.log(JSON.stringify({ tokenMap }));
 `);
 
-  assert.equal(result.tokenMap.hover_dwell,   20);
+  assert.equal(result.tokenMap.hover_dwell,   21);
   assert.equal(result.tokenMap.tab_exit,       30);
   assert.equal(result.tokenMap.tab_return,     31);
   assert.equal(result.tokenMap.input_change,   40);
@@ -934,4 +934,173 @@ console.log(JSON.stringify({ resizeCount: resizeEvents.length, token: resizeEven
 
   assert.equal(result.resizeCount, 1);  // debounce로 1회만
   assert.equal(result.token, 93);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 신규 이벤트 토큰 테스트 (B/C 추가 이벤트)
+// ═══════════════════════════════════════════════════════════════
+
+test('repeat_click has event_token 12', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('repeat_click', { click_target: 'button#buy', repeat_count: 2 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const ev = events.find(e => e.event_type === 'repeat_click');
+console.log(JSON.stringify({ token: ev?.event_token, repeatCount: ev?.data?.repeat_count }));
+`);
+
+  assert.equal(result.token, 12);
+  assert.equal(result.repeatCount, 2);
+});
+
+test('mouse_move has event_token 20', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('mouse_move', { distance_px: 320, jitter_count: 4 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const ev = events.find(e => e.event_type === 'mouse_move');
+console.log(JSON.stringify({ token: ev?.event_token, distance: ev?.data?.distance_px }));
+`);
+
+  assert.equal(result.token, 20);
+  assert.equal(result.distance, 320);
+});
+
+test('search_use has event_token 45', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('search_use', { search_length: 8 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const ev = events.find(e => e.event_type === 'search_use');
+console.log(JSON.stringify({ token: ev?.event_token, searchLength: ev?.data?.search_length }));
+`);
+
+  assert.equal(result.token, 45);
+  assert.equal(result.searchLength, 8);
+});
+
+test('video_watch_pct has event_token 53', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('video_watch_pct', { watch_pct: 50, video_src: 'intro.mp4', video_duration: 120 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const ev = events.find(e => e.event_type === 'video_watch_pct');
+console.log(JSON.stringify({ token: ev?.event_token, watchPct: ev?.data?.watch_pct }));
+`);
+
+  assert.equal(result.token, 53);
+  assert.equal(result.watchPct, 50);
+});
+
+test('subsection_revisit has event_token 76', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('subsection_revisit', { subsection_id: 'size-guide', count: 2 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const ev = events.find(e => e.event_type === 'subsection_revisit');
+console.log(JSON.stringify({ token: ev?.event_token, count: ev?.data?.count }));
+`);
+
+  assert.equal(result.token, 76);
+  assert.equal(result.count, 2);
+});
+
+test('quantity_change has event_token 86', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('quantity_change', { product_id: 'SKU-001', quantity: 3 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const ev = events.find(e => e.event_type === 'quantity_change');
+console.log(JSON.stringify({ token: ev?.event_token, quantity: ev?.data?.quantity }));
+`);
+
+  assert.equal(result.token, 86);
+  assert.equal(result.quantity, 3);
+});
+
+test('option_change has event_token 87', () => {
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('option_change', { product_id: 'SKU-001', option_name: 'color', option_value: 'blue', change_count: 2 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const ev = events.find(e => e.event_type === 'option_change');
+console.log(JSON.stringify({ token: ev?.event_token, changeCount: ev?.data?.change_count }));
+`);
+
+  assert.equal(result.token, 87);
+  assert.equal(result.changeCount, 2);
+});
+
+test('new B/C event tokens all verified in a single batch', () => {
+  // repeat_click:12, mouse_move:20, search_use:45, video_watch_pct:53,
+  // subsection_revisit:76, quantity_change:86, option_change:87
+  const result = runScenario(`
+const { sdkA, sender } = globalThis.__ghostTrackerTest;
+sdkA.initA();
+sender.flush(false);
+state.fetchCalls.length = 0;
+
+sdkA.emit('repeat_click',      { click_target: 'btn', repeat_count: 2 });
+sdkA.emit('mouse_move',        { distance_px: 100, jitter_count: 1 });
+sdkA.emit('search_use',        { search_length: 5 });
+sdkA.emit('video_watch_pct',   { watch_pct: 10, video_src: 'v.mp4', video_duration: 60 });
+sdkA.emit('subsection_revisit',{ subsection_id: 'x', count: 2 });
+sdkA.emit('quantity_change',   { product_id: 'SKU-001', quantity: 2 });
+sdkA.emit('option_change',     { product_id: 'SKU-001', option_name: 'size', option_value: 'L', change_count: 2 });
+
+sender.flush(false);
+const events = takeFetchEvents().map(entry => entry.payload.events).flat();
+const tokenMap = Object.fromEntries(events.map(e => [e.event_type, e.event_token]));
+console.log(JSON.stringify({ tokenMap }));
+`);
+
+  assert.equal(result.tokenMap.repeat_click,       12);
+  assert.equal(result.tokenMap.mouse_move,          20);
+  assert.equal(result.tokenMap.search_use,          45);
+  assert.equal(result.tokenMap.video_watch_pct,     53);
+  assert.equal(result.tokenMap.subsection_revisit,  76);
+  assert.equal(result.tokenMap.quantity_change,     86);
+  assert.equal(result.tokenMap.option_change,       87);
 });

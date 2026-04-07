@@ -13,7 +13,7 @@ import { send } from './sender.js';
 
 // ── event_token vocab ──────────────────────────────────────────
 // AI 팀과 공유하는 고정 매핑. 변경 시 반드시 BE/AI 팀에 공지.
-// B/C가 실제로 emit하는 이벤트명과 1:1로 맞춤.
+// B/C 실제 emit 이벤트명과 1:1 대응.
 const EVENT_VOCAB = Object.freeze({
   // Session / Page (A)
   session_start:            1,
@@ -23,41 +23,46 @@ const EVENT_VOCAB = Object.freeze({
 
   // Click (B)
   click:                   10,
-  rage_click:              11,   // A 파생
+  rage_click:              11,  // A 파생
+  repeat_click:            12,  // B: 동일 요소 반복 클릭 시
 
-  // Hover (B) — 300ms 이상 hover 시 B가 emit
-  hover_dwell:             20,
+  // Mouse / Hover (B)
+  mouse_move:              20,  // B: 2초 주기 누적 이동거리 + jitter
+  hover_dwell:             21,  // B: 300ms 이상 hover
 
   // Tab (B)
   tab_exit:                30,
   tab_return:              31,
 
-  // Form (B) — B 실제 이벤트명과 맞춤
-  input_change:            40,   // B: input 발생 시
-  field_focus:             41,   // B: form 요소 focus 시
-  field_blur:              42,   // B: form 요소 blur 시
-  input_abandon:           43,   // B: blur 시 value가 비어있을 때
-  paste_event:             44,   // B: paste 이벤트
+  // Form (B)
+  input_change:            40,
+  field_focus:             41,
+  field_blur:              42,
+  input_abandon:           43,
+  paste_event:             44,
+  search_use:              45,  // B: 검색 입력 감지
 
-  // Media
+  // Media (B)
   image_slide:             50,
   image_zoom:              51,
   video_play:              52,
+  video_watch_pct:         53,  // B: 10% 단위 영상 시청 진척
 
-  // Scroll (C) — C 실제 이벤트명과 맞춤
-  scroll_depth:            60,   // C: 5% 단위 depth 변화
-  scroll_milestone:        61,   // C: 25/50/75/100% 도달
-  scroll_stop:             62,   // C: 300ms 정지
-  scroll_direction_change: 63,   // C: 방향 전환
-  scroll_speed:            64,   // C: 속도
+  // Scroll (C)
+  scroll_depth:            60,
+  scroll_milestone:        61,
+  scroll_stop:             62,
+  scroll_direction_change: 63,
+  scroll_speed:            64,
 
   // Section (C)
   section_enter:           70,
   section_exit:            71,
-  section_revisit:         72,   // C: 섹션 재진입
-  section_transition:      73,   // C: 섹션 간 이동
+  section_revisit:         72,
+  section_transition:      73,
   subsection_enter:        74,
   subsection_exit:         75,
+  subsection_revisit:      76,  // C: 동일 서브섹션 재진입
 
   // Ecommerce (C)
   product_click:           80,
@@ -65,13 +70,15 @@ const EVENT_VOCAB = Object.freeze({
   add_to_cart:             82,
   remove_from_cart:        83,
   purchase_click:          84,
-  cart_abandon_flag:       85,   // A 파생
+  cart_abandon_flag:       85,  // A 파생
+  quantity_change:         86,  // C: 수량 변경
+  option_change:           87,  // C: 동일 옵션 반복 변경
 
   // A 파생 / A 전용
   inactivity:              90,
-  time_to_first_click:     91,   // A 파생
-  subsection_dwell:        92,   // A 파생 (window.__GT bridge를 통해)
-  screen_resize:           93,   // A 전용
+  time_to_first_click:     91,  // A 파생
+  subsection_dwell:        92,  // C 계산 후 emit
+  screen_resize:           93,  // A 전용
 });
 
 // ── 내부 상태 ─────────────────────────────────────────────────
@@ -87,7 +94,7 @@ const RAGE_CLICK_COOLDOWN_MS = 1_000;
 let _recentClicks = [];
 let _rageClickLastFiredAt = null;
 
-// cart_abandon_flag 감지용 — count로 추적
+// cart 상태 (item count로 추적)
 let _cartItemCount = 0;
 
 // ── 공개 API ──────────────────────────────────────────────────
@@ -95,12 +102,12 @@ let _cartItemCount = 0;
 /**
  * B·C 레이어에서 호출하는 단일 진입점
  * @param {string} eventType  EVENT_VOCAB 키
- * @param {object} data       raw 데이터 (session_id, seq 등 공통 필드는 포함하지 않는다)
+ * @param {object} data       raw 이벤트별 데이터 (session_id, seq 등은 여기 넣지 않는다)
  */
 function emit(eventType, data = {}) {
   const now = Date.now();
 
-  // inactivity는 활동 이벤트가 아니므로 타이머/TTL을 갱신하지 않는다
+  // inactivity는 활동 이벤트가 아니므로 타이머/TTL 갱신 제외
   if (eventType !== 'inactivity') {
     recordActivity();
     touchSessionTimestamp();
@@ -118,11 +125,11 @@ function emit(eventType, data = {}) {
   // ── 원본 이벤트 먼저 dispatch (seq 확보) ─────────────────
   const seq = _dispatch(eventType, data, now);
 
-  // ── 파생 이벤트: 원본 seq 확보 후 처리 ───────────────────
+  // ── click 파생 이벤트 ─────────────────────────────────────
   if (eventType === 'click') {
     const ttfc = recordFirstClick();
     if (ttfc !== null) {
-      // derived_from_seq로 원본 click과 연결 — inter_event_gap 0이 자연스럽게 표현됨
+      // 원본 click(seq N) 먼저, 파생(seq N+1)에 derived_from_seq 첨부
       _dispatch('time_to_first_click', { duration_ms: ttfc, derived_from_seq: seq }, now);
     }
     _checkRageClick(data, now);
@@ -131,8 +138,7 @@ function emit(eventType, data = {}) {
 
 /**
  * 세션 종료 시 sdk-A.js에서 호출
- * recordActivity()를 호출하지 않는다 — 종료는 활동이 아님 (last_event_time 오염 방지)
- * @param {object} exitData
+ * recordActivity() 호출 안 함 — 종료는 활동이 아님 (last_event_time 오염 방지)
  */
 function emitSessionEnd(exitData = {}) {
   const now = Date.now();
@@ -161,7 +167,7 @@ function _dispatch(eventType, data, timestamp) {
     seq:             _seq,
     event_token:     EVENT_VOCAB[eventType] ?? 0,
     inter_event_gap,
-    ...getPageContext(),
+    ...getPageContext(),  // page_url, pathname, referrer, utm_*, device_type 등 자동 부여
     data,
   };
 
@@ -169,10 +175,12 @@ function _dispatch(eventType, data, timestamp) {
   return _seq;
 }
 
+/**
+ * rage_click 감지: 500ms 내 ±20px 범위 3회 이상 클릭
+ * B는 click_position:{x,y} 구조로 보내므로 양쪽 형식 모두 지원
+ */
 function _checkRageClick(data, now) {
-  // B는 click_position: {x, y} 구조로 보냄.
-  // 직접 x/y가 오는 경우(테스트·직접 호출)도 지원.
-  const pos = data.click_position;
+  const pos    = data.click_position;
   const x      = pos?.x      ?? data.x      ?? 0;
   const y      = pos?.y      ?? data.y      ?? 0;
   const target = data.click_target ?? data.target ?? '';
@@ -196,7 +204,6 @@ function _checkRageClick(data, now) {
 
   if (_recentClicks.length >= RAGE_CLICK_THRESHOLD) {
     _rageClickLastFiredAt = now;
-    // click_target: B의 필드명(click_target)과 통일 — AI 팀이 일관되게 파싱 가능
     _dispatch('rage_click', { x, y, click_target: target, click_count: _recentClicks.length }, now);
     _recentClicks = [];
   }
