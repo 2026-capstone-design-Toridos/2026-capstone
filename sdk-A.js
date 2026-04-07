@@ -10,6 +10,13 @@
  *   페이지이동:  navigation_path, page_depth, exit_page, bounce_flag
  *   환경:        device_type, screen_width, os_type, browser_type
  *   시퀀스/공통: event_seq, event_token, inter_event_gap  (eventProcessor 자동 처리)
+ *
+ * ── window.__GT bridge ──────────────────────────────────────────
+ * C 모듈(IIFE)은 import를 쓸 수 없으므로 window.__GT를 통해 A와 통신.
+ *   window.__GT.subsectionEnter(id)  — C의 IntersectionObserver가 진입 시 호출
+ *   window.__GT.subsectionExit(id)   — C의 IntersectionObserver가 이탈 시 호출
+ * A가 시간을 계산해 subsection_dwell 이벤트를 emit.
+ * ────────────────────────────────────────────────────────────────
  */
 
 import { initSession, setPageContext, updatePageUrl, touchSessionTimestamp } from './core/sessionManager.js';
@@ -20,6 +27,9 @@ import { flush } from './core/sender.js';
 // ── 내부 상태 ─────────────────────────────────────────────────
 let _navigationPath = [];
 let _sessionEnded   = false;
+let _hasInteracted  = false;                // 클릭/터치 등 실제 상호작용 여부 (bounce 판정용)
+let _subsectionEnterTimes = {};             // subsection_id → enter timestamp
+let _resizeTimer = null;
 
 // ── 초기화 ────────────────────────────────────────────────────
 
@@ -27,13 +37,11 @@ function initA() {
   const sessionCtx = initSession();
   const envInfo    = _collectEnv();
 
-  // 공통 페이지/환경 문맥을 sessionManager에 등록
-  // → eventProcessor._dispatch()가 모든 이벤트에 자동으로 붙임
   setPageContext({
-    page_url:    sessionCtx.page_url,
-    pathname:    sessionCtx.pathname,
-    referrer:    sessionCtx.referrer,
-    utm_source:  sessionCtx.utm_source,
+    page_url:     sessionCtx.page_url,
+    pathname:     sessionCtx.pathname,
+    referrer:     sessionCtx.referrer,
+    utm_source:   sessionCtx.utm_source,
     utm_campaign: sessionCtx.utm_campaign,
     ...envInfo,
   });
@@ -49,6 +57,9 @@ function initA() {
   _setupNavigationTracking();
   _setupSessionEnd();
   _setupInactivityTracking();
+  _setupInteractionTracking();
+  _setupScreenResize();
+  _setupGTBridge();
 }
 
 // ── 환경 정보 수집 ────────────────────────────────────────────
@@ -70,28 +81,24 @@ function _getDeviceType(ua) {
 }
 
 function _getOS(ua) {
-  if (/Windows/i.test(ua))         return 'windows';
-  if (/Mac OS X/i.test(ua))        return 'macos';
-  if (/Android/i.test(ua))         return 'android';
+  if (/Windows/i.test(ua))          return 'windows';
+  if (/Mac OS X/i.test(ua))         return 'macos';
+  if (/Android/i.test(ua))          return 'android';
   if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
-  if (/Linux/i.test(ua))           return 'linux';
+  if (/Linux/i.test(ua))            return 'linux';
   return 'unknown';
 }
 
 function _getBrowser(ua) {
-  if (/Edg\//i.test(ua))    return 'edge';
-  if (/OPR\//i.test(ua))    return 'opera';
-  if (/Chrome\//i.test(ua)) return 'chrome';
+  if (/Edg\//i.test(ua))     return 'edge';
+  if (/OPR\//i.test(ua))     return 'opera';
+  if (/Chrome\//i.test(ua))  return 'chrome';
   if (/Firefox\//i.test(ua)) return 'firefox';
-  if (/Safari\//i.test(ua)) return 'safari';
+  if (/Safari\//i.test(ua))  return 'safari';
   return 'unknown';
 }
 
 // ── SPA 내비게이션 추적 ───────────────────────────────────────
-//
-// pushState / replaceState / popstate 세 가지를 모두 가로챔.
-// replaceState: Next.js 등에서 scroll 복원이나 shallow routing 시 사용.
-//   이를 빠뜨리면 navigation_path가 누락되는 경우가 생김.
 
 function _setupNavigationTracking() {
   const origPush    = history.pushState.bind(history);
@@ -113,45 +120,38 @@ function _setupNavigationTracking() {
 function _onNavigation(trigger) {
   const pathname = window.location.pathname;
   _navigationPath.push(pathname);
-  updatePageUrl(); // sessionManager의 page_url / pathname 갱신
+  updatePageUrl();
 
   emit('navigation', {
     navigation_path:  [..._navigationPath],
     page_depth:       _navigationPath.length,
     current_pathname: pathname,
-    nav_trigger:      trigger, // push | replace | pop
+    nav_trigger:      trigger,
   });
 }
 
 // ── 세션 종료 감지 ───────────────────────────────────────────
-//
-// beforeunload: 데스크탑 탭 닫기 / 주소창 이동
-// pagehide:     iOS Safari는 beforeunload 신뢰 불가 → pagehide 필수
-//
-// visibilitychange(hidden)은 탭 전환이지 세션 종료가 아니므로 제외.
-//   탭 전환은 B 모듈의 tab_exit가 담당.
-//   여기서 쓰면 _sessionEnded 가드가 잠겨서 실제 탭 닫힘 이벤트가 유실됨.
-//
-// _sessionEnded 가드: beforeunload와 pagehide가 모두 발화할 수 있으므로 한 번만 처리.
 
 function _setupSessionEnd() {
   const handleSessionEnd = () => {
     if (_sessionEnded) return;
     _sessionEnded = true;
 
-    touchSessionTimestamp(); // TTL 갱신 (다음 방문이 30분 이내면 동일 세션)
+    touchSessionTimestamp();
 
     emitSessionEnd({
       exit_page:             window.location.pathname,
       page_dwell_time:       getPageDwellTime(),
       last_event_time:       getLastEventTime(),
-      bounce_flag:           _navigationPath.length === 1,
+      // bounce: 한 페이지에서 상호작용 없이 이탈
+      // has_interacted 기준을 함께 봐야 진짜 bounce 판별 가능
+      bounce_flag:           _navigationPath.length === 1 && !_hasInteracted,
       last_viewport_scrollY: window.scrollY,
       navigation_path:       [..._navigationPath],
       page_depth:            _navigationPath.length,
     });
 
-    flush(true); // unload flush → sendBeacon 우선
+    flush(true);
   };
 
   window.addEventListener('beforeunload', handleSessionEnd);
@@ -161,15 +161,71 @@ function _setupSessionEnd() {
 // ── 비활성 감지 ───────────────────────────────────────────────
 
 function _setupInactivityTracking() {
-  // timeTracker.js는 { startTime, lastEventTime }을 넘겨줌 (A안)
-  // inactivity_start_time: 비활성이 시작된 시각
-  // last_event_time:       바로 직전 마지막 실제 활동 시각
-  // 실제 비활성 지속 시간은 AI가 (session_end.timestamp - inactivity_start_time)으로 계산
   onInactive(({ startTime, lastEventTime }) => {
     emit('inactivity', {
       inactivity_start_time: startTime,
       last_event_time:       lastEventTime,
     });
+  });
+}
+
+// ── 상호작용 감지 (bounce_flag 정확도 향상) ───────────────────
+//
+// 단순 스크롤도 "상호작용"으로 간주하지 않음.
+// click / touchstart 기준으로 실제 의도적 상호작용만 추적.
+
+function _setupInteractionTracking() {
+  const markInteracted = () => { _hasInteracted = true; };
+  document.addEventListener('click',      markInteracted, { once: true, passive: true });
+  document.addEventListener('touchstart', markInteracted, { once: true, passive: true });
+}
+
+// ── 화면 크기 변화 감지 ───────────────────────────────────────
+//
+// 리사이즈는 연속으로 발생하므로 500ms debounce.
+
+function _setupScreenResize() {
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      emit('screen_resize', {
+        screen_width:  window.innerWidth,
+        screen_height: window.innerHeight,
+      });
+    }, 500);
+  });
+}
+
+// ── window.__GT bridge ───────────────────────────────────────
+//
+// C(IIFE)는 ES 모듈 import를 쓸 수 없어서 직접 emit을 받지 못함.
+// window.__GT를 통해 A와 통신 → A가 subsection_dwell 시간을 계산해 emit.
+//
+// C의 IntersectionObserver에서 이렇게 호출:
+//   window.__GT?.subsectionEnter('review')
+//   window.__GT?.subsectionExit('review')
+
+function _setupGTBridge() {
+  window.__GT = window.__GT || {};
+
+  window.__GT.subsectionEnter = (subsection_id) => {
+    _subsectionEnterTimes[subsection_id] = Date.now();
+    emit('subsection_enter', { subsection_id });
+  };
+
+  window.__GT.subsectionExit = (subsection_id) => {
+    const enterTime = _subsectionEnterTimes[subsection_id];
+    if (!enterTime) return;
+    const dwell_ms = Date.now() - enterTime;
+    delete _subsectionEnterTimes[subsection_id];
+    emit('subsection_dwell', { subsection_id, dwell_ms });
+  };
+
+  // 외부 디버깅용 (개발 환경에서만 확인)
+  window.__GT.getState = () => ({
+    navigationPath: [..._navigationPath],
+    hasInteracted:  _hasInteracted,
+    sessionEnded:   _sessionEnded,
   });
 }
 
