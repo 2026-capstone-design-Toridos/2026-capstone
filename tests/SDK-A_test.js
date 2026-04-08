@@ -1032,24 +1032,6 @@ console.log(JSON.stringify({ resizeCount: resizeEvents.length, token: resizeEven
 // 신규 이벤트 토큰 테스트 (B/C 추가 이벤트)
 // ═══════════════════════════════════════════════════════════════
 
-test('repeat_click has event_token 12', () => {
-  const result = runScenario(`
-const { sdkA, sender } = globalThis.__ghostTrackerTest;
-sdkA.initA();
-sender.flush(false);
-state.fetchCalls.length = 0;
-
-sdkA.emit('repeat_click', { click_target: 'button#buy', repeat_count: 2 });
-
-sender.flush(false);
-const events = takeFetchEvents().map(entry => entry.payload.events).flat();
-const ev = events.find(e => e.event_type === 'repeat_click');
-console.log(JSON.stringify({ token: ev?.event_token, repeatCount: ev?.data?.repeat_count }));
-`);
-
-  assert.equal(result.token, 12);
-  assert.equal(result.repeatCount, 2);
-});
 
 test('mouse_move has event_token 20', () => {
   const result = runScenario(`
@@ -1166,7 +1148,7 @@ console.log(JSON.stringify({ token: ev?.event_token, changeCount: ev?.data?.chan
 });
 
 test('new B/C event tokens all verified in a single batch', () => {
-  // repeat_click:12, mouse_move:20, search_use:45, video_watch_pct:53,
+  // mouse_move:20, search_use:45, video_watch_pct:53,
   // subsection_revisit:76, quantity_change:86, option_change:87
   const result = runScenario(`
 const { sdkA, sender } = globalThis.__ghostTrackerTest;
@@ -1174,7 +1156,6 @@ sdkA.initA();
 sender.flush(false);
 state.fetchCalls.length = 0;
 
-sdkA.emit('repeat_click',      { click_target: 'btn', repeat_count: 2 });
 sdkA.emit('mouse_move',        { distance_px: 100, jitter_count: 1 });
 sdkA.emit('search_use',        { search_length: 5 });
 sdkA.emit('video_watch_pct',   { watch_pct: 10, video_src: 'v.mp4', video_duration: 60 });
@@ -1188,7 +1169,6 @@ const tokenMap = Object.fromEntries(events.map(e => [e.event_type, e.event_token
 console.log(JSON.stringify({ tokenMap }));
 `);
 
-  assert.equal(result.tokenMap.repeat_click,       12);
   assert.equal(result.tokenMap.mouse_move,          20);
   assert.equal(result.tokenMap.search_use,          45);
   assert.equal(result.tokenMap.video_watch_pct,     53);

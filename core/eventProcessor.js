@@ -24,7 +24,6 @@ const EVENT_VOCAB = Object.freeze({
   // Click (B)
   click:                   10,
   rage_click:              11,  // A 파생
-  repeat_click:            12,  // B: 동일 요소 반복 클릭 시
 
   // Mouse / Hover (B)
   mouse_move:              20,  // B: 2초 주기 누적 이동거리 + jitter

@@ -319,44 +319,6 @@ console.log(JSON.stringify({
   assert.ok(result.clickTarget,           'click_target 포함됨');
 });
 
-test('[B] repeat_click fires when same element clicked twice within 3s', () => {
-  const result = run(`
-const it = globalThis.__it;
-
-const btn = new Element('button', { id: 'add-cart' });
-fireEvent('click', { target: btn, clientX: 10, clientY: 10 });
-advance(500);
-fireEvent('click', { target: btn, clientX: 11, clientY: 10 });
-const events = getEvents();
-const rc = events.find(e => e.event_type === 'repeat_click');
-console.log(JSON.stringify({
-  hasRepeatClick: !!rc,
-  repeatCount:    rc?.data?.repeat_count,
-  token:          rc?.event_token,
-}));
-`);
-
-  assert.ok(result.hasRepeatClick,        'repeat_click 이벤트 emit됨');
-  assert.equal(result.repeatCount, 2,     'repeat_count = 2');
-  assert.equal(result.token, 12,          'repeat_click 토큰 = 12');
-});
-
-test('[B] repeat_click does not fire when different elements are clicked', () => {
-  const result = run(`
-const it = globalThis.__it;
-
-const btnA = new Element('button', { id: 'btn-a' });
-const btnB = new Element('button', { id: 'btn-b' });
-fireEvent('click', { target: btnA, clientX: 10, clientY: 10 });
-fireEvent('click', { target: btnB, clientX: 10, clientY: 10 });
-const events = getEvents();
-console.log(JSON.stringify({
-  repeatClickCount: events.filter(e => e.event_type === 'repeat_click').length,
-}));
-`);
-
-  assert.equal(result.repeatClickCount, 0, 'repeat_click 없음');
-});
 
 test('[B] tab_exit and tab_return carry duration', () => {
   const result = run(`
