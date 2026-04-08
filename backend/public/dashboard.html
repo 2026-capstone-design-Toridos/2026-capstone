@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GhostTracker | Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg:      #0f172a;
+      --card:    #1e293b;
+      --border:  #334155;
+      --blue:    #38bdf8;
+      --green:   #4ade80;
+      --red:     #fb7185;
+      --yellow:  #fbbf24;
+      --purple:  #a78bfa;
+      --text:    #f1f5f9;
+      --muted:   #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 24px; }
+    .container { max-width: 1280px; margin: 0 auto; }
+
+    /* Header */
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.5px; }
+    header h1 span { color: var(--blue); }
+    .badge { padding: 5px 14px; border-radius: 999px; font-size: 0.8rem; background: var(--card); border: 1px solid var(--border); color: var(--green); }
+    .badge.error { color: var(--red); border-color: var(--red); }
+
+    /* Stat Cards */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; }
+    .stat-card .label { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+    .stat-card .value { font-size: 2rem; font-weight: 700; }
+    .stat-card .value.blue   { color: var(--blue); }
+    .stat-card .value.green  { color: var(--green); }
+    .stat-card .value.yellow { color: var(--yellow); }
+
+    /* Charts */
+    .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .card-title { font-size: 0.85rem; color: var(--muted); font-weight: 600; margin-bottom: 16px; }
+
+    /* Event Log */
+    .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .log-header h2 { font-size: 1rem; font-weight: 600; }
+    .log-count { font-size: 0.8rem; color: var(--muted); }
+    #log-list { display: flex; flex-direction: column; gap: 8px; }
+    .log-row {
+      display: grid;
+      grid-template-columns: 90px 160px 1fr 180px 100px;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      animation: fadeIn .25s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+    .log-time { color: var(--blue); font-family: monospace; font-size: 0.8rem; }
+    .log-tag {
+      font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 4px;
+      text-align: center; border: 1px solid; background: transparent; white-space: nowrap;
+    }
+    .tag-click, .tag-rage_click           { color: var(--yellow);  border-color: var(--yellow); }
+    .tag-product_click                    { color: var(--blue);    border-color: var(--blue); }
+    .tag-add_to_cart                      { color: var(--green);   border-color: var(--green); }
+    .tag-purchase_click, .tag-cart_abandon_flag { color: var(--red);  border-color: var(--red); }
+    .tag-session_start, .tag-session_end  { color: var(--purple);  border-color: var(--purple); }
+    .tag-scroll_depth, .tag-scroll_milestone { color: var(--muted); border-color: var(--muted); }
+    .tag-default                          { color: var(--muted);   border-color: var(--border); }
+    .log-detail { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .log-url    { color: var(--muted); font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .log-sid    { color: var(--muted); font-family: monospace; font-size: 0.75rem; text-align: right; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 48px; color: var(--muted); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>👻 GhostTracker <span>Dashboard</span></h1>
+    <div class="badge" id="status">연결 중...</div>
+  </header>
+
+  <!-- Stat Cards -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">누적 이벤트</div>
+      <div class="value blue" id="stat-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">최근 1시간</div>
+      <div class="value yellow" id="stat-hour">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">활성 세션 (30분)</div>
+      <div class="value green" id="stat-sessions">—</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="card">
+      <div class="card-title">이벤트 트렌드 (실시간)</div>
+      <canvas id="trendChart" height="90"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">이벤트 타입 비율</div>
+      <canvas id="typeChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Event Log -->
+  <div class="card">
+    <div class="log-header">
+      <h2>실시간 이벤트 로그</h2>
+      <span class="log-count" id="log-count"></span>
+    </div>
+    <div id="log-list"><div class="empty">이벤트를 기다리는 중...</div></div>
+  </div>
+
+</div>
+
+<script>
+  const API = '';   // 같은 서버에서 서빙되므로 상대경로
+
+  // ── Chart 초기화 ────────────────────────────────────────────
+  const trendCtx = document.getElementById('trendChart').getContext('2d');
+  const trendChart = new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: '이벤트 수',
+        data: [],
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56,189,248,0.08)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+      }
+    }
+  });
+
+  const typeCtx = document.getElementById('typeChart').getContext('2d');
+  const typeChart = new Chart(typeCtx, {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0 }] },
+    options: {
+      plugins: { legend: { position: 'bottom', labels: { color: '#f1f5f9', font: { size: 11 } } } }
+    }
+  });
+
+  const TYPE_COLORS = {
+    click: '#fbbf24', rage_click: '#fb7185',
+    product_click: '#38bdf8', add_to_cart: '#4ade80',
+    purchase_click: '#fb7185', cart_abandon_flag: '#fb7185',
+    session_start: '#a78bfa', session_end: '#a78bfa',
+    navigation: '#6366f1', inactivity: '#94a3b8',
+    scroll_depth: '#64748b', scroll_milestone: '#64748b',
+    hover_dwell: '#f97316', input_change: '#06b6d4',
+    tab_exit: '#ec4899', tab_return: '#ec4899',
+  };
+  function colorFor(type) { return TYPE_COLORS[type] || '#475569'; }
+
+  // ── 이벤트 설명 포맷 ────────────────────────────────────────
+  function describe(e) {
+    const d = e.data || {};
+    switch (e.event_type) {
+      case 'product_click':    return `상품 클릭 — ${d.product_name || d.product_id || ''}`;
+      case 'add_to_cart':      return `장바구니 담기 — ${d.product_name || d.product_id || ''} ×${d.quantity || 1}`;
+      case 'remove_from_cart': return `장바구니 삭제 — product #${d.product_id || ''}`;
+      case 'purchase_click':   return `결제 시도`;
+      case 'cart_abandon_flag':return `⚠️ 장바구니 이탈`;
+      case 'session_start':    return `세션 시작 (${d.device_type || e.device_type || '?'})`;
+      case 'session_end':      return `세션 종료 — ${d.session_duration_ms ? (d.session_duration_ms/1000).toFixed(1)+'s' : ''}`;
+      case 'rage_click':       return `🔥 rage click ×${d.click_count || ''}`;
+      case 'click':            return `클릭 — ${d.click_target || ''}`;
+      case 'navigation':       return `페이지 이동 → ${d.to || e.pathname || ''}`;
+      case 'scroll_depth':     return `스크롤 ${d.scroll_pct ?? ''}%`;
+      case 'scroll_milestone': return `스크롤 마일스톤 ${d.milestone ?? ''}%`;
+      case 'inactivity':       return `비활성 ${d.inactivity_duration ? (d.inactivity_duration/1000).toFixed(1)+'s' : ''}`;
+      case 'section_enter':    return `섹션 진입 — ${d.section || ''}`;
+      case 'section_exit':     return `섹션 이탈 — ${d.section || ''}`;
+      case 'hover_dwell':      return `hover ${d.dwell_ms || ''}ms — ${d.target_tag || ''}`;
+      case 'search_use':       return `검색 — "${d.keyword || ''}"`;
+      case 'tab_exit':         return `탭 이탈`;
+      case 'tab_return':       return `탭 복귀 — ${d.away_ms ? (d.away_ms/1000).toFixed(1)+'s' : ''}`;
+      case 'time_to_first_click': return `첫 클릭까지 ${d.duration_ms ? (d.duration_ms/1000).toFixed(2)+'s' : ''}`;
+      default:                 return JSON.stringify(d).slice(0, 60);
+    }
+  }
+
+  // ── 태그 클래스 ──────────────────────────────────────────────
+  function tagClass(type) {
+    const known = ['click','rage_click','product_click','add_to_cart',
+                   'purchase_click','cart_abandon_flag','session_start','session_end',
+                   'scroll_depth','scroll_milestone'];
+    return known.includes(type) ? `tag-${type}` : 'tag-default';
+  }
+
+  // ── 렌더 ─────────────────────────────────────────────────────
+  let lastTotal = 0;
+
+  async function refresh() {
+    try {
+      const [stats, logs] = await Promise.all([
+        fetch(`${API}/api/logs/stats`).then(r => r.json()),
+        fetch(`${API}/api/logs?limit=50`).then(r => r.json()),
+      ]);
+
+      // Stat cards
+      document.getElementById('stat-total').textContent    = stats.total?.toLocaleString() ?? '—';
+      document.getElementById('stat-hour').textContent     = stats.last_hour?.toLocaleString() ?? '—';
+      document.getElementById('stat-sessions').textContent = stats.active_sessions ?? '—';
+
+      // Status badge
+      const badge = document.getElementById('status');
+      badge.textContent = `Live · ${new Date().toLocaleTimeString('ko-KR')}`;
+      badge.className = 'badge';
+
+      // Trend chart
+      const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      trendChart.data.labels.push(now);
+      trendChart.data.datasets[0].data.push(stats.total ?? 0);
+      if (trendChart.data.labels.length > 12) {
+        trendChart.data.labels.shift();
+        trendChart.data.datasets[0].data.shift();
+      }
+      trendChart.update('none');
+
+      // Type chart
+      const byType = stats.by_type || {};
+      const entries = Object.entries(byType).sort((a,b) => b[1]-a[1]).slice(0, 10);
+      typeChart.data.labels = entries.map(([k]) => k);
+      typeChart.data.datasets[0].data   = entries.map(([,v]) => v);
+      typeChart.data.datasets[0].backgroundColor = entries.map(([k]) => colorFor(k));
+      typeChart.update('none');
+
+      // Log list
+      const list = document.getElementById('log-list');
+      document.getElementById('log-count').textContent = `최근 ${logs.length}건`;
+
+      if (!logs.length) {
+        list.innerHTML = '<div class="empty">아직 수집된 이벤트가 없습니다</div>';
+        return;
+      }
+
+      list.innerHTML = logs.map(e => {
+        const time = e.received_at
+          ? new Date(e.received_at).toLocaleTimeString('ko-KR')
+          : '--:--:--';
+        const url = e.pathname || e.page_url || '';
+        const sid = (e.session_id || '').slice(0, 8);
+        return `
+          <div class="log-row">
+            <span class="log-time">${time}</span>
+            <span class="log-tag ${tagClass(e.event_type)}">${e.event_type.replace(/_/g,' ')}</span>
+            <span class="log-detail">${describe(e)}</span>
+            <span class="log-url">${url}</span>
+            <span class="log-sid">${sid}…</span>
+          </div>`;
+      }).join('');
+
+    } catch (err) {
+      const badge = document.getElementById('status');
+      badge.textContent = '연결 오류';
+      badge.className = 'badge error';
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+</body>
+</html>

@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express     = require('express');
 const cors        = require('cors');
+const path        = require('path');
 const { connectDB } = require('./db');
 
 const collectRouter = require('./routes/collect');
@@ -26,6 +27,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
+
+// ── Static (Dashboard) ────────────────────────────────────────
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Body Parser ───────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));
