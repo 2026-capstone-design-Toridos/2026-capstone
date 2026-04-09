@@ -28,6 +28,9 @@
     header h1 span { color: var(--blue); }
     .badge { padding: 5px 14px; border-radius: 999px; font-size: 0.8rem; background: var(--card); border: 1px solid var(--border); color: var(--green); }
     .badge.error { color: var(--red); border-color: var(--red); }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .site-select { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; outline: none; }
+    .site-select option { background: var(--card); }
 
     /* Stat Cards */
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
@@ -86,7 +89,12 @@
 
   <header>
     <h1>👻 GhostTracker <span>Dashboard</span></h1>
-    <div class="badge" id="status">연결 중...</div>
+    <div class="header-right">
+      <select class="site-select" id="site-filter">
+        <option value="">전체 사이트</option>
+      </select>
+      <div class="badge" id="status">연결 중...</div>
+    </div>
   </header>
 
   <!-- Stat Cards -->
@@ -129,7 +137,26 @@
 </div>
 
 <script>
-  const API = '';   // 같은 서버에서 서빙되므로 상대경로
+  const API = '';
+  let selectedOrigin = '';
+
+  // ── 사이트 목록 로드 ─────────────────────────────────────────
+  async function loadSites() {
+    try {
+      const sites = await fetch(`${API}/api/logs/sites`).then(r => r.json());
+      const sel = document.getElementById('site-filter');
+      sites.forEach(site => {
+        const opt = document.createElement('option');
+        opt.value = site;
+        opt.textContent = site.replace(/https?:\/\//, '');
+        sel.appendChild(opt);
+      });
+    } catch {}
+  }
+
+  document.getElementById('site-filter').addEventListener('change', (e) => {
+    selectedOrigin = e.target.value;
+  });
 
   // ── Chart 초기화 ────────────────────────────────────────────
   const trendCtx = document.getElementById('trendChart').getContext('2d');
@@ -219,9 +246,10 @@
 
   async function refresh() {
     try {
+      const q = selectedOrigin ? `&origin=${encodeURIComponent(selectedOrigin)}` : '';
       const [stats, logs] = await Promise.all([
-        fetch(`${API}/api/logs/stats`).then(r => r.json()),
-        fetch(`${API}/api/logs?limit=50`).then(r => r.json()),
+        fetch(`${API}/api/logs/stats?${q}`).then(r => r.json()),
+        fetch(`${API}/api/logs?limit=50${q}`).then(r => r.json()),
       ]);
 
       // Stat cards
@@ -284,6 +312,7 @@
     }
   }
 
+  loadSites();
   refresh();
   setInterval(refresh, 2000);
 </script>
