@@ -18,12 +18,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .filter(Boolean);
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // origin 없는 요청 (서버간 호출, curl 등) 허용
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS 차단: ${origin}`));
-  },
+  origin: true,   // 모든 출처 허용 (팀원 사이트 연동용)
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));

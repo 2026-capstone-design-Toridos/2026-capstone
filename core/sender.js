@@ -16,7 +16,7 @@
  * ────────────────────────────────────────────────────────────────
  */
 
-const COLLECT_URL    = '/collect';
+const COLLECT_URL    = 'https://two026-capstone.onrender.com/collect';
 const FLUSH_INTERVAL = 5_000; // 5초마다 자동 플러시
 const MAX_BUFFER_SIZE = 30;   // 버퍼 최대 크기 (초과 시 즉시 플러시)
 
