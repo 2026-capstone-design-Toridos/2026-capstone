@@ -198,7 +198,6 @@ function _initSubsectionTracking(handleRawEvent) {
         } else if (!entry.isIntersecting) {
           // A bridge로 exit 알림 (dwell 계산 후 subsection_dwell + subsection_exit emit은 A)
           window.__GT?.subsectionExit?.(id);
-          handleRawEvent('subsection_exit', { subsection_id: id });
         }
       });
     },

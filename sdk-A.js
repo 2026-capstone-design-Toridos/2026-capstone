@@ -20,11 +20,12 @@
  */
 
 import { initSession, setPageContext, updatePageUrl, touchSessionTimestamp } from './core/sessionManager.js';
-import { recordPageEnter, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
+import { recordPageEnter, resetPageTimers, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
 import { emit, emitSessionEnd } from './core/eventProcessor.js';
-import { flush } from './core/sender.js';
+import { flush, configureSender } from './core/sender.js';
 
 // ── 내부 상태 ─────────────────────────────────────────────────
+let _initialized = false;
 let _navigationPath = [];
 let _sessionEnded   = false;
 let _hasInteracted  = false;                // 클릭/터치 등 실제 상호작용 여부 (bounce 판정용)
@@ -33,7 +34,15 @@ let _resizeTimer = null;
 
 // ── 초기화 ────────────────────────────────────────────────────
 
-function initA() {
+function initA(options = {}) {
+  if (_initialized) return;
+  _initialized = true;
+
+  // sender 설정 주입 (collectUrl, flushInterval, maxBufferSize)
+  if (options.sender) {
+    configureSender(options.sender);
+  }
+
   const sessionCtx = initSession();
   const envInfo    = _collectEnv();
 
@@ -105,27 +114,35 @@ function _setupNavigationTracking() {
   const origReplace = history.replaceState.bind(history);
 
   history.pushState = function (...args) {
+    const prevPathname = window.location.pathname;
     origPush(...args);
-    _onNavigation('push');
+    _onNavigation('push', prevPathname);
   };
 
   history.replaceState = function (...args) {
+    const prevPathname = window.location.pathname;
     origReplace(...args);
-    _onNavigation('replace');
+    _onNavigation('replace', prevPathname);
   };
 
-  window.addEventListener('popstate', () => _onNavigation('pop'));
+  window.addEventListener('popstate', () => _onNavigation('pop', null));
 }
 
-function _onNavigation(trigger) {
+function _onNavigation(trigger, prevPathname = null) {
   const pathname = window.location.pathname;
   _navigationPath.push(pathname);
   updatePageUrl();
+  resetPageTimers();          // SPA 페이지 이동 시 dwell 시간 리셋
+
+  // 페이지 이동 시 상태 초기화
+  _hasInteracted = false;
+  _subsectionEnterTimes = {};
 
   emit('navigation', {
     navigation_path:  [..._navigationPath],
     page_depth:       _navigationPath.length,
     current_pathname: pathname,
+    prev_pathname:    prevPathname,
     nav_trigger:      trigger,
   });
 }
@@ -207,31 +224,36 @@ function _setupScreenResize() {
 //   window.__GT?.subsectionExit('review')
 
 function _setupGTBridge() {
-  window.__GT = window.__GT || {};
+  if (!window.__GT) window.__GT = {};
 
-  // C(IIFE)의 로컬 send()를 이것으로 교체하면 A 코어와 연결됨
-  //   function send(eventType, payload) { window.__GT?.emit(eventType, payload); }
-  window.__GT.emit = emit;
+  Object.assign(window.__GT, {
+    // C(IIFE)의 로컬 send()를 이것으로 교체하면 A 코어와 연결됨
+    //   function send(eventType, payload) { window.__GT?.emit(eventType, payload); }
+    emit,
 
-  // subsection dwell: C의 IntersectionObserver가 진입/이탈 시 호출
-  window.__GT.subsectionEnter = (subsection_id) => {
-    _subsectionEnterTimes[subsection_id] = Date.now();
-    emit('subsection_enter', { subsection_id });
-  };
+    // subsection dwell: C의 IntersectionObserver가 진입/이탈 시 호출
+    subsectionEnter: (subsection_id) => {
+      if (!subsection_id) return;
+      _subsectionEnterTimes[subsection_id] = Date.now();
+      emit('subsection_enter', { subsection_id });
+    },
 
-  window.__GT.subsectionExit = (subsection_id) => {
-    const enterTime = _subsectionEnterTimes[subsection_id];
-    if (!enterTime) return;
-    const dwell_ms = Date.now() - enterTime;
-    delete _subsectionEnterTimes[subsection_id];
-    emit('subsection_dwell', { subsection_id, dwell_ms });
-  };
+    subsectionExit: (subsection_id) => {
+      if (!subsection_id) return;
+      const enterTime = _subsectionEnterTimes[subsection_id];
+      if (!enterTime) return;
+      const dwell_ms = Date.now() - enterTime;
+      delete _subsectionEnterTimes[subsection_id];
+      emit('subsection_exit',  { subsection_id });
+      emit('subsection_dwell', { subsection_id, dwell_ms });
+    },
 
-  // 디버깅용
-  window.__GT.getState = () => ({
-    navigationPath: [..._navigationPath],
-    hasInteracted:  _hasInteracted,
-    sessionEnded:   _sessionEnded,
+    // 디버깅용
+    getState: () => ({
+      navigationPath: [..._navigationPath],
+      hasInteracted:  _hasInteracted,
+      sessionEnded:   _sessionEnded,
+    }),
   });
 }
 

@@ -28,9 +28,18 @@ let _onInactiveCallback  = null;
  * 페이지 진입 시각 기록 (sdk-A 초기화 시 호출)
  */
 function recordPageEnter() {
-  _pageEnterTime = Date.now();
-  _lastEventTime = _pageEnterTime;
+  _pageEnterTime       = Date.now();
+  _lastEventTime       = _pageEnterTime;
+  _firstClickTime      = null;
+  _inactivityStartTime = null;
   _resetInactivityTimer();
+}
+
+/**
+ * SPA 페이지 이동 시 호출 — 페이지 단위 시간 상태를 새로 시작
+ */
+function resetPageTimers() {
+  recordPageEnter();
 }
 
 /**
@@ -118,6 +127,7 @@ function _resetInactivityTimer() {
 
 export {
   recordPageEnter,
+  resetPageTimers,
   recordActivity,
   recordFirstClick,
   getPageDwellTime,

@@ -16,12 +16,28 @@
  * ────────────────────────────────────────────────────────────────
  */
 
-const COLLECT_URL    = 'https://two026-capstone.onrender.com/collect';
-const FLUSH_INTERVAL = 5_000; // 5초마다 자동 플러시
-const MAX_BUFFER_SIZE = 30;   // 버퍼 최대 크기 (초과 시 즉시 플러시)
+let COLLECT_URL    = 'https://two026-capstone.onrender.com/collect';
+let FLUSH_INTERVAL  = 5_000; // 5초마다 자동 플러시
+let MAX_BUFFER_SIZE = 30;    // 버퍼 최대 크기 (초과 시 즉시 플러시)
 
 let _buffer = [];
 let _flushTimer = null;
+
+/**
+ * 전송 설정을 외부에서 주입할 때 사용 (initA의 options.sender로 전달)
+ * @param {{ collectUrl?: string, flushInterval?: number, maxBufferSize?: number }} opts
+ */
+function configureSender({ collectUrl, flushInterval, maxBufferSize } = {}) {
+  if (typeof collectUrl === 'string' && collectUrl.trim()) {
+    COLLECT_URL = collectUrl.trim();
+  }
+  if (Number.isFinite(flushInterval) && flushInterval > 0) {
+    FLUSH_INTERVAL = flushInterval;
+  }
+  if (Number.isFinite(maxBufferSize) && maxBufferSize > 0) {
+    MAX_BUFFER_SIZE = maxBufferSize;
+  }
+}
 
 // ── 공개 API ──────────────────────────────────────────────────
 
@@ -91,4 +107,4 @@ function _sendBeaconOrFetch(payload) {
   }).catch(() => {});
 }
 
-export { send, flush };
+export { send, flush, configureSender };
