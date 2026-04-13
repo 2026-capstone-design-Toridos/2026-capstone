@@ -13,8 +13,12 @@
 import { strict as assert } from 'node:assert';
 import { spawnSync }        from 'node:child_process';
 import { test }             from 'node:test';
+import path                 from 'node:path';
+import { fileURLToPath }    from 'node:url';
 
-const REPO_ROOT = '/Users/parkjoehyun/Desktop/software/4grade/2026-capstone';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const REPO_ROOT  = path.resolve(__dirname, '..');
 const DEBUG_INTEGRATION_TEST = process.env.DEBUG_INTEGRATION_TEST === '1';
 
 // ─────────────────────────────────────────────────────────────────────────────

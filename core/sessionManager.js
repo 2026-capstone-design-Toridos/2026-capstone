@@ -93,13 +93,16 @@ function setPageContext(ctx) {
 }
 
 /**
- * SPA navigation 발생 시 url/pathname만 갱신
+ * SPA navigation 발생 시 url/pathname/utm 갱신
  * 나머지 env 정보는 세션 동안 고정
  */
 function updatePageUrl() {
   if (_pageContext) {
-    _pageContext.page_url = window.location.href;
-    _pageContext.pathname = window.location.pathname;
+    const utm = _parseUTM();
+    _pageContext.page_url     = window.location.href;
+    _pageContext.pathname     = window.location.pathname;
+    _pageContext.utm_source   = utm.utm_source;
+    _pageContext.utm_campaign = utm.utm_campaign;
   }
 }
 
