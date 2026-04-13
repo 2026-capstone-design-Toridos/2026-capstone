@@ -13,10 +13,6 @@ const state = {
   fieldFocusCountMap: new WeakMap(),
   tabHiddenAt: null,
 
-  // repeat_click: 동일 요소 반복 클릭 추적
-  repeatClickMap: {},          // elementKey → { count, lastClickTime }
-  REPEAT_CLICK_INTERVAL_MS: 3_000,
-
   // mouse_move: 2초 주기 누적
   mouseLastX: null,
   mouseLastY: null,
@@ -138,23 +134,6 @@ function trackClicks(handleRawEvent) {
       ghost_role:     target?.dataset?.ghostRole || null,
     });
 
-    // ── repeat_click 감지 ─────────────────────────────────
-    const key = getElementLabel(target);
-    const now = Date.now();
-    const prev = state.repeatClickMap[key];
-
-    if (prev && (now - prev.lastClickTime) <= state.REPEAT_CLICK_INTERVAL_MS) {
-      prev.count += 1;
-      prev.lastClickTime = now;
-      // 2번째 클릭부터 매번 emit
-      handleRawEvent('repeat_click', {
-        click_target:  key,
-        repeat_count:  prev.count,
-        click_position: { x: e.clientX, y: e.clientY },
-      });
-    } else {
-      state.repeatClickMap[key] = { count: 1, lastClickTime: now };
-    }
   });
 }
 
