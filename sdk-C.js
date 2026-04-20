@@ -99,8 +99,8 @@ function _initScrollTracking(handleRawEvent) {
       }
     });
 
-    detectDirection(depth);
     detectSpeed();
+    detectDirection(depth);
   }
 
   window.addEventListener('scroll', () => {
