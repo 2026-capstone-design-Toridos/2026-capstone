@@ -219,12 +219,12 @@
       case 'rage_click':       return `🔥 rage click ×${d.click_count || ''}`;
       case 'click':            return `클릭 — ${d.click_target || ''}`;
       case 'navigation':       return `페이지 이동 → ${d.to || e.pathname || ''}`;
-      case 'scroll_depth':     return `스크롤 ${d.scroll_pct ?? ''}%`;
+      case 'scroll_depth':     return `스크롤 ${d.depth_pct ?? d.scroll_pct ?? ''}%`;
       case 'scroll_milestone': return `스크롤 마일스톤 ${d.milestone ?? ''}%`;
       case 'inactivity':       return `비활성 ${d.inactivity_duration ? (d.inactivity_duration/1000).toFixed(1)+'s' : ''}`;
       case 'section_enter':    return `섹션 진입 — ${d.section || ''}`;
       case 'section_exit':     return `섹션 이탈 — ${d.section || ''}`;
-      case 'hover_dwell':      return `hover ${d.dwell_ms || ''}ms — ${d.target_tag || ''}`;
+      case 'hover_dwell':      return `hover ${d.hover_dwell_time_ms ?? d.dwell_ms ?? ''}ms — ${d.hover_target ?? d.target_tag ?? ''}`;
       case 'search_use':       return `검색 — "${d.keyword || ''}"`;
       case 'tab_exit':         return `탭 이탈`;
       case 'tab_return':       return `탭 복귀 — ${d.away_ms ? (d.away_ms/1000).toFixed(1)+'s' : ''}`;

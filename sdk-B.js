@@ -323,14 +323,22 @@ function trackMedia(handleRawEvent) {
     }
   });
 
-  // ── image_zoom: img 위에서 wheel 이벤트 ──
+  // ── image_zoom: img 위에서 wheel 이벤트 (BUG-05: debounce 추가) ──
+  // wheel 이벤트는 연속 발생하므로 200ms debounce 후 마지막 방향만 전송.
+  let _zoomTimer = null;
+  let _zoomLastDir = null;
   document.addEventListener('wheel', (e) => {
     const img = e.target?.closest('img') || (e.target?.tagName === 'IMG' ? e.target : null);
     if (!img) return;
-    handleRawEvent('image_zoom', {
-      zoom_direction: e.deltaY < 0 ? 'in' : 'out',
-      image_src:      img.src?.split('?')[0]?.split('/').pop() || 'unknown',
-    });
+    _zoomLastDir = e.deltaY < 0 ? 'in' : 'out';
+    clearTimeout(_zoomTimer);
+    _zoomTimer = setTimeout(() => {
+      handleRawEvent('image_zoom', {
+        zoom_direction: _zoomLastDir,
+        image_src:      img.src?.split('?')[0]?.split('/').pop() || 'unknown',
+      });
+      _zoomLastDir = null;
+    }, 200);
   }, { passive: true });
 
   // ── video_play + video_watch_pct: capture phase ──
