@@ -63,7 +63,9 @@ function initSession() {
   return {
     session_id,
     is_new_session,                            // 이번 페이지 로드에서 새로 발급됐는지
-    is_returning: storedCnt > 0,               // 과거 완료 세션이 존재하면 재방문
+    // is_returning: 새 세션을 발급받을 때 AND 이전에 완료된 세션이 있을 때만 true.
+    // 기존 세션을 재사용(is_new_session=false)하는 경우는 동일 세션 유지이므로 false.
+    is_returning: is_new_session && storedCnt > 0,
     session_count: storedCnt + (is_new_session ? 1 : 0),
     page_url:    window.location.href,
     pathname:    window.location.pathname,
