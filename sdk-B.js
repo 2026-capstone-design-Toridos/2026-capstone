@@ -391,19 +391,50 @@ function trackSearch(handleRawEvent) {
   const DEBOUNCE_MS = 300;
   const timers = new WeakMap();  // input element → timer id
 
+  // ── 명시적 셀렉터 (inferred 없음) ────────────────────────────
   const SEARCH_SELECTOR = [
     'input[type="search"]',
     'input[role="searchbox"]',
     '[role="searchbox"]',
     '[data-ghost-role="search-input"]',
+    // name 기반 (표준 검색 파라미터)
+    'input[name="q"]',
+    'input[name="s"]',
+    'input[name="search"]',
+    'input[name="keyword"]',
+    'input[name="query"]',
+    // placeholder/aria-label 기반
+    'input[placeholder*="검색" i]',
+    'input[placeholder*="search" i]',
+    'input[placeholder*="찾기" i]',
+    'input[placeholder*="find" i]',
+    'input[aria-label*="검색" i]',
+    'input[aria-label*="search" i]',
   ].join(',');
+
+  // ── 휴리스틱 추론 (inferred: true) ───────────────────────────
+  // id / class / 부모 form action 기반 — 오탐 가능성 있어 별도 처리
+  function isSearchHeuristic(el) {
+    if (!(el instanceof HTMLInputElement)) return false;
+    if (el.type && el.type !== 'text') return false;
+    const id  = (el.id  || '').toLowerCase();
+    const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+    const formAction = (el.closest('form')?.getAttribute('action') || '').toLowerCase();
+    return (
+      id.includes('search') ||
+      cls.split(/\s+/).some((c) => c.includes('search')) ||
+      formAction.includes('search')
+    );
+  }
 
   document.addEventListener('input', (e) => {
     const target = e.target;
     if (!(target instanceof Element)) return;
-    if (!target.matches(SEARCH_SELECTOR)) return;
 
-    // debounce
+    const isExplicit = target.matches(SEARCH_SELECTOR);
+    const isInferred = !isExplicit && isSearchHeuristic(target);
+    if (!isExplicit && !isInferred) return;
+
     if (timers.has(target)) clearTimeout(timers.get(target));
     timers.set(
       target,
@@ -413,6 +444,7 @@ function trackSearch(handleRawEvent) {
           search_length: typeof target.value === 'string' ? target.value.length : 0,
           input_name:    target.name || null,
           ghost_role:    target.dataset?.ghostRole || null,
+          ...(isInferred && { inferred: true }),
         });
       }, DEBOUNCE_MS)
     );
