@@ -345,11 +345,14 @@ function _initEcommerceTracking(handleRawEvent) {
     // product_click — href URL 패턴
     if (el.tagName === 'A' && PRODUCT_HREF.test(href)) {
       const m = href.match(PRODUCT_HREF);
+      // 가격 혼입 방지: heading → p 순으로 첫 번째 텍스트 요소만 사용
+      const nameEl = el.querySelector('h1,h2,h3,h4,h5,h6,p');
+      const productName = (nameEl?.textContent?.trim() || textOf(el)).slice(0, 80) || null;
       return {
         type: 'product_click',
         data: {
           product_id:   m ? m[1] : null,
-          product_name: textOf(el).slice(0, 80) || null,
+          product_name: productName,
           ghost_role:   'inferred_link',
           inferred:     true,
         },
