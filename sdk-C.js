@@ -325,9 +325,15 @@ function _initEcommerceTracking(handleRawEvent) {
       matchesPatterns(el, ADD_TO_CART_TEXT) ||
       hasClass(el, ['add-to-cart', 'add_to_cart', 'addtocart', 'btn-cart', 'cart-add'])
     ) {
+      // 상품명: 버튼 근처 heading → 페이지 h1 순으로 탐색
+      const nameEl =
+        el.closest('[data-product-name]')?.dataset.productName ||
+        el.closest('section,article,div')?.querySelector('h1,h2,h3,h4')?.textContent?.trim() ||
+        document.querySelector('h1')?.textContent?.trim() ||
+        null;
       return {
         type: 'add_to_cart',
-        data: { product_id: inferProductId(el), product_name: null, quantity: 1, inferred: true },
+        data: { product_id: inferProductId(el), product_name: nameEl ? String(nameEl).slice(0, 80) : null, quantity: 1, inferred: true },
       };
     }
 
