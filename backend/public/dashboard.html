@@ -228,7 +228,7 @@
       case 'section_enter':    return `섹션 진입 — ${d.section || ''}`;
       case 'section_exit':     return `섹션 이탈 — ${d.section || ''}`;
       case 'hover_dwell':      return `hover ${d.hover_dwell_time_ms ?? d.dwell_ms ?? ''}ms — ${d.hover_target ?? d.target_tag ?? ''}`;
-      case 'search_use':       return `검색 — ${d.search_length != null ? d.search_length+'자' : (d.keyword ? `"${d.keyword}"` : '(empty)')}${d.inferred ? ' (inferred)' : ''}`;
+      case 'search_use':       return `검색 — "${d.search_query || d.keyword || ''}" (${d.search_length ?? 0}자)${d.inferred ? ' [inferred]' : ''}`;
       case 'tab_exit':         return `탭 이탈`;
       case 'tab_return':       return `탭 복귀 — ${d.away_ms ? (d.away_ms/1000).toFixed(1)+'s' : ''}`;
       case 'time_to_first_click': return `첫 클릭까지 ${d.duration_ms ? (d.duration_ms/1000).toFixed(2)+'s' : ''}`;

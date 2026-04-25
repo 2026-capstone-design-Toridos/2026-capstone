@@ -436,7 +436,8 @@ function trackSearch(handleRawEvent) {
     if (!isExplicit && !isInferred) return;
 
     // 이벤트 발생 시점에 즉시 캡처 (React가 300ms 안에 input 초기화할 수 있음)
-    const capturedLength = typeof target.value === 'string' ? target.value.length : 0;
+    const capturedValue  = typeof target.value === 'string' ? target.value : '';
+    const capturedLength = capturedValue.length;
 
     // BUG-FIX: 빈 값이면 clearTimeout도 하지 않음
     // React가 input 클리어할 때 발생하는 input 이벤트가 기존 타이머(실제 검색어)를 죽이는 문제 방지
@@ -448,6 +449,7 @@ function trackSearch(handleRawEvent) {
       setTimeout(() => {
         timers.delete(target);
         handleRawEvent('search_use', {
+          search_query:  capturedValue,
           search_length: capturedLength,
           input_name:    target.name || null,
           ghost_role:    target.dataset?.ghostRole || null,
