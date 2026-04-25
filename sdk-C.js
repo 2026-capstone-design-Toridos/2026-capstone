@@ -317,7 +317,8 @@ function _initEcommerceTracking(handleRawEvent) {
   // 클릭된 엘리먼트로부터 이커머스 이벤트 추론
   function inferEcommerceEvent(target) {
     if (!(target instanceof Element)) return null;
-    const el   = target.closest('button, a, [role="button"]') || target;
+    // PostHog autocapture 방식: 7종 엘리먼트까지 탐색 (form·label 추가)
+    const el   = target.closest('a, button, form, input, select, textarea, label, [role="button"]') || target;
     const href = el.getAttribute?.('href') || '';
 
     // add_to_cart
