@@ -289,8 +289,21 @@ function _initEcommerceTracking(handleRawEvent) {
   const PURCHASE_HREF = ['/checkout', '/order', '/purchase', '/pay'];
   const PRODUCT_HREF  = /\/(?:product|p|item|goods|shop)\/([^/?#]+)/i;
 
+  // React 18이 클릭 이벤트 처리 중 DOM을 업데이트하기 전에
+  // capture phase에서 엘리먼트 텍스트를 미리 저장해둠
+  const _preClickText = new WeakMap();
+  const ECOMMERCE_SELECTOR = 'a, button, form, input, select, textarea, label, [role="button"]';
+
+  document.addEventListener('click', (e) => {
+    const el = e.target?.closest?.(ECOMMERCE_SELECTOR) || e.target;
+    if (el instanceof Element) {
+      _preClickText.set(el, el.textContent?.trim() || '');
+    }
+  }, { capture: true });
+
   function textOf(el) {
-    return (el?.textContent || el?.innerText || '').trim();
+    // capture phase에서 저장한 텍스트 우선 사용 (React re-render 전 값)
+    return _preClickText.get(el) || (el?.textContent || el?.innerText || '').trim();
   }
 
   function matchesPatterns(el, patterns) {
