@@ -438,12 +438,15 @@ function trackSearch(handleRawEvent) {
     // 이벤트 발생 시점에 즉시 캡처 (React가 300ms 안에 input 초기화할 수 있음)
     const capturedLength = typeof target.value === 'string' ? target.value.length : 0;
 
+    // BUG-FIX: 빈 값이면 clearTimeout도 하지 않음
+    // React가 input 클리어할 때 발생하는 input 이벤트가 기존 타이머(실제 검색어)를 죽이는 문제 방지
+    if (capturedLength === 0) return;
+
     if (timers.has(target)) clearTimeout(timers.get(target));
     timers.set(
       target,
       setTimeout(() => {
         timers.delete(target);
-        if (capturedLength === 0) return; // 빈 검색어 무시
         handleRawEvent('search_use', {
           search_length: capturedLength,
           input_name:    target.name || null,
