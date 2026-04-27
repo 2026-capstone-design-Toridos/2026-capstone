@@ -282,6 +282,97 @@ function _initEcommerceTracking(handleRawEvent) {
     /add\s*to\s*cart/i, /add\s*to\s*bag/i, /add\s*to\s*basket/i,
     /장바구니/i, /담기/i, /카트에?\s*추가/i,
   ];
+
+  // ── remove_from_cart 3단계 감지 시스템 ──────────────────────
+  // Level 1: 명시적 패턴 (컨텍스트 불필요 — 오탐 거의 없음)
+  const REMOVE_EXPLICIT_TEXT = [
+    /remove\s*from\s*(cart|bag|basket)/i,
+    /delete\s*from\s*(cart|bag|basket)/i,
+    /장바구니.*(삭제|제거)/i,
+    /카트.*(삭제|제거)/i,
+    /담은\s*상품?\s*(삭제|제거)/i,
+  ];
+  const REMOVE_EXPLICIT_CLASS = [
+    'cart-remove', 'remove-from-cart', 'delete-from-cart',
+    'cart-item-remove', 'cart-item-delete', 'cart-delete',
+    'basket-remove', 'bag-remove',
+  ];
+  const REMOVE_EXPLICIT_ARIA = [
+    /remove\s*(item\s*)?from\s*(cart|bag|basket)/i,
+    /장바구니.*(삭제|제거)/i,
+    /delete\s*(item\s*)?from\s*(cart|bag|basket)/i,
+  ];
+
+  // Level 2: 일반 패턴 (아래 cart item 컨텍스트 내에서만 허용)
+  const CART_ITEM_SELECTOR = [
+    '[class*="cart-item"]', '[class*="cart_item"]',
+    '[class*="cart-product"]', '[class*="cart_product"]',
+    '[class*="basket-item"]', '[class*="basket_item"]',
+    '[class*="bag-item"]', '[class*="bag_item"]',
+    '[class*="order-item"]', '[class*="order_item"]',
+    '[class*="line-item"]', '[class*="lineitem"]',
+    '[data-cart-item]', '[data-item-id]',
+  ].join(',');
+
+  const REMOVE_GENERIC_TEXT = [
+    /^(삭제|제거|지우기)$/,
+    /^(remove|delete)$/i,
+  ];
+  const REMOVE_GENERIC_CLASS = [
+    'remove-btn', 'remove-item', 'delete-item',
+    'btn-remove', 'delete-btn', 'btn-delete',
+    'item-remove', 'item-delete',
+    'close-item', 'item-close',
+  ];
+  const REMOVE_GENERIC_ARIA = [
+    /^(삭제|제거|remove|delete)$/i,
+    /상품\s*(삭제|제거)/i,
+    /아이템?\s*(삭제|제거)/i,
+  ];
+  // X / × 아이콘 텍스트 (컨텍스트 안에서만)
+  const X_ICON_RE = /^[×✕✖✗]$|^x$/i;
+
+  // remove_from_cart 판별 함수
+  function isRemoveFromCart(el) {
+    // Level 1: 명시적 — 컨텍스트 불필요
+    const ariaLabel = el.getAttribute?.('aria-label') || '';
+    if (
+      REMOVE_EXPLICIT_TEXT.some((p) => p.test(textOf(el)) || p.test(ariaLabel)) ||
+      hasClass(el, REMOVE_EXPLICIT_CLASS) ||
+      REMOVE_EXPLICIT_ARIA.some((p) => p.test(ariaLabel))
+    ) return true;
+
+    // Level 2: 일반 — cart item 컨텍스트 필수
+    const inCartCtx = !!el.closest(CART_ITEM_SELECTOR);
+    if (!inCartCtx) return false;
+
+    const t = textOf(el).trim();
+
+    // 2a. 일반 삭제 텍스트 (정확히 매치)
+    if (REMOVE_GENERIC_TEXT.some((p) => p.test(t))) return true;
+
+    // 2b. X / × 아이콘 텍스트
+    if (X_ICON_RE.test(t)) return true;
+
+    // 2c. 클래스 기반
+    if (hasClass(el, REMOVE_GENERIC_CLASS)) return true;
+
+    // 2d. aria-label 기반
+    if (REMOVE_GENERIC_ARIA.some((p) => p.test(ariaLabel))) return true;
+
+    // 2e. SVG 아이콘 전용 버튼 (텍스트 없음 + SVG 있음 + 삭제 관련 클래스/aria)
+    const hasSvg = !!el.querySelector('svg');
+    const svgTitle = el.querySelector('svg title')?.textContent || '';
+    if (
+      hasSvg && t === '' && (
+        hasClass(el, [...REMOVE_GENERIC_CLASS, 'close', 'dismiss', 'clear', 'trash']) ||
+        /delete|remove|삭제|제거|trash/i.test(svgTitle)
+      )
+    ) return true;
+
+    return false;
+  }
+
   const PURCHASE_TEXT = [
     /buy\s*now/i, /checkout/i, /place\s*order/i, /proceed\s*to\s*checkout/i,
     /구매하기/i, /주문하기/i, /결제하기/i, /^결제$/i, /주문\s*완료/i,
@@ -348,6 +439,14 @@ function _initEcommerceTracking(handleRawEvent) {
       return {
         type: 'add_to_cart',
         data: { product_id: inferProductId(el), product_name: nameEl ? String(nameEl).slice(0, 80) : null, quantity: 1, inferred: true },
+      };
+    }
+
+    // remove_from_cart (결정장애형 핵심 신호) — 3단계 감지
+    if (isRemoveFromCart(el)) {
+      return {
+        type: 'remove_from_cart',
+        data: { product_id: inferProductId(el), quantity: 1, inferred: true },
       };
     }
 
