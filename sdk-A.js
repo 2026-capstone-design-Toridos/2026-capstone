@@ -21,7 +21,7 @@
 
 import { initSession, setPageContext, updatePageUrl, touchSessionTimestamp } from './core/sessionManager.js';
 import { recordPageEnter, resetPageTimers, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
-import { emit, emitSessionEnd } from './core/eventProcessor.js';
+import { emit, emitSessionEnd, setActivityCallback } from './core/eventProcessor.js';
 import { flush, configureSender } from './core/sender.js';
 
 // ── 내부 상태 ─────────────────────────────────────────────────
@@ -33,6 +33,10 @@ let _subsectionEnterTimes = {};             // subsection_id → enter timestamp
 let _resizeTimer = null;
 let _lastNavPathname  = null;               // BUG-01: navigation 중복 dedup용
 let _lastNavTimestamp = 0;                  // BUG-01: 동일 tick 내 중복 호출 방지
+
+// ── 세션 TTL 타이머 (30분 비활성 → session_end + 자동 새 세션) ──
+const SESSION_TTL_MS = 30 * 60 * 1000;     // 30분
+let _sessionTTLTimer = null;
 
 // ── 초기화 ────────────────────────────────────────────────────
 
@@ -77,6 +81,10 @@ function initA(options = {}) {
   _setupInteractionTracking();
   _setupScreenResize();
   _setupGTBridge();
+
+  // 30분 TTL 타이머 시작 + 활동 콜백 등록
+  setActivityCallback(_onUserActivity);
+  _resetSessionTTLTimer();
 }
 
 // ── 환경 정보 수집 ────────────────────────────────────────────
@@ -281,6 +289,82 @@ function _setupGTBridge() {
       hasInteracted:  _hasInteracted,
       sessionEnded:   _sessionEnded,
     }),
+  });
+}
+
+// ── 세션 TTL 타이머 ───────────────────────────────────────────
+//
+// 30분 동안 사용자 활동이 없으면 session_end를 자동 발생시키고,
+// 다음 활동 시 새 세션을 자동으로 시작한다.
+//
+// 흐름:
+//   활동 발생 → _onUserActivity() → 타이머 리셋
+//   30분 경과 → _onSessionTTLExpired() → session_end emit + localStorage 클리어
+//   다음 활동 → _onUserActivity() → _sessionEnded 감지 → _restartSession() → 새 세션 시작
+
+function _resetSessionTTLTimer() {
+  clearTimeout(_sessionTTLTimer);
+  _sessionTTLTimer = setTimeout(_onSessionTTLExpired, SESSION_TTL_MS);
+}
+
+function _onUserActivity() {
+  // 이전 세션이 TTL 만료로 종료됐으면 새 세션 시작
+  if (_sessionEnded) {
+    _restartSession();
+  }
+  _resetSessionTTLTimer();
+}
+
+function _onSessionTTLExpired() {
+  if (_sessionEnded) return;
+  _sessionEnded = true;
+
+  // session_end 발생 (exit_reason: timeout)
+  emitSessionEnd({
+    exit_page:             window.location.pathname,
+    page_dwell_time:       getPageDwellTime(),
+    last_event_time:       getLastEventTime(),
+    bounce_flag:           _navigationPath.length === 1 && !_hasInteracted,
+    exit_reason:           'timeout',
+    navigation_path:       [..._navigationPath],
+    page_depth:            _navigationPath.length,
+  });
+  flush(true);
+
+  // localStorage 세션 키 제거 → 다음 initSession() 호출 시 새 UUID 발급
+  localStorage.removeItem('gt_sid');
+  localStorage.removeItem('gt_sid_ts');
+}
+
+function _restartSession() {
+  // 먼저 플래그 리셋 (emit 내부에서 재진입 방지)
+  _sessionEnded = false;
+  _hasInteracted = false;
+  _subsectionEnterTimes = {};
+  _navigationPath = [window.location.pathname];
+
+  // 새 세션 발급 (gt_sid가 없으므로 새 UUID 생성)
+  const sessionCtx = initSession();
+  const envInfo    = _collectEnv();
+
+  setPageContext({
+    page_url:     sessionCtx.page_url,
+    pathname:     sessionCtx.pathname,
+    referrer:     sessionCtx.referrer,
+    utm_source:   sessionCtx.utm_source,
+    utm_campaign: sessionCtx.utm_campaign,
+    ...envInfo,
+  });
+
+  recordPageEnter();
+
+  emit('session_start', {
+    session_id:     sessionCtx.session_id,
+    is_new_session: sessionCtx.is_new_session,
+    is_returning:   sessionCtx.is_returning,
+    session_count:  sessionCtx.session_count,
+    visit_time:     sessionCtx.visit_time,
+    referrer:       sessionCtx.referrer,
   });
 }
 

@@ -85,6 +85,17 @@ const EVENT_VOCAB = Object.freeze({
 let _seq = 0;
 let _lastTimestamp = null;
 
+// 세션 TTL 만료 / 활동 콜백 (sdk-A.js가 주입)
+let _activityCallback = null;
+
+/**
+ * sdk-A.js가 initA() 시점에 등록
+ * emit() 내 사용자 활동마다 호출 → 30분 TTL 타이머 리셋 + 만료 후 세션 재시작
+ */
+export function setActivityCallback(cb) {
+  _activityCallback = cb;
+}
+
 // rage_click 감지용
 const RAGE_CLICK_WINDOW_MS   = 500;
 const RAGE_CLICK_THRESHOLD   = 3;
@@ -110,6 +121,8 @@ function emit(eventType, data = {}) {
   if (eventType !== 'inactivity') {
     recordActivity();
     touchSessionTimestamp();
+    // 세션 TTL 타이머 리셋 (30분 비활성 감지 + 만료 후 세션 재시작)
+    if (_activityCallback) _activityCallback();
   }
 
   // ── cart 상태 갱신 ────────────────────────────────────────

@@ -215,7 +215,11 @@
       case 'purchase_click':   return `결제 시도`;
       case 'cart_abandon_flag':return `⚠️ 장바구니 이탈`;
       case 'session_start':    return `세션 시작 (${d.device_type || e.device_type || '?'})`;
-      case 'session_end':      return `세션 종료 — ${d.session_duration_ms ? (d.session_duration_ms/1000).toFixed(1)+'s' : ''}`;
+      case 'session_end': {
+        const reason = d.exit_reason === 'timeout' ? '⏱️ 30분 비활성 만료' : '탭 닫기';
+        const dwell  = d.page_dwell_time ? ` (${(d.page_dwell_time/1000).toFixed(0)}s)` : '';
+        return `세션 종료 — ${reason}${dwell}`;
+      }
       case 'rage_click':       return `🔥 rage click ×${d.click_count || ''}`;
       case 'click':            return `클릭 — ${d.click_target || ''}`;
       case 'navigation':       return `페이지 이동 → ${d.to || e.pathname || ''}`;
