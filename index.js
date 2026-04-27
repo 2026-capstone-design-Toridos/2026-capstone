@@ -15,8 +15,8 @@
  */
 
 import { initA, emit } from './sdk-A.js';
-import { initB }       from './sdk-B.js';
-import { initC }       from './sdk-C.js';
+import { initB } from './sdk-B.js';
+import { initC } from './sdk-C.js';
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _init);
@@ -25,7 +25,8 @@ if (document.readyState === 'loading') {
 }
 
 function _init() {
-  initA();        // 1. Core Engine 먼저 (session_id, emit, window.__GT 준비)
-  initB(emit);    // 2. B: handleRawEvent로 emit 주입
-  initC(emit);    // 3. C: handleRawEvent로 emit 주입
+  initA();  // Core Engine 시작
+
+  initB(emit);
+  initC(emit);
 }

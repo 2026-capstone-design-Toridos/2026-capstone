@@ -3,6 +3,26 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/SDK-A_test.js tests/integration.test.js"
+    "start": "node index.js"
+  },
+  "description": "GostTracker: 소상공인을 위한 데이터 마케팅 도우미",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/2026-capstone-design-Toridos/2026-capstone.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/2026-capstone-design-Toridos/2026-capstone/issues"
+  },
+  "homepage": "https://github.com/2026-capstone-design-Toridos/2026-capstone#readme",
+  "dependencies": {
+    "vite": "^8.0.8"
   }
 }

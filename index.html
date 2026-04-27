@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GhostTracker Test</title>
+</head>
+<body>
+
+<h1>GhostTracker 테스트</h1>
+<button id="btn">클릭해봐</button>
+
+<script type="module">
+  import './sdk-A.js';   // ← 네 core 엔진 파일
+  import './sdk-B.js';   // ← 클릭 이벤트
+  import './sdk-C.js';   // ← 스크롤 이벤트
+
+  console.log("🔥 SDK 로드 완료");
+
+  document.getElementById("btn").addEventListener("click", () => {
+    console.log("버튼 클릭됨");
+  });
+</script>
+<script src="./ghosttracker.iife.js"></script>
+</body>
+</html>

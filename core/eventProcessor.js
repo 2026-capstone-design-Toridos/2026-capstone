@@ -104,6 +104,7 @@ let _cartItemCount = 0;
  * @param {object} data       raw 이벤트별 데이터 (session_id, event_seq 등은 여기 넣지 않는다)
  */
 function emit(eventType, data = {}) {
+  console.log("[EMIT]", eventType, data);
   const now = Date.now();
 
   // inactivity는 활동 이벤트가 아니므로 타이머/TTL 갱신 제외
