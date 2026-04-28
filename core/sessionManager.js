@@ -20,7 +20,7 @@
 const SESSION_ID_KEY  = 'gt_sid';       // 현재 session_id
 const SESSION_TS_KEY  = 'gt_sid_ts';    // 마지막 활동 시각 (TTL 갱신용)
 const SESSION_CNT_KEY = 'gt_sid_cnt';   // 총 발급 세션 수 (is_returning 판단)
-const SESSION_TTL_MS  = 30 * 60 * 1000; // 30분
+const SESSION_TTL_MS  = 60 * 1000; // 1분
 
 // ── 공통 컨텍스트 저장소 ─────────────────────────────────────────
 // sdk-A.js가 setPageContext()로 초기값을 세팅하고,
