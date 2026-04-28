@@ -324,14 +324,22 @@ function trackMedia(handleRawEvent) {
     }
   });
 
-  // ── image_zoom: img 위에서 wheel 이벤트 ──
+  // ── image_zoom: img 위에서 wheel 이벤트 (BUG-05: debounce 추가) ──
+  // wheel 이벤트는 연속 발생하므로 200ms debounce 후 마지막 방향만 전송.
+  let _zoomTimer = null;
+  let _zoomLastDir = null;
   document.addEventListener('wheel', (e) => {
     const img = e.target?.closest('img') || (e.target?.tagName === 'IMG' ? e.target : null);
     if (!img) return;
-    handleRawEvent('image_zoom', {
-      zoom_direction: e.deltaY < 0 ? 'in' : 'out',
-      image_src:      img.src?.split('?')[0]?.split('/').pop() || 'unknown',
-    });
+    _zoomLastDir = e.deltaY < 0 ? 'in' : 'out';
+    clearTimeout(_zoomTimer);
+    _zoomTimer = setTimeout(() => {
+      handleRawEvent('image_zoom', {
+        zoom_direction: _zoomLastDir,
+        image_src:      img.src?.split('?')[0]?.split('/').pop() || 'unknown',
+      });
+      _zoomLastDir = null;
+    }, 200);
   }, { passive: true });
 
   // ── video_play + video_watch_pct: capture phase ──
@@ -384,28 +392,69 @@ function trackSearch(handleRawEvent) {
   const DEBOUNCE_MS = 300;
   const timers = new WeakMap();  // input element → timer id
 
+  // ── 명시적 셀렉터 (inferred 없음) ────────────────────────────
   const SEARCH_SELECTOR = [
     'input[type="search"]',
     'input[role="searchbox"]',
     '[role="searchbox"]',
     '[data-ghost-role="search-input"]',
+    // name 기반 (표준 검색 파라미터)
+    'input[name="q"]',
+    'input[name="s"]',
+    'input[name="search"]',
+    'input[name="keyword"]',
+    'input[name="query"]',
+    // placeholder/aria-label 기반
+    'input[placeholder*="검색" i]',
+    'input[placeholder*="search" i]',
+    'input[placeholder*="찾기" i]',
+    'input[placeholder*="find" i]',
+    'input[aria-label*="검색" i]',
+    'input[aria-label*="search" i]',
   ].join(',');
+
+  // ── 휴리스틱 추론 (inferred: true) ───────────────────────────
+  // id / class / 부모 form action 기반 — 오탐 가능성 있어 별도 처리
+  function isSearchHeuristic(el) {
+    if (!(el instanceof HTMLInputElement)) return false;
+    if (el.type && el.type !== 'text') return false;
+    const id  = (el.id  || '').toLowerCase();
+    const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+    const formAction = (el.closest('form')?.getAttribute('action') || '').toLowerCase();
+    return (
+      id.includes('search') ||
+      cls.split(/\s+/).some((c) => c.includes('search')) ||
+      formAction.includes('search')
+    );
+  }
 
   document.addEventListener('input', (e) => {
     const target = e.target;
     if (!(target instanceof Element)) return;
-    if (!target.matches(SEARCH_SELECTOR)) return;
 
-    // debounce
+    const isExplicit = target.matches(SEARCH_SELECTOR);
+    const isInferred = !isExplicit && isSearchHeuristic(target);
+    if (!isExplicit && !isInferred) return;
+
+    // 이벤트 발생 시점에 즉시 캡처 (React가 300ms 안에 input 초기화할 수 있음)
+    const capturedValue  = typeof target.value === 'string' ? target.value : '';
+    const capturedLength = capturedValue.length;
+
+    // BUG-FIX: 빈 값이면 clearTimeout도 하지 않음
+    // React가 input 클리어할 때 발생하는 input 이벤트가 기존 타이머(실제 검색어)를 죽이는 문제 방지
+    if (capturedLength === 0) return;
+
     if (timers.has(target)) clearTimeout(timers.get(target));
     timers.set(
       target,
       setTimeout(() => {
         timers.delete(target);
         handleRawEvent('search_use', {
-          search_length: typeof target.value === 'string' ? target.value.length : 0,
+          search_query:  capturedValue,
+          search_length: capturedLength,
           input_name:    target.name || null,
           ghost_role:    target.dataset?.ghostRole || null,
+          ...(isInferred && { inferred: true }),
         });
       }, DEBOUNCE_MS)
     );

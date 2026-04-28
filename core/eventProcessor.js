@@ -162,6 +162,10 @@ function emitSessionEnd(exitData = {}) {
 // ── 내부 헬퍼 ────────────────────────────────────────────────
 
 function _dispatch(eventType, data, timestamp) {
+  if (!(eventType in EVENT_VOCAB)) {
+    console.warn(`[GhostTracker] Unknown event type: "${eventType}"`);
+  }
+
   const inter_event_gap = _lastTimestamp !== null ? timestamp - _lastTimestamp : 0;
   _lastTimestamp = timestamp;
   _seq += 1;

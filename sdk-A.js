@@ -20,20 +20,31 @@
  */
 
 import { initSession, setPageContext, updatePageUrl, touchSessionTimestamp } from './core/sessionManager.js';
-import { recordPageEnter, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
+import { recordPageEnter, resetPageTimers, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
 import { emit, emitSessionEnd } from './core/eventProcessor.js';
-import { flush } from './core/sender.js';
+import { flush, configureSender } from './core/sender.js';
 
 // ── 내부 상태 ─────────────────────────────────────────────────
+let _initialized = false;
 let _navigationPath = [];
 let _sessionEnded   = false;
 let _hasInteracted  = false;                // 클릭/터치 등 실제 상호작용 여부 (bounce 판정용)
 let _subsectionEnterTimes = {};             // subsection_id → enter timestamp
 let _resizeTimer = null;
+let _lastNavPathname  = null;               // BUG-01: navigation 중복 dedup용
+let _lastNavTimestamp = 0;                  // BUG-01: 동일 tick 내 중복 호출 방지
 
 // ── 초기화 ────────────────────────────────────────────────────
 
-function initA() {
+function initA(options = {}) {
+  if (_initialized) return;
+  _initialized = true;
+
+  // sender 설정 주입 (collectUrl, flushInterval, maxBufferSize)
+  if (options.sender) {
+    configureSender(options.sender);
+  }
+
   const sessionCtx = initSession();
   const envInfo    = _collectEnv();
 
@@ -49,9 +60,15 @@ function initA() {
   recordPageEnter();
   _navigationPath.push(window.location.pathname);
 
+  // BUG-08: pageContext(page_url, pathname, utm_*, device_type 등)는 모든 이벤트에
+  // 자동으로 붙으므로, session_start data에는 세션 고유 필드만 담는다.
   emit('session_start', {
-    ...sessionCtx,
-    ...envInfo,
+    session_id:     sessionCtx.session_id,
+    is_new_session: sessionCtx.is_new_session,
+    is_returning:   sessionCtx.is_returning,
+    session_count:  sessionCtx.session_count,
+    visit_time:     sessionCtx.visit_time,
+    referrer:       sessionCtx.referrer,
   });
 
   _setupNavigationTracking();
@@ -105,57 +122,84 @@ function _setupNavigationTracking() {
   const origReplace = history.replaceState.bind(history);
 
   history.pushState = function (...args) {
+    const prevPathname = window.location.pathname;
     origPush(...args);
-    _onNavigation('push');
+    _onNavigation('push', prevPathname);
   };
 
   history.replaceState = function (...args) {
+    const prevPathname = window.location.pathname;
     origReplace(...args);
-    _onNavigation('replace');
+    _onNavigation('replace', prevPathname);
   };
 
-  window.addEventListener('popstate', () => _onNavigation('pop'));
+  window.addEventListener('popstate', () => _onNavigation('pop', null));
 }
 
-function _onNavigation(trigger) {
+function _onNavigation(trigger, prevPathname = null) {
   const pathname = window.location.pathname;
+  const now      = Date.now();
+
+  // BUG-01: Next.js가 pushState 직후 replaceState를 자동 호출해 중복 emit 발생.
+  // 동일 pathname으로 100ms 이내 재호출이면 무시한다.
+  if (pathname === _lastNavPathname && now - _lastNavTimestamp < 100) return;
+  _lastNavPathname  = pathname;
+  _lastNavTimestamp = now;
+
   _navigationPath.push(pathname);
   updatePageUrl();
+  resetPageTimers();          // SPA 페이지 이동 시 dwell 시간 리셋
+
+  // 페이지 이동 시 상태 초기화
+  _hasInteracted = false;
+  _subsectionEnterTimes = {};
 
   emit('navigation', {
     navigation_path:  [..._navigationPath],
     page_depth:       _navigationPath.length,
     current_pathname: pathname,
+    prev_pathname:    prevPathname,
     nav_trigger:      trigger,
   });
 }
 
 // ── 세션 종료 감지 ───────────────────────────────────────────
+//
+// BUG-02: beforeunload/pagehide만으로는 Next.js + Chrome 환경에서
+//         sendBeacon 전송이 보장되지 않음.
+// 보완: visibilitychange → hidden 시 즉시 flush (탭 전환/닫기 모두 커버).
+//       beforeunload/pagehide는 fallback으로 유지.
 
 function _setupSessionEnd() {
+  const _buildExitPayload = () => ({
+    exit_page:             window.location.pathname,
+    page_dwell_time:       getPageDwellTime(),
+    last_event_time:       getLastEventTime(),
+    bounce_flag:           _navigationPath.length === 1 && !_hasInteracted,
+    last_viewport_scrollY: window.scrollY,
+    navigation_path:       [..._navigationPath],
+    page_depth:            _navigationPath.length,
+  });
+
+  // 완전 종료 (탭 닫기, 새로고침): session_end emit 후 flush
   const handleSessionEnd = () => {
     if (_sessionEnded) return;
     _sessionEnded = true;
-
     touchSessionTimestamp();
-
-    emitSessionEnd({
-      exit_page:             window.location.pathname,
-      page_dwell_time:       getPageDwellTime(),
-      last_event_time:       getLastEventTime(),
-      // bounce: 한 페이지에서 상호작용 없이 이탈
-      // has_interacted 기준을 함께 봐야 진짜 bounce 판별 가능
-      bounce_flag:           _navigationPath.length === 1 && !_hasInteracted,
-      last_viewport_scrollY: window.scrollY,
-      navigation_path:       [..._navigationPath],
-      page_depth:            _navigationPath.length,
-    });
-
+    emitSessionEnd(_buildExitPayload());
     flush(true);
   };
 
   window.addEventListener('beforeunload', handleSessionEnd);
   window.addEventListener('pagehide',     handleSessionEnd);
+
+  // 탭 숨김 (다른 탭으로 전환, 모바일 앱 전환 등): 버퍼에 쌓인 이벤트 즉시 전송
+  // session_end는 emit하지 않음 — 사용자가 돌아올 수 있으므로
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !_sessionEnded) {
+      flush(true);
+    }
+  });
 }
 
 // ── 비활성 감지 ───────────────────────────────────────────────
@@ -207,31 +251,36 @@ function _setupScreenResize() {
 //   window.__GT?.subsectionExit('review')
 
 function _setupGTBridge() {
-  window.__GT = window.__GT || {};
+  if (!window.__GT) window.__GT = {};
 
-  // C(IIFE)의 로컬 send()를 이것으로 교체하면 A 코어와 연결됨
-  //   function send(eventType, payload) { window.__GT?.emit(eventType, payload); }
-  window.__GT.emit = emit;
+  Object.assign(window.__GT, {
+    // C(IIFE)의 로컬 send()를 이것으로 교체하면 A 코어와 연결됨
+    //   function send(eventType, payload) { window.__GT?.emit(eventType, payload); }
+    emit,
 
-  // subsection dwell: C의 IntersectionObserver가 진입/이탈 시 호출
-  window.__GT.subsectionEnter = (subsection_id) => {
-    _subsectionEnterTimes[subsection_id] = Date.now();
-    emit('subsection_enter', { subsection_id });
-  };
+    // subsection dwell: C의 IntersectionObserver가 진입/이탈 시 호출
+    subsectionEnter: (subsection_id) => {
+      if (!subsection_id) return;
+      _subsectionEnterTimes[subsection_id] = Date.now();
+      emit('subsection_enter', { subsection_id });
+    },
 
-  window.__GT.subsectionExit = (subsection_id) => {
-    const enterTime = _subsectionEnterTimes[subsection_id];
-    if (!enterTime) return;
-    const dwell_ms = Date.now() - enterTime;
-    delete _subsectionEnterTimes[subsection_id];
-    emit('subsection_dwell', { subsection_id, dwell_ms });
-  };
+    subsectionExit: (subsection_id) => {
+      if (!subsection_id) return;
+      const enterTime = _subsectionEnterTimes[subsection_id];
+      if (!enterTime) return;
+      const dwell_ms = Date.now() - enterTime;
+      delete _subsectionEnterTimes[subsection_id];
+      emit('subsection_exit',  { subsection_id });
+      emit('subsection_dwell', { subsection_id, dwell_ms });
+    },
 
-  // 디버깅용
-  window.__GT.getState = () => ({
-    navigationPath: [..._navigationPath],
-    hasInteracted:  _hasInteracted,
-    sessionEnded:   _sessionEnded,
+    // 디버깅용
+    getState: () => ({
+      navigationPath: [..._navigationPath],
+      hasInteracted:  _hasInteracted,
+      sessionEnded:   _sessionEnded,
+    }),
   });
 }
 
