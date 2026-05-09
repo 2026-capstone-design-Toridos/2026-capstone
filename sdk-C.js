@@ -1,12 +1,14 @@
 /**
  * sdk-C.js  —  C 담당 (김다민)
  *
- * 역할: 스크롤 / 섹션 / 서브섹션 / 이커머스 이벤트 수집
+ * 역할: 스크롤 / 섹션 / 서브섹션 / 이커머스 / 리뷰 이벤트 수집
  *   - scroll: depth, milestone, stop, direction_change, speed
  *   - section: enter, exit, revisit, transition
  *   - subsection: enter, exit, dwell (시간계산 A에 위임), revisit
  *   - ecommerce: product_click, option_select, option_change,
  *                quantity_change, add_to_cart, remove_from_cart, purchase_click
+ *   - review: review_click, review_page_change, review_scroll,
+ *             review_area_scroll, review_image_click
  *
  * 연결 방식:
  *   - ES 모듈 export initC(handleRawEvent)
@@ -23,6 +25,7 @@ export function initC(handleRawEvent) {
   _initSectionTracking(handleRawEvent);
   _initSubsectionTracking(handleRawEvent);
   _initEcommerceTracking(handleRawEvent);
+  _initReviewTracking(handleRawEvent);
 
   console.log('[GhostTracker] sdk-C initialized');
 }
@@ -585,4 +588,233 @@ function _initEcommerceTracking(handleRawEvent) {
       el.dataset.prevQuantity = el.value;
     }
   });
+}
+
+// ─────────────────────────────────────────────────────────────
+// REVIEW TRACKING
+//
+//   1. review_click       — 개별 리뷰 아이템 클릭 (텍스트/작성자/별점 영역)
+//   2. review_page_change — 리뷰 페이지네이션 / 더보기 버튼 클릭
+//   3. review_scroll      — 리뷰 섹션이 뷰포트에 보이는 동안 페이지 스크롤
+//   4. review_area_scroll — overflow scroll 리뷰 패널·모달 내부 스크롤
+//   5. review_image_click — 리뷰 이미지 클릭 (사진 후기)
+//
+//   휴리스틱 우선순위:
+//     [data-ghost-role="review-section/review-item"] 명시 마킹 > CSS 클래스/id 추론
+// ─────────────────────────────────────────────────────────────
+
+function _initReviewTracking(handleRawEvent) {
+  // ── 리뷰 컨테이너 선택자 (섹션/패널 전체) ─────────────────
+  const REVIEW_CONTAINER_SEL = [
+    '[data-ghost-role="review-section"]',
+    '[data-section="review"]', '[data-section="reviews"]',
+    '[id*="review"]', '[id*="Review"]', '[id*="후기"]', '[id*="리뷰"]',
+    '[class*="review-section"]', '[class*="review_section"]',
+    '[class*="review-list"]',   '[class*="review_list"]',
+    '[class*="review-wrap"]',   '[class*="review_wrap"]',
+    '[class*="review-area"]',   '[class*="review_area"]',
+    '[class*="후기-wrap"]',     '[class*="후기_wrap"]',
+    '[class*="리뷰-wrap"]',     '[class*="리뷰_wrap"]',
+    '[class*="product-review"]','[class*="product_review"]',
+    '[class*="user-review"]',   '[class*="user_review"]',
+    '[class*="customer-review"]',
+  ].join(',');
+
+  // ── 개별 리뷰 아이템 선택자 ──────────────────────────────
+  const REVIEW_ITEM_SEL = [
+    '[data-ghost-role="review-item"]',
+    '[class*="review-item"]',  '[class*="review_item"]',
+    '[class*="review-card"]',  '[class*="review_card"]',
+    '[class*="review-content"]','[class*="review_content"]',
+    '[class*="review-row"]',   '[class*="review_row"]',
+    '[class*="후기-item"]',    '[class*="후기_item"]',
+    '[class*="리뷰-item"]',    '[class*="리뷰_item"]',
+  ].join(',');
+
+  // ── 페이지네이션 컨테이너 선택자 ─────────────────────────
+  const PAGINATION_CTX_SEL = [
+    '[class*="pagination"]', '[class*="paging"]',
+    '[role="navigation"]',   '[aria-label*="페이지"]',
+    '[aria-label*="pagination"]',
+  ].join(',');
+
+  // 페이지 이동 텍스트 패턴
+  const LOAD_MORE_RE  = /더\s*보기|더\s*불러오기|load\s*more|show\s*more|see\s*more/i;
+  const PREV_NEXT_RE  = /^(이전|다음|prev(ious)?|next|◀|▶|‹|›|«|»|←|→|<|>)$/i;
+
+  // ── 유틸 ─────────────────────────────────────────────────
+  function inReviewContainer(el) {
+    return !!(el?.closest?.(REVIEW_CONTAINER_SEL));
+  }
+
+  // 리뷰 아이템의 별점 정보 추출 (있으면 함께 전송)
+  function extractRating(el) {
+    const item = el?.closest?.(REVIEW_ITEM_SEL) || el?.closest?.(REVIEW_CONTAINER_SEL);
+    if (!item) return null;
+    const ratingEl = item.querySelector(
+      '[class*="star"], [class*="rating"], [class*="score"], ' +
+      '[aria-label*="stars"], [aria-label*="점"], [data-rating]'
+    );
+    if (!ratingEl) return null;
+    return (
+      ratingEl.dataset.rating ||
+      ratingEl.getAttribute('aria-label') ||
+      ratingEl.textContent?.trim() ||
+      null
+    );
+  }
+
+  // ── 뷰포트 내 리뷰 섹션 가시 여부 (review_scroll용) ──────
+  let _reviewInViewport = false;
+
+  function observeReviewContainers() {
+    const containers = document.querySelectorAll(REVIEW_CONTAINER_SEL);
+    if (!containers.length) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) _reviewInViewport = true;
+        });
+        // 전부 화면 밖으로 나갔는지 재확인
+        if (!entries.some((e) => e.isIntersecting)) {
+          _reviewInViewport = [...document.querySelectorAll(REVIEW_CONTAINER_SEL)].some(
+            (el) => {
+              const r = el.getBoundingClientRect();
+              return r.top < window.innerHeight && r.bottom > 0;
+            }
+          );
+        }
+      },
+      { threshold: [0.05] }   // 5% 이상 보이면 활성
+    );
+
+    containers.forEach((el) => io.observe(el));
+  }
+
+  // ── 1·2·5. 클릭 이벤트 위임 ──────────────────────────────
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    if (!inReviewContainer(target)) return;   // 리뷰 영역 외부 무시
+
+    const btnText = (target.textContent || '').trim();
+
+    // ── 5. review_image_click ─────────────────────────────
+    const isImgEl = target.tagName === 'IMG' || target.tagName === 'PICTURE';
+    const imgWrapper = !isImgEl && target.closest(
+      'figure, [class*="photo"], [class*="image"], [class*="thumb"], [class*="gallery"]'
+    );
+    const wrappedImg = imgWrapper?.querySelector('img');
+
+    if (isImgEl || wrappedImg) {
+      const img = isImgEl ? target : wrappedImg;
+      handleRawEvent('review_image_click', {
+        src:      (img?.getAttribute('src') || '').slice(0, 200) || null,
+        alt:      (img?.getAttribute('alt') || '').slice(0, 80)  || null,
+        inferred: true,
+      });
+      return;
+    }
+
+    // ── 2. review_page_change ─────────────────────────────
+    const inPaginationCtx = !!target.closest(PAGINATION_CTX_SEL);
+    const isNumericPage   = /^\d+$/.test(btnText) && inPaginationCtx;
+
+    if (
+      inPaginationCtx ||
+      isNumericPage   ||
+      LOAD_MORE_RE.test(btnText) ||
+      PREV_NEXT_RE.test(btnText)
+    ) {
+      let page_number = null;
+      let direction   = null;
+      if (/^\d+$/.test(btnText))        page_number = Number(btnText);
+      else if (/이전|prev|◀|‹|«|←|</i.test(btnText)) direction = 'prev';
+      else if (/다음|next|▶|›|»|→|>/i.test(btnText)) direction = 'next';
+      else                               direction   = 'more';
+
+      handleRawEvent('review_page_change', {
+        page_number,
+        direction,
+        btn_text: btnText.slice(0, 20) || null,
+        inferred: true,
+      });
+      return;
+    }
+
+    // ── 1. review_click ───────────────────────────────────
+    // 개별 리뷰 아이템 내 클릭이면 전송
+    const reviewItem = target.closest(REVIEW_ITEM_SEL);
+    if (reviewItem) {
+      handleRawEvent('review_click', {
+        rating:   extractRating(target),
+        inferred: true,
+      });
+    }
+  });
+
+  // ── 3. review_scroll: 뷰포트에 리뷰 보이는 동안 페이지 스크롤 ──
+  let _reviewScrollTimer     = null;
+  let _reviewScrollLastDepth = -1;
+
+  window.addEventListener('scroll', () => {
+    if (!_reviewInViewport) return;
+
+    clearTimeout(_reviewScrollTimer);
+    _reviewScrollTimer = setTimeout(() => {
+      const docH = document.body.scrollHeight - window.innerHeight;
+      const depth = docH > 0 ? Math.round((window.scrollY / docH) * 100) : 0;
+      // 5% 이상 변화 시에만 emit (throttle)
+      if (Math.abs(depth - _reviewScrollLastDepth) >= 5) {
+        _reviewScrollLastDepth = depth;
+        handleRawEvent('review_scroll', {
+          scroll_y:  window.scrollY,
+          depth_pct: depth,
+          inferred:  true,
+        });
+      }
+    }, 100);
+  }, { passive: true });
+
+  // ── 4. review_area_scroll: 리뷰 패널/모달 자체 스크롤 ─────
+  function attachAreaScrollListeners() {
+    document.querySelectorAll(REVIEW_CONTAINER_SEL).forEach((el) => {
+      const style = window.getComputedStyle(el);
+      const isScrollable =
+        ['auto', 'scroll'].includes(style.overflow)   ||
+        ['auto', 'scroll'].includes(style.overflowY);
+      // 실제로 내용이 넘치는 경우에만 리스너 등록
+      if (!isScrollable || el.scrollHeight <= el.clientHeight + 10) return;
+
+      let _areaTimer    = null;
+      let _lastScrollTop = el.scrollTop;
+
+      el.addEventListener('scroll', () => {
+        clearTimeout(_areaTimer);
+        _areaTimer = setTimeout(() => {
+          const scrollH = el.scrollHeight - el.clientHeight;
+          const pct     = scrollH > 0 ? Math.round((el.scrollTop / scrollH) * 100) : 0;
+          handleRawEvent('review_area_scroll', {
+            scroll_top: el.scrollTop,
+            depth_pct:  pct,
+            direction:  el.scrollTop > _lastScrollTop ? 'down' : 'up',
+            inferred:   true,
+          });
+          _lastScrollTop = el.scrollTop;
+        }, 150);
+      }, { passive: true });
+    });
+  }
+
+  // DOM 준비 후 초기화
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      observeReviewContainers();
+      attachAreaScrollListeners();
+    });
+  } else {
+    observeReviewContainers();
+    attachAreaScrollListeners();
+  }
 }

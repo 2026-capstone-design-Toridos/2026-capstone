@@ -162,6 +162,12 @@ def build_session_features(events):
         has_cart        = len(add_to_carts) > 0
         has_purchase    = len(purchase_clicks) > 0
 
+        # ── 리뷰 ─────────────────────────────────────────────────
+        review_clicks        = by_type('review_click')
+        review_page_changes  = by_type('review_page_change')
+        review_scrolls       = by_type('review_scroll')
+        review_image_clicks  = by_type('review_image_click')
+
         # ── 미디어 ───────────────────────────────────────────────
         image_slides    = by_type('image_slide')
         video_plays     = by_type('video_play')
@@ -217,6 +223,12 @@ def build_session_features(events):
             'cart_abandon_flag':     int(has_cart and not has_purchase),
             # 결정장애 복합 신호: 담기/빼기 반복 여부
             'cart_indecision_flag':  int(len(add_to_carts) > 0 and len(remove_from_carts) > 0),
+
+            # 리뷰 (신뢰부족형 핵심 신호)
+            'review_click_count':       len(review_clicks),
+            'review_page_change_count': len(review_page_changes),
+            'review_scroll_flag':       int(len(review_scrolls) > 0),
+            'review_image_click_count': len(review_image_clicks),
 
             # 미디어
             'image_slide_count':    len(image_slides),

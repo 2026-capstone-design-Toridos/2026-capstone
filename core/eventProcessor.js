@@ -73,6 +73,13 @@ const EVENT_VOCAB = Object.freeze({
   quantity_change:         86,  // C: 수량 변경
   option_change:           87,  // C: 동일 옵션 반복 변경
 
+  // Review (C)
+  review_click:            94,  // C: 리뷰 아이템 클릭
+  review_page_change:      95,  // C: 리뷰 페이지 넘기기 (페이지네이션 / 더보기)
+  review_scroll:           96,  // C: 리뷰 섹션 가시 상태에서 페이지 스크롤
+  review_area_scroll:      97,  // C: 리뷰 전용 스크롤 영역(모달/패널) 내 스크롤
+  review_image_click:      98,  // C: 리뷰 내 이미지 클릭
+
   // A 파생 / A 전용
   inactivity:              90,
   time_to_first_click:     91,  // A 파생
