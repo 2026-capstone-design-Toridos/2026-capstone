@@ -130,34 +130,157 @@ function _initScrollTracking(handleRawEvent) {
 
 function _initSectionTracking(handleRawEvent) {
   const activeSections = new Set();
-  const visitCount     = {};
-  let lastSection      = null;
-  let autoIndex        = 0;
+  const visitCount = {};
+  let lastSection = null;
+  let autoIndex = 0;
+  let rescanTimer = null;
 
-  // 시맨틱 태그에서 섹션 이름 추론
+  /**
+   * 요소의 id/class/aria/text를 합쳐서 section 의미를 추론한다.
+   * data-section이 있으면 그것을 최우선으로 사용한다.
+   */
   function inferSectionName(el) {
-    const tag     = el.tagName.toLowerCase();
-    // 고정 태그 이름 우선
-    if (['header', 'nav', 'main', 'footer', 'aside'].includes(tag)) return tag;
-    // 첫 번째 heading 텍스트 사용
-    const heading = el.querySelector('h1,h2,h3,h4,h5,h6');
-    if (heading?.textContent?.trim()) {
-      return heading.textContent.trim()
-        .slice(0, 40)
-        .toLowerCase()
-        .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_가-힣]/g, '');
+    if (!(el instanceof Element)) return null;
+
+    // 1순위: 명시적 마킹
+    if (el.dataset.section) {
+      return normalizeSectionName(el.dataset.section);
     }
-    // fallback: section_0, article_1 …
-    return `${tag}_${autoIndex++}`;
+
+    const tag = el.tagName.toLowerCase();
+
+    const className =
+      typeof el.className === 'string'
+        ? el.className
+        : '';
+
+    const headingText =
+      el.querySelector('h1,h2,h3,h4,h5,h6')?.textContent || '';
+
+    const raw = [
+      el.id || '',
+      className,
+      el.getAttribute('aria-label') || '',
+      el.getAttribute('role') || '',
+      headingText,
+      // 너무 긴 텍스트 전체를 보면 오탐/비용이 커져서 앞부분만 사용
+      el.textContent?.slice(0, 120) || '',
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    // 2순위: 쇼핑몰 핵심 영역 자동 추론
+    if (/review|reviews|리뷰|후기|상품평|구매평|customer-review|user-review/.test(raw)) {
+      return 'review';
+    }
+
+    if (/shipping|delivery|deliver|배송|배달|택배|반품|교환|환불|return|refund/.test(raw)) {
+      return 'shipping';
+    }
+
+    if (/size|sizes|사이즈|치수|실측|size-chart|option-size/.test(raw)) {
+      return 'size';
+    }
+
+    if (/price|가격|금액|할인|쿠폰|discount|coupon|benefit|sale/.test(raw)) {
+      return 'price';
+    }
+
+    if (/image|images|photo|gallery|thumbnail|이미지|사진|썸네일|product-image/.test(raw)) {
+      return 'image';
+    }
+
+    if (/product-detail|product_detail|detail|description|상품정보|상세정보|상세설명|제품정보/.test(raw)) {
+      return 'product_detail';
+    }
+
+    if (/cart|basket|bag|장바구니|바구니/.test(raw)) {
+      return 'cart';
+    }
+
+    if (/checkout|order|payment|결제|주문/.test(raw)) {
+      return 'checkout';
+    }
+
+    // 3순위: HTML5 semantic tag
+    if (['header', 'nav', 'main', 'footer', 'aside'].includes(tag)) {
+      return tag;
+    }
+
+    // section/article인데 heading이 있으면 heading 기반 이름 생성
+    if (['section', 'article'].includes(tag) && headingText.trim()) {
+      return normalizeSectionName(headingText.trim());
+    }
+
+    // fallback
+    if (['section', 'article'].includes(tag)) {
+      return `${tag}_${autoIndex++}`;
+    }
+
+    return null;
+  }
+
+  function normalizeSectionName(value) {
+    return String(value)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_가-힣]/g, '')
+      .slice(0, 40);
+  }
+
+  function isSectionCandidate(el) {
+    if (!(el instanceof Element)) return false;
+
+    // 너무 작은 요소는 section으로 보기 어려움
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 80 || rect.height < 40) return false;
+
+    // 명시적 마킹은 무조건 후보
+    if (el.dataset.section) return true;
+
+    const tag = el.tagName.toLowerCase();
+
+    // semantic tag는 후보
+    if (['header', 'nav', 'main', 'section', 'article', 'aside', 'footer'].includes(tag)) {
+      return true;
+    }
+
+    const className =
+      typeof el.className === 'string'
+        ? el.className
+        : '';
+
+    const raw = [
+      el.id || '',
+      className,
+      el.getAttribute('aria-label') || '',
+      el.querySelector('h1,h2,h3,h4,h5,h6')?.textContent || '',
+      el.textContent?.slice(0, 120) || '',
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    // 쇼핑몰 주요 영역 후보
+    return (
+      /review|reviews|리뷰|후기|상품평|구매평/.test(raw) ||
+      /shipping|delivery|배송|배달|택배|반품|교환|환불/.test(raw) ||
+      /size|sizes|사이즈|치수|실측/.test(raw) ||
+      /price|가격|금액|할인|쿠폰|discount|coupon/.test(raw) ||
+      /product-detail|product_detail|detail|description|상품정보|상세정보|상세설명|제품정보/.test(raw) ||
+      /image|images|photo|gallery|thumbnail|이미지|사진|썸네일/.test(raw) ||
+      /cart|basket|bag|장바구니|바구니/.test(raw) ||
+      /checkout|order|payment|결제|주문/.test(raw)
+    );
   }
 
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        const el         = entry.target;
-        const id         = el.dataset.section || el.dataset.ghostSectionInferred;
+        const el = entry.target;
+        const id = el.dataset.section || el.dataset.ghostSectionInferred;
         const isInferred = !el.dataset.section && !!el.dataset.ghostSectionInferred;
+
         if (!id) return;
 
         if (entry.isIntersecting && entry.intersectionRatio > 0.3) {
@@ -170,6 +293,7 @@ function _initSectionTracking(handleRawEvent) {
             });
 
             visitCount[id] = (visitCount[id] || 0) + 1;
+
             if (visitCount[id] > 1) {
               handleRawEvent('section_revisit', {
                 section: id,
@@ -179,13 +303,18 @@ function _initSectionTracking(handleRawEvent) {
             }
 
             if (lastSection && lastSection !== id) {
-              handleRawEvent('section_transition', { from: lastSection, to: id });
+              handleRawEvent('section_transition', {
+                from: lastSection,
+                to: id,
+              });
             }
+
             lastSection = id;
           }
         } else if (!entry.isIntersecting) {
           if (activeSections.has(id)) {
             activeSections.delete(id);
+
             handleRawEvent('section_exit', {
               section: id,
               ...(isInferred && { inferred: true }),
@@ -194,21 +323,120 @@ function _initSectionTracking(handleRawEvent) {
         }
       });
     },
-    { threshold: [0.3] }
+    {
+      threshold: [0.3],
+    }
   );
 
-  function initSectionObserver() {
-    // 1. 명시적 마킹 먼저
-    document.querySelectorAll('[data-section]').forEach((el) => observer.observe(el));
+  function observeSectionElement(el) {
+    if (!(el instanceof Element)) return;
 
-    // 2. 마킹 없는 HTML5 시맨틱 태그 자동 추론
-    const SEMANTIC_TAGS = ['header', 'nav', 'main', 'section', 'article', 'aside', 'footer'];
-    document.querySelectorAll(SEMANTIC_TAGS.join(','))
-      .forEach((el) => {
-        if (el.dataset.section) return;            // 이미 마킹 있으면 skip
-        el.dataset.ghostSectionInferred = inferSectionName(el);
-        observer.observe(el);
-      });
+    // 중복 observe 방지
+    if (el.dataset.gtSectionObserved === 'true') return;
+
+    if (!isSectionCandidate(el)) return;
+
+    const sectionName = inferSectionName(el);
+    if (!sectionName) return;
+
+    if (!el.dataset.section) {
+      el.dataset.ghostSectionInferred = sectionName;
+    }
+
+    el.dataset.gtSectionObserved = 'true';
+    observer.observe(el);
+  }
+
+  function initSectionObserver() {
+    const SECTION_SELECTOR = [
+      // 명시적 마킹
+      '[data-section]',
+
+      // HTML5 semantic
+      'header',
+      'nav',
+      'main',
+      'section',
+      'article',
+      'aside',
+      'footer',
+
+      // review
+      '[id*="review" i]',
+      '[class*="review" i]',
+      '[id*="리뷰"]',
+      '[class*="리뷰"]',
+      '[id*="후기"]',
+      '[class*="후기"]',
+      '[id*="상품평"]',
+      '[class*="상품평"]',
+
+      // shipping / delivery
+      '[id*="shipping" i]',
+      '[class*="shipping" i]',
+      '[id*="delivery" i]',
+      '[class*="delivery" i]',
+      '[id*="배송"]',
+      '[class*="배송"]',
+      '[id*="반품"]',
+      '[class*="반품"]',
+      '[id*="교환"]',
+      '[class*="교환"]',
+
+      // size
+      '[id*="size" i]',
+      '[class*="size" i]',
+      '[id*="사이즈"]',
+      '[class*="사이즈"]',
+
+      // price / benefit
+      '[id*="price" i]',
+      '[class*="price" i]',
+      '[id*="discount" i]',
+      '[class*="discount" i]',
+      '[id*="coupon" i]',
+      '[class*="coupon" i]',
+      '[id*="가격"]',
+      '[class*="가격"]',
+      '[id*="쿠폰"]',
+      '[class*="쿠폰"]',
+
+      // product detail
+      '[id*="product-detail" i]',
+      '[class*="product-detail" i]',
+      '[id*="product_detail" i]',
+      '[class*="product_detail" i]',
+      '[id*="detail" i]',
+      '[class*="detail" i]',
+      '[id*="description" i]',
+      '[class*="description" i]',
+      '[id*="상품정보"]',
+      '[class*="상품정보"]',
+      '[id*="상세정보"]',
+      '[class*="상세정보"]',
+      '[id*="상세설명"]',
+      '[class*="상세설명"]',
+
+      // image / gallery
+      '[id*="gallery" i]',
+      '[class*="gallery" i]',
+      '[id*="image" i]',
+      '[class*="image" i]',
+      '[id*="photo" i]',
+      '[class*="photo" i]',
+      '[id*="thumbnail" i]',
+      '[class*="thumbnail" i]',
+    ].join(',');
+
+    document.querySelectorAll(SECTION_SELECTOR).forEach(observeSectionElement);
+  }
+
+  function scheduleSectionRescan() {
+    clearTimeout(rescanTimer);
+
+    rescanTimer = setTimeout(() => {
+      initSectionObserver();
+    }, 300);
   }
 
   if (document.readyState === 'loading') {
@@ -216,6 +444,32 @@ function _initSectionTracking(handleRawEvent) {
   } else {
     initSectionObserver();
   }
+
+  // React / Next.js / SPA에서 페이지 이동 후 DOM이 새로 생기는 경우 대응
+  const mutationObserver = new MutationObserver(() => {
+    scheduleSectionRescan();
+  });
+
+  mutationObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  // history API 기반 SPA 이동 대응
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+
+  history.pushState = function (...args) {
+    originalPushState.apply(this, args);
+    scheduleSectionRescan();
+  };
+
+  history.replaceState = function (...args) {
+    originalReplaceState.apply(this, args);
+    scheduleSectionRescan();
+  };
+
+  window.addEventListener('popstate', scheduleSectionRescan);
 }
 
 // ─────────────────────────────────────────────────────────────
