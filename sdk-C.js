@@ -473,17 +473,63 @@ function _initSectionTracking(handleRawEvent) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SUBSECTION TRACKING  [data-subsection="..."]
+// SUBSECTION TRACKING
+//   1순위: [data-subsection="..."] 명시적 마킹
+//   2순위: id/class/aria/heading 키워드 기반 자동 감지 (data 속성 없어도 동작)
 // dwell 시간 계산은 A(window.__GT)에 위임
 // ─────────────────────────────────────────────────────────────
 
 function _initSubsectionTracking(handleRawEvent) {
   const visitCount = {};
 
+  // 자동 감지 키워드 규칙 (section 보다 세분화된 의미 단위)
+  const SUBSECTION_RULES = [
+    { id: 'review',   re: /review|리뷰|후기|상품평|구매평|customer.?review/i },
+    { id: 'shipping', re: /ship|delivery|배송|반품|교환|환불|return|refund/i },
+    { id: 'size',     re: /size.?chart|사이즈|치수|실측|option.?size/i },
+    { id: 'price',    re: /price|가격|할인|쿠폰|discount|coupon|benefit|sale/i },
+    { id: 'qa',       re: /q&a|qna|문의|질문|faq/i },
+  ];
+
+  /** [data-subsection] 없어도 키워드로 서브섹션 ID 추론 */
+  function inferSubsectionId(el) {
+    if (el.dataset.subsection) return el.dataset.subsection;
+
+    const className = typeof el.className === 'string' ? el.className : '';
+    const heading   = el.querySelector('h1,h2,h3,h4,h5,h6')?.textContent || '';
+    const raw = [
+      el.id || '',
+      className,
+      el.getAttribute('aria-label') || '',
+      heading,
+    ].join(' ');
+
+    for (const rule of SUBSECTION_RULES) {
+      if (rule.re.test(raw)) return rule.id;
+    }
+    return null;
+  }
+
+  /** 서브섹션 후보 요소 수집: 명시 마킹 + 키워드 매칭 block 요소 */
+  function findCandidates() {
+    const tagged = Array.from(document.querySelectorAll('[data-subsection]'));
+
+    const inferred = Array.from(
+      document.querySelectorAll('section, article, div, aside, ul, table')
+    ).filter((el) => {
+      if (el.dataset.subsection) return false; // 이미 tagged 처리
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 120 || rect.height < 60) return false;
+      return inferSubsectionId(el) !== null;
+    });
+
+    return [...tagged, ...inferred];
+  }
+
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        const id = entry.target.dataset.subsection;
+        const id = inferSubsectionId(entry.target);
         if (!id) return;
 
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
@@ -505,7 +551,7 @@ function _initSubsectionTracking(handleRawEvent) {
   );
 
   function initSubsectionObserver() {
-    document.querySelectorAll('[data-subsection]').forEach((el) => observer.observe(el));
+    findCandidates().forEach((el) => observer.observe(el));
   }
 
   if (document.readyState === 'loading') {
