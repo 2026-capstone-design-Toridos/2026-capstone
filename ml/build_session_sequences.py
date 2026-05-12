@@ -49,6 +49,7 @@ IGNORED_EVENTS = {
     "scroll_speed",
     "scroll_stop",
     "scroll_direction_change",
+    "time_to_first_click",
 }
 
 CONTEXT_ONLY_EVENTS = {
