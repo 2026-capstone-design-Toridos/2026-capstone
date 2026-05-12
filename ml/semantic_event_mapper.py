@@ -232,6 +232,36 @@ def infer_semantic_from_text(text: str) -> Optional[str]:
 # =========================================================
 # Main Mapper
 # =========================================================
+def should_force_product_page(event_type: str, area: str) -> bool:
+    product_like_events = {
+        "product_click",
+        "add_to_cart",
+        "remove_from_cart",
+        "purchase_click",
+        "option_select",
+        "option_change",
+        "quantity_change",
+        "review_click",
+        "review_page_change",
+        "review_image_click",
+        "review_scroll",
+        "review_area_scroll",
+        "image_zoom",
+        "image_slide",
+        "video_play",
+        "video_watch_pct",
+    }
+
+    product_like_areas = {
+        "REVIEW",
+        "SHIPPING",
+        "SIZE",
+        "PRICE",
+        "IMAGE",
+        "PRODUCT_DETAIL",
+    }
+
+    return event_type in product_like_events or area in product_like_areas
 
 def map_event_to_semantic_token(
     event: Event,
@@ -252,6 +282,9 @@ def map_event_to_semantic_token(
     page = current_page or infer_page(event)
     area = classify_area(current_section, current_subsection)
 
+    if page == "HOME" and should_force_product_page(str(event_type), area):
+        page = "PRODUCT"
+    
     # -----------------------------------------------------
     # Session / Page
     # -----------------------------------------------------
@@ -271,13 +304,34 @@ def map_event_to_semantic_token(
     # Scroll
     # -----------------------------------------------------
     if event_type in {"scroll_depth", "scroll_milestone"}:
-        depth = safe_number(data.get("depth_pct") or data.get("milestone"))
+        depth = safe_number(
+            data.get("depth_pct")
+            or data.get("milestone")
+            or data.get("scroll_depth_pct")
+            or data.get("max_scroll_depth")
+        )
         bucket = scroll_bucket(depth)
 
+        # section context를 page보다 우선한다
         if area == "REVIEW":
             return f"{page}|SCROLL_REVIEW|{bucket}"
 
-        if area == "PRODUCT_DETAIL" or page == "PRODUCT":
+        if area == "SHIPPING":
+            return f"{page}|SCROLL_SHIPPING|{bucket}"
+
+        if area == "SIZE":
+            return f"{page}|SCROLL_SIZE|{bucket}"
+
+        if area == "PRICE":
+            return f"{page}|SCROLL_PRICE|{bucket}"
+
+        if area == "IMAGE":
+            return f"{page}|SCROLL_IMAGE|{bucket}"
+
+        if area == "PRODUCT_DETAIL":
+            return f"{page}|SCROLL_PRODUCT_DETAIL|{bucket}"
+
+        if page == "PRODUCT":
             return f"{page}|SCROLL_PRODUCT|{bucket}"
 
         if page == "HOME":

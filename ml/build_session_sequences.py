@@ -44,6 +44,23 @@ from semantic_event_mapper import infer_page, map_event_to_semantic_token
 
 Event = Dict[str, Any]
 
+IGNORED_EVENTS = {
+    "mouse_move",
+    "scroll_speed",
+    "scroll_stop",
+    "scroll_direction_change",
+}
+
+CONTEXT_ONLY_EVENTS = {
+    "section_enter",
+    "section_exit",
+    "section_transition",
+    "section_revisit",
+    "subsection_enter",
+    "subsection_exit",
+    "subsection_revisit",
+}
+
 
 # =========================================================
 # Loading
@@ -276,6 +293,12 @@ def build_semantic_sequence_for_session(
     debug_events: List[Dict[str, Any]] = []
 
     for event in session_events:
+        event_type = event.get("event_type")
+
+        # sequence 학습에는 너무 raw한 이벤트는 제외
+        if event_type in IGNORED_EVENTS:
+            continue
+        
         # 페이지는 이벤트마다 pathname 기반으로 업데이트
         inferred_page = infer_page(event)
         if inferred_page != "UNKNOWN":
@@ -294,6 +317,10 @@ def build_semantic_sequence_for_session(
             current_section=current_section,
             current_subsection=current_subsection,
         )
+        
+        # section_enter/exit 등은 상태 추적용. 학습 토큰이 아님
+        if token is None and event_type in CONTEXT_ONLY_EVENTS:
+            continue
 
         if token is None and include_unknown:
             page = current_page or "UNKNOWN"
