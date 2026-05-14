@@ -62,6 +62,78 @@ CONTEXT_ONLY_EVENTS = {
     "subsection_revisit",
 }
 
+# TAB_OUT / INACTIVE / TAB_RETURN 연속 반복을 압축할 semantic action 집합
+FOCUS_AWAY_ACTIONS = {"TAB_OUT", "INACTIVE", "TAB_RETURN"}
+
+# 동일 subsection 내 scroll_depth 오르내림을 압축할 semantic action 집합
+# (HIGH/LOW/MID가 번갈아 찍혀 deduplication이 안 되는 경우)
+COLLAPSE_SCROLL_ACTIONS = {
+    "SCROLL_PRICE", "SCROLL_SIZE", "SCROLL_SHIPPING", "SCROLL_QA",
+}
+
+
+def collapse_focus_away_runs(sequence: list[str], min_run: int = 3) -> list[str]:
+    """
+    1) 연속된 TAB_OUT/INACTIVE/TAB_RETURN 묶음이 min_run개 이상이면
+       {PAGE}|DISTRACTED_EPISODE|REPEAT 단일 토큰으로 압축.
+    2) 연속된 SCROLL_PRICE/SCROLL_SIZE 등이 min_run개 이상이면
+       {PAGE}|{ACTION}|SCROLLED 단일 토큰으로 압축.
+    """
+    result: list[str] = []
+    i = 0
+    while i < len(sequence):
+        token = sequence[i]
+        parts = token.split("|")
+        if len(parts) != 3:
+            result.append(token)
+            i += 1
+            continue
+
+        action = parts[1]
+        page = parts[0]
+
+        if action in FOCUS_AWAY_ACTIONS:
+            run_start = i
+            while i < len(sequence):
+                p = sequence[i].split("|")
+                if len(p) == 3 and p[1] in FOCUS_AWAY_ACTIONS:
+                    i += 1
+                else:
+                    break
+            run_len = i - run_start
+            if run_len >= min_run:
+                result.append(f"{page}|DISTRACTED_EPISODE|REPEAT")
+            else:
+                result.extend(sequence[run_start:i])
+
+        elif action in COLLAPSE_SCROLL_ACTIONS:
+            # 동일 semantic action(SCROLL_PRICE 등)이 연속으로 나오면 압축
+            run_start = i
+            while i < len(sequence):
+                p = sequence[i].split("|")
+                if len(p) == 3 and p[1] == action:
+                    i += 1
+                else:
+                    break
+            run_len = i - run_start
+            if run_len >= min_run:
+                result.append(f"{page}|{action}|SCROLLED")
+            else:
+                result.extend(sequence[run_start:i])
+
+        else:
+            result.append(token)
+            i += 1
+    return result
+
+
+def unknown_token_ratio(sequence: list[str]) -> float:
+    """시퀀스에서 UNKNOWN 페이지 토큰 비율 계산."""
+    if not sequence:
+        return 0.0
+    unknown_count = sum(1 for t in sequence if t.startswith("UNKNOWN|"))
+    return unknown_count / len(sequence)
+
 
 # =========================================================
 # Loading
@@ -273,6 +345,8 @@ def build_semantic_sequence_for_session(
     *,
     include_unknown: bool = False,
     deduplicate_consecutive: bool = True,
+    collapse_tab_runs: bool = True,
+    min_tab_run: int = 3,
 ) -> Dict[str, Any]:
     """
     세션 하나를 semantic token sequence로 변환.
@@ -343,6 +417,9 @@ def build_semantic_sequence_for_session(
                 "semantic_token": token,
             })
 
+    if collapse_tab_runs:
+        sequence = collapse_focus_away_runs(sequence, min_run=min_tab_run)
+
     start_ts = session_events[0].get("timestamp")
     end_ts = session_events[-1].get("timestamp")
 
@@ -361,18 +438,34 @@ def build_all_session_sequences(
     *,
     include_unknown: bool = False,
     deduplicate_consecutive: bool = True,
+    collapse_tab_runs: bool = True,
+    min_tab_run: int = 3,
+    max_unknown_ratio: float = 0.5,
 ) -> List[Dict[str, Any]]:
     sessions = group_by_session(events)
 
     results: List[Dict[str, Any]] = []
+    filtered_unknown = 0
 
     for session_id, session_events in sessions.items():
         result = build_semantic_sequence_for_session(
             session_events,
             include_unknown=include_unknown,
             deduplicate_consecutive=deduplicate_consecutive,
+            collapse_tab_runs=collapse_tab_runs,
+            min_tab_run=min_tab_run,
         )
+
+        # UNKNOWN 비율이 너무 높은 세션 필터링
+        ratio = unknown_token_ratio(result.get("sequence", []))
+        if ratio > max_unknown_ratio:
+            filtered_unknown += 1
+            continue
+
         results.append(result)
+
+    if filtered_unknown:
+        print(f"[filter] UNKNOWN 비율 >{max_unknown_ratio:.0%} 세션 제거: {filtered_unknown}개")
 
     results.sort(key=lambda x: str(x.get("start_timestamp", "")))
 
@@ -521,6 +614,26 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Do not deduplicate consecutive identical tokens.",
     )
 
+    parser.add_argument(
+        "--no-collapse",
+        action="store_true",
+        help="TAB_OUT/INACTIVE/TAB_RETURN 연속 반복 압축 비활성화 (기본: 활성화).",
+    )
+
+    parser.add_argument(
+        "--min-tab-run",
+        type=int,
+        default=3,
+        help="DISTRACTED_EPISODE로 압축할 최소 연속 횟수 (기본: 3).",
+    )
+
+    parser.add_argument(
+        "--max-unknown-ratio",
+        type=float,
+        default=0.5,
+        help="이 비율 초과 시 해당 세션 제거 (기본: 0.5 = 50%%).",
+    )
+
     return parser
 
 
@@ -534,6 +647,9 @@ def main() -> None:
         events,
         include_unknown=args.include_unknown,
         deduplicate_consecutive=not args.no_dedupe,
+        collapse_tab_runs=not args.no_collapse,
+        min_tab_run=args.min_tab_run,
+        max_unknown_ratio=args.max_unknown_ratio,
     )
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")

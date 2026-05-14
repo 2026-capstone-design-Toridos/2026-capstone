@@ -116,32 +116,51 @@ def safe_number(value: Any, default: Optional[float] = None) -> Optional[float]:
 def infer_page(event: Event) -> str:
     """
     pathname/page_url 기반 PAGE 추론.
-    필요하면 프로젝트 쇼핑몰 URL 패턴에 맞게 계속 추가하면 됨.
+    full URL이 넘어와도 path 부분만 추출해서 처리.
     """
     pathname = normalize_text(event.get("pathname"))
     page_url = normalize_text(event.get("page_url"))
-    path = pathname or page_url
+    raw = pathname or page_url
 
-    if not path:
+    if not raw:
         return "UNKNOWN"
 
-    if path in ["/", "/home", "/main"]:
+    # full URL이면 path + query만 추출
+    if "://" in raw:
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(raw)
+            path = parsed.path.rstrip("/") or "/"
+            query = parsed.query
+        except Exception:
+            path = raw
+            query = ""
+    else:
+        path = raw.split("?")[0].rstrip("/") or "/"
+        query = raw[len(path):]
+
+    # HOME: 루트이거나 /home /main
+    if path in ["", "/", "/home", "/main"]:
         return "HOME"
 
-    if any(key in path for key in ["/category", "/categories", "/collections", "/collection"]):
-        return "CATEGORY"
-
-    if any(key in path for key in ["/product", "/products", "/item", "/items", "/goods", "/shop"]):
-        return "PRODUCT"
-
-    if any(key in path for key in ["/cart", "/basket", "/bag"]):
-        return "CART"
-
-    if any(key in path for key in ["/checkout", "/order", "/payment", "/pay"]):
+    if any(key in path for key in ["/checkout", "/order", "/payment", "/pay", "/결제", "/주문"]):
         return "CHECKOUT"
 
-    if any(key in path for key in ["/search"]):
-        return "SEARCH"
+    if any(key in path for key in ["/cart", "/basket", "/bag", "/장바구니"]):
+        return "CART"
+
+    if any(key in path for key in ["/product", "/products", "/item", "/items", "/goods", "/shop", "/상품", "/detail"]):
+        return "PRODUCT"
+
+    # 쿼리스트링에 상품 ID가 있는 경우 (예: ?id=123, ?product_id=456)
+    if any(k in query for k in ["product_id=", "item_id=", "goods_id="]):
+        return "PRODUCT"
+
+    if any(key in path for key in ["/category", "/categories", "/collections", "/collection", "/search", "/카테고리"]):
+        return "CATEGORY"
+
+    if any(key in path for key in ["/review", "/reviews", "/후기", "/리뷰"]):
+        return "REVIEW"
 
     return "UNKNOWN"
 
