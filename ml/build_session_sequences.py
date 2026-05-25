@@ -67,9 +67,31 @@ FOCUS_AWAY_ACTIONS = {"TAB_OUT", "INACTIVE", "TAB_RETURN"}
 
 # 동일 subsection 내 scroll_depth 오르내림을 압축할 semantic action 집합
 # (HIGH/LOW/MID가 번갈아 찍혀 deduplication이 안 되는 경우)
+# SCROLL_PRODUCT 추가: 스크롤 bucket 변화(LOW→MID→HIGH)가 연속으로 찍히는 노이즈 압축
 COLLAPSE_SCROLL_ACTIONS = {
     "SCROLL_PRICE", "SCROLL_SIZE", "SCROLL_SHIPPING", "SCROLL_QA",
+    "SCROLL_PRODUCT",   # generic scroll noise 압축
 }
+
+# ── Intent Episode 설정 ────────────────────────────────────────────────────
+# 같은 intent semantic이 짧은 window 내 N회 이상 등장하면 episode 마커 삽입
+INTENT_EPISODE_MAP: dict[str, str] = {
+    "CHECK_PRICE":    "PRICE_REVIEW_EPISODE",
+    "VIEW_REVIEW":    "REVIEW_EXPLORATION_EPISODE",
+    "CHECK_SHIPPING": "SHIPPING_CHECK_EPISODE",
+    "CHECK_SIZE":     "SIZE_CHECK_EPISODE",
+}
+
+# episode 윈도우: 최근 N개의 intent 토큰 안에서 동일 intent가 반복되면 episode 발생
+_EPISODE_WINDOW    = 8   # intent 토큰 기준 (generic pass-through 제외)
+_EPISODE_THRESHOLD = 2   # 동일 intent N회 이상 → episode 마커 삽입 (once per cluster)
+
+# episode 윈도우를 깨지 않고 통과시키는 generic 토큰
+_EPISODE_PASSTHROUGH = {"HOVER_ELEMENT", "CLICK_ELEMENT", "SCROLL_PRODUCT"}
+
+# episode 윈도우를 리셋하는 전환 시맨틱 접두사/값
+_EPISODE_RESET_PREFIXES = ("ENTER_", "EXIT_", "START_SESSION", "ADD_CART",
+                           "CLICK_BUY", "CART_ABANDON", "RAGE_CLICK")
 
 
 def collapse_focus_away_runs(sequence: list[str], min_run: int = 3) -> list[str]:
@@ -124,6 +146,72 @@ def collapse_focus_away_runs(sequence: list[str], min_run: int = 3) -> list[str]
         else:
             result.append(token)
             i += 1
+    return result
+
+
+def promote_intent_episodes(sequence: list[str]) -> list[str]:
+    """
+    같은 intent semantic이 _EPISODE_WINDOW 내에서 _EPISODE_THRESHOLD회 이상 등장하면
+    episode 마커를 한 번 삽입하여 의도 학습 신호를 강화한다.
+
+    예:
+      CHECK_PRICE → SCROLL_PRODUCT → CHECK_PRICE
+      → CHECK_PRICE → SCROLL_PRODUCT → CHECK_PRICE → PRICE_REVIEW_EPISODE|STRONG
+
+    규칙:
+    - _EPISODE_PASSTHROUGH 토큰(HOVER_ELEMENT, CLICK_ELEMENT, SCROLL_PRODUCT)은
+      window 계산에서 제외(통과)되어 의도 클러스터를 끊지 않는다.
+    - 전환/전환 시맨틱(ENTER_, EXIT_, ADD_CART 등)은 window를 리셋한다.
+    - 동일 cluster 내에서 episode 마커는 한 번만 삽입된다.
+    """
+    result: list[str] = []
+    # 최근 window 내에서 본 intent semantic들 (passthrough 제외)
+    recent_intents: list[str] = []
+    # 이미 episode를 삽입한 semantic (현재 cluster 기준)
+    episode_emitted: set[str] = set()
+
+    for token in sequence:
+        result.append(token)
+
+        parts = token.split("|")
+        if len(parts) != 3:
+            # 형식 불명 → 리셋
+            recent_intents.clear()
+            episode_emitted.clear()
+            continue
+
+        page     = parts[0]
+        semantic = parts[1]
+
+        # generic pass-through → window 계산에 영향 없음
+        if semantic in _EPISODE_PASSTHROUGH:
+            continue
+
+        # 전환 시맨틱 → window 리셋
+        if any(semantic.startswith(p) for p in _EPISODE_RESET_PREFIXES):
+            recent_intents.clear()
+            episode_emitted.clear()
+            continue
+
+        # intent 이외의 기타 시맨틱(ZOOM_IMAGE, WATCH_VIDEO 등)은 무시(통과)
+        if semantic not in INTENT_EPISODE_MAP:
+            continue
+
+        # window에 기록
+        recent_intents.append(semantic)
+        if len(recent_intents) > _EPISODE_WINDOW:
+            # window 넘치면 앞에서 하나 제거하고 episode_emitted 정리
+            removed = recent_intents.pop(0)
+            still_in_window = set(recent_intents)
+            episode_emitted = episode_emitted & still_in_window
+
+        # 동일 intent 횟수 체크
+        count = recent_intents.count(semantic)
+        if count >= _EPISODE_THRESHOLD and semantic not in episode_emitted:
+            episode_name = INTENT_EPISODE_MAP[semantic]
+            result.append(f"{page}|{episode_name}|STRONG")
+            episode_emitted.add(semantic)
+
     return result
 
 
@@ -347,6 +435,7 @@ def build_semantic_sequence_for_session(
     deduplicate_consecutive: bool = True,
     collapse_tab_runs: bool = True,
     min_tab_run: int = 3,
+    promote_episodes: bool = True,
 ) -> Dict[str, Any]:
     """
     세션 하나를 semantic token sequence로 변환.
@@ -420,6 +509,10 @@ def build_semantic_sequence_for_session(
     if collapse_tab_runs:
         sequence = collapse_focus_away_runs(sequence, min_run=min_tab_run)
 
+    # intent episode 승격: 동일 intent가 window 내 반복될 때 episode 마커 삽입
+    if promote_episodes:
+        sequence = promote_intent_episodes(sequence)
+
     start_ts = session_events[0].get("timestamp")
     end_ts = session_events[-1].get("timestamp")
 
@@ -441,6 +534,7 @@ def build_all_session_sequences(
     collapse_tab_runs: bool = True,
     min_tab_run: int = 3,
     max_unknown_ratio: float = 0.5,
+    promote_episodes: bool = True,
 ) -> List[Dict[str, Any]]:
     sessions = group_by_session(events)
 
@@ -454,6 +548,7 @@ def build_all_session_sequences(
             deduplicate_consecutive=deduplicate_consecutive,
             collapse_tab_runs=collapse_tab_runs,
             min_tab_run=min_tab_run,
+            promote_episodes=promote_episodes,
         )
 
         # UNKNOWN 비율이 너무 높은 세션 필터링
@@ -634,6 +729,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="이 비율 초과 시 해당 세션 제거 (기본: 0.5 = 50%%).",
     )
 
+    parser.add_argument(
+        "--no-episodes",
+        action="store_true",
+        help="Intent episode 승격 비활성화 (기본: 활성화).",
+    )
+
     return parser
 
 
@@ -650,6 +751,7 @@ def main() -> None:
         collapse_tab_runs=not args.no_collapse,
         min_tab_run=args.min_tab_run,
         max_unknown_ratio=args.max_unknown_ratio,
+        promote_episodes=not args.no_episodes,
     )
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
