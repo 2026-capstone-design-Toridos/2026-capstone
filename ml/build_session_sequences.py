@@ -73,6 +73,10 @@ COLLAPSE_SCROLL_ACTIONS = {
     "SCROLL_PRODUCT",   # generic scroll noise 압축
 }
 
+# HOVER_ELEMENT / CLICK_ELEMENT: intent token을 묻는 generic 노이즈 압축
+# 3개 이상 연속(혼합 포함)이면 대표 토큰 1개만 유지
+COLLAPSE_GENERIC_ACTIONS = {"HOVER_ELEMENT", "CLICK_ELEMENT"}
+
 # ── Intent Episode 설정 ────────────────────────────────────────────────────
 # 같은 intent semantic이 짧은 window 내 N회 이상 등장하면 episode 마커 삽입
 INTENT_EPISODE_MAP: dict[str, str] = {
@@ -140,6 +144,23 @@ def collapse_focus_away_runs(sequence: list[str], min_run: int = 3) -> list[str]
             run_len = i - run_start
             if run_len >= min_run:
                 result.append(f"{page}|{action}|SCROLLED")
+            else:
+                result.extend(sequence[run_start:i])
+
+        elif action in COLLAPSE_GENERIC_ACTIONS:
+            # HOVER_ELEMENT / CLICK_ELEMENT 혼합 연속 런 → 3개 이상이면 대표 1개 유지
+            # intent token을 묻는 generic 노이즈를 제거해 학습 신호를 선명하게 만든다
+            run_start = i
+            while i < len(sequence):
+                p = sequence[i].split("|")
+                if len(p) == 3 and p[1] in COLLAPSE_GENERIC_ACTIONS:
+                    i += 1
+                else:
+                    break
+            run_len = i - run_start
+            if run_len >= min_run:
+                # 대표 토큰 1개만 남김 (마커 삽입 없이 단순 압축)
+                result.append(sequence[run_start])
             else:
                 result.extend(sequence[run_start:i])
 

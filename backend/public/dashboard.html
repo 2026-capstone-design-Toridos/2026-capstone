@@ -82,6 +82,58 @@
 
     /* Empty state */
     .empty { text-align: center; padding: 48px; color: var(--muted); }
+
+    /* ── Cluster Section ───────────────────────────────────────── */
+    .section-title {
+      font-size: 1rem; font-weight: 700; margin: 32px 0 16px;
+      padding-left: 12px; border-left: 3px solid var(--blue);
+    }
+    .cluster-meta {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;
+    }
+    .cluster-meta-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 18px;
+    }
+    .cluster-meta-card .label { font-size: 0.75rem; color: var(--muted); margin-bottom: 6px; }
+    .cluster-meta-card .value { font-size: 1.5rem; font-weight: 700; color: var(--blue); }
+    .cluster-meta-card .value.green  { color: var(--green); }
+    .cluster-meta-card .value.yellow { color: var(--yellow); }
+    .cluster-meta-card .value.red    { color: var(--red); }
+
+    .cluster-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;
+    }
+    .cluster-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 18px 20px; position: relative; overflow: hidden;
+    }
+    .cluster-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    }
+    .cluster-card.c0::before { background: #38bdf8; }
+    .cluster-card.c1::before { background: #f87171; }
+    .cluster-card.c2::before { background: #fb923c; }
+    .cluster-card.c3::before { background: #34d399; }
+    .cluster-card.cnoise::before { background: #475569; }
+
+    .cluster-header {
+      display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;
+    }
+    .cluster-name { font-size: 0.95rem; font-weight: 700; }
+    .cluster-count {
+      font-size: 0.75rem; color: var(--muted);
+      background: rgba(255,255,255,0.06); padding: 3px 10px; border-radius: 999px;
+    }
+    .cluster-desc { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+    .cluster-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .action-chip {
+      font-size: 0.72rem; padding: 3px 8px; border-radius: 4px;
+      background: rgba(255,255,255,0.06); color: var(--text); white-space: nowrap;
+    }
+    .action-chip .cnt { color: var(--muted); margin-left: 4px; }
+
+    .cluster-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   </style>
 </head>
 <body>
@@ -132,6 +184,46 @@
       <span class="log-count" id="log-count"></span>
     </div>
     <div id="log-list"><div class="empty">이벤트를 기다리는 중...</div></div>
+  </div>
+
+  <!-- ── Cluster Analysis ───────────────────────────────────────── -->
+  <div class="section-title">🔍 세션 클러스터 분석</div>
+
+  <!-- Cluster Meta Stats -->
+  <div class="cluster-meta" id="cluster-meta">
+    <div class="cluster-meta-card">
+      <div class="label">분석 세션 수</div>
+      <div class="value" id="cl-total">—</div>
+    </div>
+    <div class="cluster-meta-card">
+      <div class="label">클러스터 수</div>
+      <div class="value green" id="cl-count">—</div>
+    </div>
+    <div class="cluster-meta-card">
+      <div class="label">Silhouette Score</div>
+      <div class="value yellow" id="cl-sil">—</div>
+    </div>
+    <div class="cluster-meta-card">
+      <div class="label">Davies-Bouldin</div>
+      <div class="value red" id="cl-db">—</div>
+    </div>
+  </div>
+
+  <!-- Cluster Charts -->
+  <div class="cluster-charts">
+    <div class="card">
+      <div class="card-title">세션 유형 분포</div>
+      <canvas id="clusterPieChart" height="200"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">클러스터별 세션 수</div>
+      <canvas id="clusterBarChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Cluster Cards -->
+  <div class="cluster-grid" id="cluster-cards">
+    <div class="empty">클러스터 데이터 로딩 중...</div>
   </div>
 
 </div>
@@ -322,6 +414,94 @@
   loadSites();
   refresh();
   setInterval(refresh, 2000);
+
+  // ── Cluster Analysis ─────────────────────────────────────────────────────
+
+  const CLUSTER_COLORS = ['#38bdf8', '#f87171', '#fb923c', '#34d399', '#a78bfa', '#fbbf24'];
+  const CLUSTER_CLASS  = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5'];
+
+  const CLUSTER_DESCS = {
+    '가격 비교형':       'SCROLL_PRICE·CHECK_PRICE 반복. TAB_OUT 多. 가격 보고 망설이다 이탈하는 패턴.',
+    '홈 브라우징/이탈':  'HOME 96% 집중. 짧은 세션, 상품 페이지 진입 없이 종료.',
+    '적극 탐색/구매':    'SCROLL_PRODUCT·VIEW_REVIEW·ADD_CART·CHECKOUT 고루 포함. 가장 다양한 행동 패턴.',
+    '상품 탐색 후 중단': 'ZOOM_IMAGE·SCROLL_PRODUCT 반복, DISTRACTED_EPISODE 多. 상품 탐색 후 이탈.',
+  };
+
+  const clPieCtx = document.getElementById('clusterPieChart').getContext('2d');
+  const clPie = new Chart(clPieCtx, {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0 }] },
+    options: {
+      plugins: { legend: { position: 'right', labels: { color: '#f1f5f9', font: { size: 11 }, boxWidth: 12 } } },
+      cutout: '60%',
+    }
+  });
+
+  const clBarCtx = document.getElementById('clusterBarChart').getContext('2d');
+  const clBar = new Chart(clBarCtx, {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderRadius: 6 }] },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+      }
+    }
+  });
+
+  async function loadClusters() {
+    try {
+      const data = await fetch('/api/clusters').then(r => r.json());
+      if (data.error) return;
+
+      // Meta stats
+      document.getElementById('cl-total').textContent = data.total_sessions?.toLocaleString() ?? '—';
+      document.getElementById('cl-count').textContent = data.n_clusters ?? '—';
+      document.getElementById('cl-sil').textContent   = data.silhouette?.toFixed(4) ?? '—';
+      document.getElementById('cl-db').textContent    = data.davies_bouldin?.toFixed(4) ?? '—';
+
+      // 노이즈 제외한 클러스터만
+      const clusters = (data.clusters || []).filter(c => c.cluster >= 0);
+
+      // Pie chart
+      clPie.data.labels = clusters.map(c => c.label);
+      clPie.data.datasets[0].data = clusters.map(c => c.count);
+      clPie.data.datasets[0].backgroundColor = clusters.map((_, i) => CLUSTER_COLORS[i % CLUSTER_COLORS.length]);
+      clPie.update();
+
+      // Bar chart
+      clBar.data.labels = clusters.map(c => c.label);
+      clBar.data.datasets[0].data = clusters.map(c => c.count);
+      clBar.data.datasets[0].backgroundColor = clusters.map((_, i) => CLUSTER_COLORS[i % CLUSTER_COLORS.length]);
+      clBar.update();
+
+      // Cluster cards
+      const grid = document.getElementById('cluster-cards');
+      grid.innerHTML = clusters.map((c, i) => {
+        const desc = CLUSTER_DESCS[c.label] || '';
+        const chips = (c.top_actions || []).map(a =>
+          `<span class="action-chip">${a.action}<span class="cnt">${a.count}</span></span>`
+        ).join('');
+        const pct = data.total_sessions ? Math.round(100 * c.count / data.total_sessions) : 0;
+        return `
+          <div class="cluster-card ${CLUSTER_CLASS[i] || ''}">
+            <div class="cluster-header">
+              <div class="cluster-name">${c.label}</div>
+              <div class="cluster-count">${c.count}개 세션 · ${pct}%</div>
+            </div>
+            <div class="cluster-desc">${desc}</div>
+            <div class="cluster-actions">${chips}</div>
+          </div>`;
+      }).join('');
+
+    } catch (e) {
+      console.warn('[clusters] 로드 실패:', e.message);
+    }
+  }
+
+  loadClusters();
+  setInterval(loadClusters, 30000);   // 30초마다 갱신
 </script>
 </body>
 </html>

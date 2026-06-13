@@ -518,6 +518,43 @@ def map_event_to_semantic_token(
 
     # ── 9. 호버 ────────────────────────────────────────────────────────
 
+    if event_type == "hover":
+        # dwell 시간 없는 일반 hover — section/area 기반 우선 매핑
+        semantic_from_text = infer_semantic_from_text(
+            data.get("hover_text") or data.get("hover_target") or ""
+        )
+        if semantic_from_text:
+            return make_token(page, semantic_from_text, "NONE")
+
+        # 이벤트 payload의 section 필드 직접 확인 (context 추적보다 직접적 신호)
+        event_section = normalize_text(data.get("section") or data.get("element_section") or "")
+        if event_section:
+            for key in PRICE_KEYS:
+                if key in event_section:
+                    return make_token(page, "CHECK_PRICE", "NONE")
+            for key in REVIEW_KEYS:
+                if key in event_section:
+                    return make_token(page, "VIEW_REVIEW", "NONE")
+            for key in SHIPPING_KEYS:
+                if key in event_section:
+                    return make_token(page, "CHECK_SHIPPING", "NONE")
+            for key in SIZE_KEYS:
+                if key in event_section:
+                    return make_token(page, "CHECK_SIZE", "NONE")
+
+        # 영역 context 기반 매핑
+        _hover_area_map = {
+            "REVIEW":   "VIEW_REVIEW",
+            "SHIPPING": "CHECK_SHIPPING",
+            "SIZE":     "CHECK_SIZE",
+            "PRICE":    "CHECK_PRICE",
+        }
+        semantic = _hover_area_map.get(area)
+        if semantic:
+            return make_token(page, semantic, "NONE")
+
+        return make_token(page, "HOVER_ELEMENT")
+
     if event_type == "hover_dwell":
         hover_ms = safe_number(data.get("hover_dwell_time_ms"))
         h_bucket = hover_bucket(hover_ms)
@@ -563,6 +600,23 @@ def map_event_to_semantic_token(
         if semantic_from_text:
             return make_token(page, semantic_from_text, "NONE")
 
+        # 이벤트 payload의 section 필드 직접 확인 (context 추적보다 직접적 신호)
+        event_section = normalize_text(data.get("section") or data.get("element_section") or "")
+        if event_section:
+            for key in PRICE_KEYS:
+                if key in event_section:
+                    return make_token(page, "CHECK_PRICE", "NONE")
+            for key in REVIEW_KEYS:
+                if key in event_section:
+                    return make_token(page, "VIEW_REVIEW", "NONE")
+            for key in SHIPPING_KEYS:
+                if key in event_section:
+                    return make_token(page, "CHECK_SHIPPING", "NONE")
+            for key in SIZE_KEYS:
+                if key in event_section:
+                    return make_token(page, "CHECK_SIZE", "NONE")
+
+        # 영역 context 기반 매핑
         _area_map = {
             "REVIEW":   "VIEW_REVIEW",
             "SHIPPING": "CHECK_SHIPPING",

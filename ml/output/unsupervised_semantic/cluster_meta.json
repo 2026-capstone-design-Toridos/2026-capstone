@@ -1,0 +1,329 @@
+{
+  "base_path": "/content/drive/MyDrive/GhostTracker",
+  "export_dir": "/content/drive/MyDrive/GhostTracker/export_artifacts",
+  "num_clusters": 4,
+  "cluster_ids": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "cluster_id_to_index": {
+    "0": 0,
+    "1": 1,
+    "2": 2,
+    "3": 3
+  },
+  "embedding_dim": 64,
+  "model_class": "TransformerMLM",
+  "vocab": {
+    "[PAD]": 0,
+    "[UNK]": 1,
+    "[CLS]": 2,
+    "[MASK]": 3,
+    "HOME|SCROLL_HOME|NONE": 4,
+    "PRODUCT|VIEW_PRODUCT|NONE": 5,
+    "HOME|START_SESSION|NONE": 6,
+    "HOME|ENTER_HOME|NONE": 7,
+    "PRODUCT|ADD_CART|NONE": 8,
+    "PRODUCT|ENTER_PRODUCT|NONE": 9,
+    "PRODUCT|ZOOM_IMAGE|NONE": 10,
+    "PRODUCT|INACTIVE|NONE": 11,
+    "HOME|INACTIVE|NONE": 12,
+    "PRODUCT|RAGE_CLICK|NONE": 13,
+    "CART|REMOVE_CART|NONE": 14,
+    "PRODUCT|VIEW_PRODUCT|DWELL_LONG": 15,
+    "PRODUCT|SCROLL_PRODUCT|SCROLL_HIGH": 16,
+    "PRODUCT|VIEW_PRODUCT|DWELL_MEDIUM": 17,
+    "PRODUCT|SCROLL_PRODUCT|SCROLL_MID": 18,
+    "PRODUCT|VIEW_IMAGE|NONE": 19,
+    "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW": 20,
+    "PRODUCT|HOVER_ELEMENT|HOVER_SHORT": 21,
+    "PRODUCT|CLICK_ELEMENT|NONE": 22,
+    "PRODUCT|VIEW_PRODUCT|DWELL_SHORT": 23,
+    "CHECKOUT|CLICK_BUY|NONE": 24,
+    "PRODUCT|HOVER_ELEMENT|HOVER_LONG": 25,
+    "HOME|SCROLL_HOME|SCROLL_HIGH": 26,
+    "CART|ENTER_CART|NONE": 27,
+    "PRODUCT|TAB_OUT|NONE": 28,
+    "PRODUCT|TAB_RETURN|NONE": 29,
+    "HOME|SCROLL_HOME|SCROLL_LOW": 30,
+    "HOME|SCROLL_HOME|SCROLL_MID": 31,
+    "HOME|HOVER_ELEMENT|HOVER_SHORT": 32,
+    "HOME|CLICK_ELEMENT|NONE": 33,
+    "HOME|CHECK_PRICE|DWELL_SHORT": 34,
+    "PRODUCT|EXIT_SESSION|NONE": 35,
+    "PRODUCT|CHECK_SHIPPING|DWELL_SHORT": 36,
+    "PRODUCT|CHECK_SIZE|DWELL_MEDIUM": 37,
+    "PRODUCT|CHECK_SHIPPING|DWELL_MEDIUM": 38,
+    "PRODUCT|CHECK_SIZE|DWELL_SHORT": 39,
+    "PRODUCT|CHECK_SIZE|HOVER_LONG": 40,
+    "PRODUCT|CHANGE_QUANTITY|NONE": 41,
+    "PRODUCT|CHECK_SIZE|DWELL_LONG": 42,
+    "PRODUCT|CHANGE_OPTION|NONE": 43,
+    "PRODUCT|CHECK_SIZE|HOVER_SHORT": 44,
+    "PRODUCT|CHECK_PRICE|DWELL_MEDIUM": 45,
+    "PRODUCT|CHECK_PRICE|DWELL_SHORT": 46,
+    "PRODUCT|VIEW_REVIEW|DWELL_SHORT": 47,
+    "PRODUCT|VIEW_REVIEW|REVISIT_MULTI": 48,
+    "PRODUCT|VIEW_REVIEW|DWELL_MEDIUM": 49,
+    "PRODUCT|CHECK_PRICE|DWELL_LONG": 50,
+    "CART|CHECK_SHIPPING|DWELL_SHORT": 51,
+    "CART|CLICK_BUY|NONE": 52,
+    "PRODUCT|SCROLL_REVIEW|SCROLL_MID": 53,
+    "PRODUCT|VIEW_REVIEW|REVISIT_ONCE": 54,
+    "PRODUCT|VIEW_REVIEW|DWELL_LONG": 55,
+    "PRODUCT|EXPAND_REVIEW|NONE": 56,
+    "PRODUCT|SCROLL_REVIEW|SCROLL_HIGH": 57,
+    "PRODUCT|SCROLL_REVIEW|SCROLL_LOW": 58,
+    "PRODUCT|WATCH_VIDEO|NONE": 59,
+    "CHECKOUT|EDIT_INPUT|NONE": 60,
+    "CHECKOUT|ENTER_CHECKOUT|NONE": 61,
+    "CHECKOUT|START_INPUT|NONE": 62,
+    "CATEGORY|SEARCH_USE|NONE": 63,
+    "CATEGORY|ENTER_CATEGORY|NONE": 64,
+    "CATEGORY|SCROLL_PAGE|SCROLL_HIGH": 65,
+    "CATEGORY|SCROLL_PAGE|SCROLL_MID": 66,
+    "CATEGORY|CLICK_ELEMENT|NONE": 67,
+    "CATEGORY|SCROLL_PAGE|SCROLL_LOW": 68,
+    "HOME|SEARCH_USE|NONE": 69,
+    "CATEGORY|HOVER_ELEMENT|HOVER_SHORT": 70,
+    "CART|CHECK_PRICE|DWELL_MEDIUM": 71,
+    "CART|CHECK_SHIPPING|DWELL_MEDIUM": 72,
+    "PRODUCT|EXIT_BOUNCE|NONE": 73,
+    "CART|TAB_OUT|NONE": 74,
+    "CART|CHANGE_OPTION|NONE": 75,
+    "CHECKOUT|TAB_OUT|NONE": 76,
+    "CART|EXIT_SESSION|NONE": 77,
+    "CART|CHANGE_QUANTITY|NONE": 78,
+    "CART|INACTIVE|NONE": 79,
+    "HOME|EXIT_SESSION|NONE": 80,
+    "HOME|EXIT_BOUNCE|NONE": 81,
+    "CHECKOUT|EXIT_SESSION|NONE": 82,
+    "CHECKOUT|TAB_RETURN|NONE": 83,
+    "CHECKOUT|REMOVE_CART|NONE": 84,
+    "CHECKOUT|CHECK_PRICE|DWELL_MEDIUM": 85,
+    "CHECKOUT|INACTIVE|NONE": 86,
+    "CHECKOUT|SCROLL_PAGE|SCROLL_MID": 87
+  },
+  "vocab_size": 88,
+  "max_len": 64,
+  "special_tokens": {
+    "PAD_ID": 0,
+    "UNK_ID": 1,
+    "CLS_ID": 2,
+    "MASK_ID": 3
+  },
+  "cluster_counts": {
+    "0": 242,
+    "1": 183,
+    "2": 1075,
+    "3": 174
+  },
+  "noise_count": 246,
+  "cluster_profiles": {
+    "0": {
+      "count": 242,
+      "top_actions": [
+        {
+          "action": "SCROLL_PAGE",
+          "count": 1099
+        },
+        {
+          "action": "SEARCH_USE",
+          "count": 688
+        },
+        {
+          "action": "CLICK_ELEMENT",
+          "count": 605
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 592
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 530
+        },
+        {
+          "action": "ENTER_PRODUCT",
+          "count": 523
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 494
+        },
+        {
+          "action": "INACTIVE",
+          "count": 465
+        },
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 457
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 388
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 3493,
+        "CATEGORY": 2655,
+        "HOME": 1092,
+        "CART": 210,
+        "CHECKOUT": 160
+      }
+    },
+    "1": {
+      "count": 183,
+      "top_actions": [
+        {
+          "action": "VIEW_REVIEW",
+          "count": 1357
+        },
+        {
+          "action": "ZOOM_IMAGE",
+          "count": 842
+        },
+        {
+          "action": "ENTER_PRODUCT",
+          "count": 810
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 805
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 804
+        },
+        {
+          "action": "SCROLL_REVIEW",
+          "count": 786
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 760
+        },
+        {
+          "action": "VIEW_IMAGE",
+          "count": 555
+        },
+        {
+          "action": "INACTIVE",
+          "count": 472
+        },
+        {
+          "action": "CHECK_SIZE",
+          "count": 336
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 7586,
+        "HOME": 2027,
+        "CART": 3
+      }
+    },
+    "2": {
+      "count": 1075,
+      "top_actions": [
+        {
+          "action": "CHECK_SIZE",
+          "count": 3119
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 2200
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 2121
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 2097
+        },
+        {
+          "action": "INACTIVE",
+          "count": 2053
+        },
+        {
+          "action": "ENTER_PRODUCT",
+          "count": 1929
+        },
+        {
+          "action": "CHECK_SHIPPING",
+          "count": 1858
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 1825
+        },
+        {
+          "action": "VIEW_REVIEW",
+          "count": 1551
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 1406
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 22825,
+        "HOME": 5906,
+        "CART": 2669,
+        "CHECKOUT": 1867
+      }
+    },
+    "3": {
+      "count": 174,
+      "top_actions": [
+        {
+          "action": "INACTIVE",
+          "count": 376
+        },
+        {
+          "action": "START_SESSION",
+          "count": 174
+        },
+        {
+          "action": "ENTER_HOME",
+          "count": 174
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 173
+        },
+        {
+          "action": "EXIT_SESSION",
+          "count": 148
+        },
+        {
+          "action": "RAGE_CLICK",
+          "count": 104
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 102
+        },
+        {
+          "action": "ENTER_PRODUCT",
+          "count": 90
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 65
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 63
+        }
+      ],
+      "page_dist": {
+        "HOME": 900,
+        "PRODUCT": 747,
+        "CART": 133
+      }
+    }
+  }
+}
