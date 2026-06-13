@@ -275,7 +275,7 @@ class ClusterPredictor:
 
         # 체크포인트에서 하이퍼파라미터 추출
         embed_dim  = ckpt.get("embed_dim",   meta.get("embedding_dim", 64))
-        max_len    = ckpt.get("max_len",     60)
+        max_len    = ckpt.get("max_len",     meta.get("max_len", 60))
         vocab_size = ckpt.get("vocab_size",  len(self.vocab))
 
         # state_dict 키로 num_layers, dim_feedforward 역산
@@ -288,6 +288,12 @@ class ClusterPredictor:
 
         ff_key = f"encoder.layers.0.linear1.weight"
         dim_feedforward = state[ff_key].shape[0] if ff_key in state else embed_dim * 2
+
+        pos_key = "pos_emb.weight"
+        if pos_key in state:
+            # The model allocates max_len + 5 positions. Infer this value from
+            # the checkpoint so older exported metadata cannot cause a mismatch.
+            max_len = int(state[pos_key].shape[0]) - 5
 
         # nhead: embed_dim의 약수 중 가장 큰 값 (최대 8)
         nhead = next(

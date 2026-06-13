@@ -10,14 +10,18 @@ GhostTracker B2B 고객 행동 분석 리포트 (HTML → PDF)
 """
 
 import argparse, base64, json, os, time, urllib.request, urllib.error
+import csv, hashlib, shutil, socket, struct, subprocess, tempfile
 from datetime import datetime
 from io import BytesIO
+from urllib.parse import urlparse, urlunparse
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import numpy as np
+
+from exit_capture import browser_executable, capture_exit_hotspots
 
 # ── 경로 ───────────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +33,7 @@ FONT_DIR   = '/tmp/fonts'
 OUT_DIR    = os.path.join(BASE_DIR, 'output/reports')
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY', '')
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+EXIT_CAPTURE_DIR = os.path.join(OUT_DIR, 'exit_captures')
 
 # ── 색상 ───────────────────────────────────────────────────────────────────────
 PALETTE = [
@@ -500,7 +505,7 @@ def chart_funnel(funnel: dict) -> str:
 # ── HTML 빌드 ─────────────────────────────────────────────────────────────────
 def build_html(start: str, end: str, profiles: dict,
                ai_reports: dict, font_reg: str, font_bold: str,
-               funnel: dict = None) -> str:
+               funnel: dict = None, exit_captures: list = None) -> str:
 
     total_visits = sum(p.get('count', 0) for p in profiles.values())
     _intent = {c: type_intent(type_name(c, p), p, funnel) for c, p in profiles.items()}
@@ -921,6 +926,41 @@ body {{ margin: 0; padding: 0; background: #fff; }}
             f"<td style='text-align:center;'>{v['chk_rate']}%</td>"
             f"<td style='text-align:center; font-weight:bold; color:#1a237e;'>{v['buy_rate']}%</td></tr>"
             for nm, v in sorted(bt.items(), key=lambda x: -x[1]['buy_rate']))
+        exit_capture_html = ''
+        if exit_captures:
+            cards = []
+            for item in exit_captures:
+                if item.get('capture_b64'):
+                    img = (
+                        f"<img src=\"data:image/png;base64,{item.get('capture_b64','')}\" "
+                        f"style=\"width:100%; border:1px solid #e0e0e0; border-radius:6px;\"/>"
+                    )
+                else:
+                    img = (
+                        "<div style=\"height:52mm; border:1px dashed #cfd8dc; border-radius:6px; "
+                        "display:flex; align-items:center; justify-content:center; color:#78909c; font-size:8pt;\">"
+                        "캡처 생성 실패 - URL/섹션 정보만 표시</div>"
+                    )
+                cards.append(f"""
+        <div style="break-inside:avoid; margin-bottom:5mm;">
+          <div style="font-size:8.5pt; line-height:1.7; color:#37474f; margin-bottom:2mm;">
+            <b>이탈 {item.get('count', 0)}건</b>
+            <span style="color:#90a4ae;">({item.get('share_pct', 0)}%)</span>
+            · section <b>{item.get('section', 'unknown')}</b>
+            · scrollY <b>{item.get('scroll_y', 0)}</b><br>
+            <span style="color:#607d8b;">{item.get('url', '')}</span>
+          </div>
+          {img}
+        </div>""")
+            exit_capture_html = f"""
+    <div class="section-title" style="margin-top:5mm;">이탈 집중 화면 예시</div>
+    <div class="insight-box" style="margin-bottom:4mm;">
+      <div class="insight-label">캡처 기준</div>
+      session_end/tab_exit/inactivity 이벤트를 page_url + section + scrollY 단위로 묶어 이탈이 많은 화면을 캡처했습니다.
+      빨간 가이드 라인은 해당 scrollY 기준으로 사용자가 머물다 이탈한 구역을 나타냅니다.
+    </div>
+    {''.join(cards)}
+"""
         funnel_html = f"""
 <div class="page">
   <div class="page-header">
@@ -950,6 +990,8 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       {drop_rows}
     </table>
 
+    {exit_capture_html}
+
     <div class="section-title" style="margin-top:5mm;">고객 유형별 단계 도달율</div>
     <table class="rec-table">
       <tr><th>고객 유형</th><th style="text-align:center;">세션</th><th style="text-align:center;">장바구니</th><th style="text-align:center;">결제 도달</th><th style="text-align:center;">구매 클릭</th></tr>
@@ -963,6 +1005,47 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 """
 
     # ── 클러스터 상세 페이지 12개 ─────────────────────────────────────────────
+    exit_capture_page = ''
+    if exit_captures and not funnel:
+        capture_cards = []
+        for item in exit_captures:
+            img = (
+                f"<img src=\"data:image/png;base64,{item.get('capture_b64','')}\" "
+                f"style=\"width:100%; border:1px solid #e0e0e0; border-radius:6px;\"/>"
+                if item.get('capture_b64') else
+                "<div style=\"height:52mm; border:1px dashed #cfd8dc; border-radius:6px; "
+                "display:flex; align-items:center; justify-content:center; color:#78909c; font-size:8pt;\">"
+                "캡처 생성 실패 - URL/섹션 정보만 표시</div>"
+            )
+            capture_cards.append(f"""
+    <div style="break-inside:avoid; margin-bottom:5mm;">
+      <div style="font-size:8.5pt; line-height:1.7; color:#37474f; margin-bottom:2mm;">
+        <b>이탈 {item.get('count', 0)}건</b>
+        <span style="color:#90a4ae;">({item.get('share_pct', 0)}%)</span>
+        · section <b>{item.get('section', 'unknown')}</b>
+        · scrollY <b>{item.get('scroll_y', 0)}</b><br>
+        <span style="color:#607d8b;">{item.get('url', '')}</span>
+      </div>
+      {img}
+    </div>""")
+        exit_capture_page = f"""
+<div class="page">
+  <div class="page-header">
+    <span class="brand">GHOSTTRACKER</span>
+    <span class="page-title">이탈 집중 화면 예시</span>
+    <span class="period">{start} ~ {end}</span>
+  </div>
+  <div class="page-body">
+    <div class="insight-box" style="margin-bottom:5mm;">
+      <div class="insight-label">캡처 기준</div>
+      session_end/tab_exit/inactivity 이벤트를 page_url + section + scrollY 단위로 묶어 이탈이 많은 화면을 캡처했습니다.
+      빨간 가이드 라인은 해당 scrollY 기준으로 사용자가 머물다 이탈한 구역을 나타냅니다.
+    </div>
+    {''.join(capture_cards)}
+  </div>
+</div>
+"""
+
     cluster_pages = ''
     for cid in sorted(profiles.keys(), key=int):
         p      = profiles[cid]
@@ -1167,6 +1250,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 {cover_html}
 {summary_html}
 {funnel_html}
+{exit_capture_page}
 {cluster_pages}
 {recs_html}
 {method_html}
@@ -1224,9 +1308,17 @@ def generate_report(start_date: str, end_date: str, output_path: str):
     else:
         print("  → 세션 데이터 없음 → 퍼널 페이지 생략")
 
+    print("\n[2.5/4] 이탈 집중 화면 캡처 중...")
+    exit_captures = capture_exit_hotspots(BASE_DIR, EXIT_CAPTURE_DIR, start_date, end_date, limit=3)
+    if exit_captures:
+        captured = sum(1 for x in exit_captures if x.get('capture_b64'))
+        print(f"  → 이탈 집중 구역 {len(exit_captures)}개 분석, 캡처 {captured}개 생성")
+    else:
+        print("  → 이탈 집중 구역 없음 또는 캡처 생략")
+
     # 4. HTML 생성
     print("\n[3/4] HTML 리포트 구성 중...")
-    html = build_html(start_date, end_date, profiles, ai_reports, font_reg, font_bold, funnel)
+    html = build_html(start_date, end_date, profiles, ai_reports, font_reg, font_bold, funnel, exit_captures)
 
     # HTML 파일도 저장 (디버깅용)
     html_path = output_path.replace('.pdf', '.html')
@@ -1236,12 +1328,27 @@ def generate_report(start_date: str, end_date: str, output_path: str):
 
     # 5. PDF 변환
     print("\n[4/4] PDF 변환 중...")
-    from weasyprint import HTML as WH
-    WH(filename=html_path).write_pdf(output_path)
+    try:
+        from weasyprint import HTML as WH
+        WH(filename=html_path).write_pdf(output_path)
+    except ModuleNotFoundError:
+        browser = browser_executable()
+        if not browser:
+            print("  → WeasyPrint/Chrome 없음 → PDF 변환 생략, HTML만 생성")
+            return
+        html_abs = os.path.abspath(html_path)
+        out_abs = os.path.abspath(output_path)
+        subprocess.run([
+            browser,
+            '--headless=new',
+            '--disable-gpu',
+            f'--print-to-pdf={out_abs}',
+            f'file:///{html_abs.replace(os.sep, "/")}',
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
 
     size_kb = os.path.getsize(output_path) // 1024
     total_p = 2 + len(profiles) + 1
-    print(f"\n✅  완료!")
+    print("\n완료!")
     print(f"   PDF 출력: {output_path}")
     print(f"   파일 크기: {size_kb} KB  |  총 페이지: ~{total_p}p")
 
