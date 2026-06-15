@@ -24,6 +24,7 @@ const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/
 
 // cluster_meta.json 경로 (ml/output/unsupervised_semantic/)
 const META_PATH = path.join(__dirname, '../../ml/output/unsupervised_semantic/cluster_meta.json');
+const REPORTS_DIR = path.join(__dirname, '../../ml/output/reports');
 
 // 인메모리 캐시 (서버 재시작 시 초기화)
 const reportCache = new Map();
@@ -34,6 +35,21 @@ function loadClusterMeta() {
     throw new Error(`cluster_meta.json 없음: ${META_PATH}`);
   }
   return JSON.parse(fs.readFileSync(META_PATH, 'utf8'));
+}
+
+function findLatestPdfReport() {
+  if (!fs.existsSync(REPORTS_DIR)) return null;
+
+  const files = fs.readdirSync(REPORTS_DIR)
+    .filter((name) => name.toLowerCase().endsWith('.pdf'))
+    .map((name) => {
+      const fullPath = path.join(REPORTS_DIR, name);
+      const stat = fs.statSync(fullPath);
+      return { name, fullPath, mtimeMs: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+  return files[0] || null;
 }
 
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
@@ -240,6 +256,24 @@ router.post('/session', async (req, res) => {
 router.get('/cache/clear', (req, res) => {
   reportCache.clear();
   res.json({ message: '캐시 초기화 완료' });
+});
+
+// ── GET /api/report/weekly/download ───────────────────────────────────────────
+router.get('/weekly/download', (req, res) => {
+  try {
+    const report = findLatestPdfReport();
+    if (!report) {
+      return res.status(404).json({
+        error: '다운로드할 PDF 리포트가 없습니다. ml/report_html.py로 리포트를 먼저 생성하세요.',
+      });
+    }
+
+    const filename = `ghosttracker_weekly_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+    res.download(report.fullPath, filename);
+  } catch (err) {
+    console.error('[report/weekly/download] 오류:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
