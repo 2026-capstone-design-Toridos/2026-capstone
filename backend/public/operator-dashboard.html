@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GhostTracker | 운영자 쉬운 화면</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
+    @font-face {
+      font-family: "GmarketSans";
+      src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff") format("woff");
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --soft: #f3f6fa;
+      --line: #dde7f2;
+      --text: #172033;
+      --muted: #65758b;
+      --blue: #185adb;
+      --blue-soft: #e9f1ff;
+      --green: #047857;
+      --green-soft: #e7f7ef;
+      --amber: #b45309;
+      --amber-soft: #fff4dd;
+      --red: #c2410c;
+      --red-soft: #fff0e8;
+      --coral: #e85d4f;
+      --mint: #14b8a6;
+      --ink: #111827;
+      --shadow: 0 18px 48px rgba(23, 32, 51, 0.1);
+      --font-body: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-point: "GmarketSans", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% -8%, rgba(24, 90, 219, 0.16), transparent 32%),
+        radial-gradient(circle at 82% 0%, rgba(20, 184, 166, 0.13), transparent 28%),
+        linear-gradient(180deg, #fbfcff 0%, var(--bg) 34%, #eef3f8 100%);
+      color: var(--text);
+      font-family: var(--font-body);
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 28px;
+      background: rgba(255, 255, 255, 0.82);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand { display: flex; gap: 12px; align-items: center; }
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--ink), #26354f);
+      color: #fff;
+      font-family: var(--font-point);
+      font-weight: 900;
+      box-shadow: 0 12px 26px rgba(17, 24, 39, 0.18);
+    }
+    .brand h1 { margin: 0; font-family: var(--font-point); font-size: 1.08rem; font-weight: 500; }
+    .brand p { margin: 2px 0 0; color: var(--muted); font-size: 0.82rem; }
+
+    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    select, input, button { font: inherit; }
+    select, input {
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--text);
+      padding: 0 12px;
+      outline: none;
+    }
+    button {
+      height: 40px;
+      border: 0;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--blue), #0f7ae5);
+      color: #fff;
+      font-family: var(--font-point);
+      font-weight: 800;
+      padding: 0 15px;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(24, 90, 219, 0.18);
+    }
+    button.secondary {
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-family: var(--font-point);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+    .live::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+    .live.bad { background: var(--red-soft); color: var(--red); }
+
+    main {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 26px 28px 44px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 370px;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(236, 245, 255, 0.94) 52%, rgba(228, 250, 246, 0.92) 100%);
+      border: 1px solid rgba(221, 231, 242, 0.96);
+      border-radius: 12px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      right: -90px;
+      top: -90px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(24, 90, 219, 0.2), transparent 64%);
+      pointer-events: none;
+    }
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--blue);
+      font-family: var(--font-point);
+      font-size: 0.78rem;
+      font-weight: 500;
+      border: 1px solid rgba(24, 90, 219, 0.16);
+      margin-bottom: 14px;
+    }
+    .hero-kicker::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--coral);
+      box-shadow: 0 0 0 5px rgba(232, 93, 79, 0.12);
+    }
+    .hero-card h2 { position: relative; margin: 0; font-family: var(--font-point); font-size: 2.05rem; font-weight: 500; line-height: 1.22; letter-spacing: 0; max-width: 760px; }
+    .hero-card p { margin: 10px 0 0; color: var(--muted); line-height: 1.65; }
+    .today-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .summary-item {
+      border: 1px solid rgba(221, 231, 242, 0.94);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.76);
+      padding: 14px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+    }
+    .summary-item .label { color: var(--muted); font-size: 0.8rem; font-weight: 800; }
+    .summary-item .value { margin-top: 7px; font-family: var(--font-point); font-size: 2rem; font-weight: 500; }
+
+    .recommend-box {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ffffff 0%, #fffaf2 100%);
+      border: 1px solid rgba(234, 179, 8, 0.24);
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .recommend-box::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 5px;
+      background: linear-gradient(90deg, var(--coral), #f59e0b, var(--mint));
+    }
+    .recommend-box h3 { margin: 0 0 8px; font-family: var(--font-point); font-size: 1rem; font-weight: 500; }
+    .recommend-box .text { color: var(--muted); line-height: 1.6; font-size: 0.93rem; }
+    .recommend-box .tag {
+      display: inline-flex;
+      margin-top: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--amber-soft);
+      color: var(--amber);
+      font-family: var(--font-point);
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    .focus-metric {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .focus-metric div {
+      border-radius: 10px;
+      padding: 11px;
+      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid rgba(221, 231, 242, 0.82);
+    }
+    .focus-metric strong { display: block; font-family: var(--font-point); font-size: 1.18rem; font-weight: 500; }
+    .focus-metric span { color: var(--muted); font-size: 0.76rem; font-weight: 800; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(390px, 0.95fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .stack { display: grid; gap: 16px; min-width: 0; }
+    .card {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(221, 231, 242, 0.9);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .card-title { font-family: var(--font-point); font-weight: 500; font-size: 1.06rem; }
+    .card-sub { color: var(--muted); font-size: 0.84rem; margin-top: 4px; line-height: 1.45; }
+    .card-body { padding: 18px 20px; }
+
+    .customer-types {
+      display: grid;
+      gap: 10px;
+    }
+    .type-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 15px 15px 15px 18px;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .type-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--blue);
+    }
+    .type-card.intent::before { background: var(--coral); }
+    .type-card.compare::before { background: var(--mint); }
+    .type-card.search::before { background: var(--blue); }
+    .type-card.exit::before { background: var(--amber); }
+    .type-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(24, 90, 219, 0.35);
+      box-shadow: 0 14px 30px rgba(23, 32, 51, 0.1);
+      background: #fff;
+    }
+    .type-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .type-name { font-family: var(--font-point); font-weight: 500; }
+    .type-count {
+      color: var(--muted);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+    .type-desc {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+      margin-top: 8px;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip {
+      padding: 4px 8px;
+      border-radius: 7px;
+      background: var(--soft);
+      color: #475569;
+      font-family: var(--font-point);
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .chart-wrap {
+      min-height: 260px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.82), rgba(243,246,250,0.95));
+      border-radius: 11px;
+      padding: 14px;
+    }
+    .chart-label { color: var(--muted); font-family: var(--font-point); font-size: 0.8rem; font-weight: 500; margin-bottom: 10px; }
+
+    .session-search {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+    .session-list { display: grid; gap: 8px; max-height: 330px; overflow: auto; padding-right: 2px; }
+    .session-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .session-row:hover, .session-row.active {
+      transform: translateY(-1px);
+      border-color: var(--blue);
+      background: linear-gradient(135deg, #ffffff, var(--blue-soft));
+      box-shadow: 0 12px 26px rgba(24, 90, 219, 0.1);
+    }
+    .sid {
+      font-size: 0.9rem;
+      font-family: var(--font-point);
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .session-meta { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      font-family: var(--font-point);
+      font-size: 0.74rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .badge.risk { background: var(--red-soft); color: var(--red); }
+    .badge.ok { background: var(--blue-soft); color: var(--blue); }
+    .badge.good { background: var(--green-soft); color: var(--green); }
+
+    .result-box {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: linear-gradient(180deg, #fff, #f8fbff);
+      padding: 16px;
+      min-height: 165px;
+    }
+    .result-title { color: var(--muted); font-family: var(--font-point); font-size: 0.82rem; font-weight: 500; }
+    .persona { margin-top: 7px; font-family: var(--font-point); font-size: 1.24rem; font-weight: 500; color: var(--blue); }
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .mini {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 9px;
+      padding: 10px;
+    }
+    .mini .label { color: var(--muted); font-family: var(--font-point); font-size: 0.72rem; font-weight: 500; }
+    .mini .value { margin-top: 4px; font-family: var(--font-point); font-weight: 500; }
+
+    .report {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fffdf8;
+      padding: 16px;
+      line-height: 1.75;
+      min-height: 220px;
+      white-space: pre-wrap;
+    }
+    .report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .activity-list {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+      padding: 2px 2px 2px 6px;
+    }
+    .activity {
+      position: relative;
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr);
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px 12px;
+      font-size: 0.84rem;
+      box-shadow: 0 8px 18px rgba(23, 32, 51, 0.05);
+    }
+    .activity::before {
+      content: "";
+      position: absolute;
+      left: -5px;
+      top: 16px;
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--mint);
+      box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.12);
+    }
+    .activity-time { color: var(--muted); font-size: 0.78rem; }
+    .activity-main { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .empty {
+      border: 1px dashed #c5d2e2;
+      background: var(--soft);
+      color: var(--muted);
+      border-radius: 11px;
+      padding: 28px 16px;
+      text-align: center;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1120px) {
+      .hero, .grid, .split { grid-template-columns: 1fr; }
+      .today-summary { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 720px) {
+      .topbar, .actions { flex-direction: column; align-items: stretch; }
+      main { padding: 16px; }
+      .hero-card { padding: 22px; }
+      .hero-card h2 { font-size: 1.55rem; }
+      .today-summary, .result-grid { grid-template-columns: 1fr; }
+      .focus-metric { grid-template-columns: 1fr; }
+      .session-search { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">GT</div>
+      <div>
+        <h1>쇼핑몰 운영자 화면</h1>
+        <p>고객 행동을 쉬운 말로 보고, 바로 할 일을 확인합니다.</p>
+      </div>
+    </div>
+    <div class="actions">
+      <select id="site-filter" aria-label="사이트 선택">
+        <option value="">전체 사이트</option>
+      </select>
+      <button class="secondary" id="rediscover-types">고객 유형 다시 찾기</button>
+      <button id="download-report">주간 리포트 다운로드</button>
+      <button class="secondary" id="expert-view">전문가 화면</button>
+      <span class="live" id="status">연결 확인 중</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-card">
+        <div class="hero-kicker">오늘의 운영 포커스</div>
+        <h2 id="headline">오늘 고객들은 어디서 망설이고 있을까요?</h2>
+        <p id="headline-detail">실시간 행동 데이터를 바탕으로 탐색 중지 신호, 주요 고객 유형, 추천 운영 액션을 정리합니다.</p>
+        <div class="today-summary">
+          <div class="summary-item">
+            <div class="label">수집된 행동</div>
+            <div class="value" id="total-events">-</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">최근 1시간</div>
+            <div class="value" id="recent-events">-</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">관찰 중인 세션</div>
+            <div class="value" id="active-sessions">-</div>
+          </div>
+        </div>
+      </div>
+      <aside class="recommend-box">
+        <h3>지금 운영자가 볼 것</h3>
+        <div class="text" id="operator-advice">데이터를 불러오는 중입니다.</div>
+        <span class="tag" id="advice-tag">실시간 진단</span>
+        <div class="focus-metric">
+          <div>
+            <strong id="risk-signal-count">-</strong>
+            <span>탐색 중지 신호</span>
+          </div>
+          <div>
+            <strong id="top-action-count">-</strong>
+            <span>주요 행동</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <div class="stack">
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">고객 유형 한눈에 보기</div>
+              <div class="card-sub">숫자보다 “어떤 고객이 많은지”를 먼저 보여줍니다.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="split">
+              <div class="chart-wrap">
+                <div class="chart-label">고객 유형 비중</div>
+                <canvas id="type-chart" height="190"></canvas>
+              </div>
+              <div class="customer-types" id="customer-types">
+                <div class="empty">고객 유형을 불러오는 중입니다.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">방금 들어온 고객 행동</div>
+              <div class="card-sub">데모 중 쇼핑몰에서 움직이면 여기에 바로 표시됩니다.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="activity-list" id="activity-list">
+              <div class="empty">행동 데이터를 기다리는 중입니다.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">고객 1명 자세히 보기</div>
+              <div class="card-sub">최근 고객을 누르고 “이 고객 분석”을 누르면 쉬운 설명이 나옵니다.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="session-search">
+              <input id="session-input" placeholder="아래 고객을 선택하거나 참조번호를 입력" />
+              <button id="analyze-session">이 고객 분석</button>
+            </div>
+            <div class="session-list" id="session-list">
+              <div class="empty">최근 고객을 불러오는 중입니다.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">선택한 고객 분석 결과</div>
+              <div class="card-sub">AI 모델이 이 고객을 어떤 유형으로 보는지 설명합니다.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="result-box" id="result-box">
+              <div class="empty">고객을 선택하고 분석 버튼을 눌러주세요.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">운영 액션 리포트</div>
+              <div class="card-sub">고객 유형에 맞춰 어떤 운영 액션을 하면 좋을지 보여줍니다.</div>
+            </div>
+            <div class="report-actions">
+              <button class="secondary" id="cluster-report" disabled>유형 리포트</button>
+              <button class="secondary" id="session-report" disabled>고객 리포트</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="report" id="report-box">분석 결과가 준비되면 리포트가 여기에 표시됩니다.</div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const DEMO_ORIGIN = "https://jh-web-nu.vercel.app";
+    const state = {
+      origin: "",
+      logs: [],
+      sessions: [],
+      clusters: [],
+      selectedSessionId: "",
+      selectedEvents: [],
+      analysis: null,
+    };
+
+    Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue("--font-body").trim();
+
+    const $ = (id) => document.getElementById(id);
+    const fmt = (n) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("ko-KR") : "-";
+    const shortId = (sid) => sid ? `${sid.slice(0, 8)}...${sid.slice(-4)}` : "-";
+    const customerNumber = (sessionId) => {
+      const idx = state.sessions.findIndex((s) => s.session_id === sessionId);
+      return idx >= 0 ? idx + 1 : "?";
+    };
+
+    const chart = new Chart($("type-chart"), {
+      type: "doughnut",
+      data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0 }] },
+      options: {
+        cutout: "58%",
+        plugins: { legend: { position: "bottom", labels: { color: "#475569", boxWidth: 11 } } },
+      },
+    });
+
+    async function api(path, options) {
+      const res = await fetch(path, options);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      return body;
+    }
+
+    function setStatus(ok, text) {
+      $("status").textContent = text;
+      $("status").className = ok ? "live" : "live bad";
+    }
+
+    function friendlyClusterName(cluster) {
+      const actions = (cluster.top_actions || []).map((a) => a.action);
+      const label = cluster.label || "";
+      const top3 = actions.slice(0, 3);
+      if (actions.includes("EXIT_SESSION") || (top3.includes("INACTIVE") && top3.includes("START_SESSION"))) return "탐색 중지 가능 고객";
+      if (top3.includes("SEARCH_USE") || label.includes("SEARCH")) return "상품을 찾는 고객";
+      if (top3.includes("CHECK_SIZE") || top3.includes("CHECK_PRICE")) return "구매 직전 망설이는 고객";
+      if (top3.includes("VIEW_REVIEW") || top3.includes("ZOOM_IMAGE")) return "꼼꼼히 비교하는 고객";
+      return `고객 유형 ${cluster.cluster}`;
+    }
+
+    function friendlyClusterDesc(cluster) {
+      const name = friendlyClusterName(cluster);
+      if (name.includes("꼼꼼히")) return "리뷰와 이미지를 많이 확인합니다. 상세 정보와 후기 노출이 중요합니다.";
+      if (name.includes("구매 직전")) return "가격, 사이즈, 배송 정보를 확인하며 망설입니다. 쿠폰이나 배송 안내가 효과적입니다.";
+      if (name.includes("상품을 찾는")) return "검색과 카테고리 이동이 많습니다. 추천 상품과 검색 결과 정리가 중요합니다.";
+      if (name.includes("탐색 중지")) return "홈 화면에서 오래 머물거나 움직임이 줄어듭니다. 첫 화면 배너와 빠른 혜택 제안이 필요합니다.";
+      return "행동 패턴을 바탕으로 묶인 고객 유형입니다.";
+    }
+
+    function typeTone(cluster) {
+      const name = friendlyClusterName(cluster);
+      if (name.includes("구매 직전")) return "intent";
+      if (name.includes("꼼꼼히")) return "compare";
+      if (name.includes("상품을 찾는")) return "search";
+      if (name.includes("탐색 중지")) return "exit";
+      return "search";
+    }
+
+    function friendlyAction(action) {
+      const labels = {
+        START_SESSION: "쇼핑몰 방문",
+        ENTER_HOME: "첫 화면 진입",
+        ENTER_PRODUCT: "상품 상세 확인",
+        VIEW_PRODUCT: "상품 살펴봄",
+        CLICK_ELEMENT: "버튼 또는 메뉴 클릭",
+        SCROLL_PAGE: "페이지를 아래로 살펴봄",
+        SEARCH_USE: "상품 검색",
+        VIEW_REVIEW: "리뷰 확인",
+        ZOOM_IMAGE: "상품 이미지 확대",
+        CHECK_SIZE: "사이즈 확인",
+        CHECK_PRICE: "가격 확인",
+        ADD_TO_CART: "장바구니 담기",
+        PURCHASE_CLICK: "구매 버튼 클릭",
+        TAB_EXIT: "탭을 떠남",
+        EXIT_SESSION: "탐색 중지",
+        EXIT_BOUNCE: "빠른 탐색 중지",
+        INACTIVE: "움직임 없음",
+      };
+      return labels[action] || action.replaceAll("_", " ").toLowerCase();
+    }
+
+    function eventText(e) {
+      const d = e.data || {};
+      switch (e.event_type) {
+        case "session_start": return "고객이 쇼핑몰에 들어왔습니다.";
+        case "product_click": return "상품을 눌러 자세히 봤습니다.";
+        case "add_to_cart": return "장바구니에 상품을 담았습니다.";
+        case "purchase_click": return "구매 또는 결제 버튼을 눌렀습니다.";
+        case "tab_exit": return "쇼핑몰 탭을 벗어났습니다.";
+        case "inactivity": return "고객 움직임이 멈췄습니다.";
+        case "section_exit": return `${d.section || "특정"} 영역을 벗어났습니다.`;
+        case "scroll_depth": return "페이지를 스크롤하며 둘러봤습니다.";
+        case "hover_dwell": return "특정 요소 위에 머물렀습니다.";
+        case "search_use": return `검색어를 입력했습니다: ${d.search_query || ""}`;
+        default: return e.event_type.replaceAll("_", " ");
+      }
+    }
+
+    function eventPage(e) {
+      const path = `${e.pathname || ""} ${e.page_url || ""}`.toLowerCase();
+      if (path.includes("checkout") || path.includes("payment")) return "checkout";
+      if (path.includes("cart") || path.includes("basket")) return "cart";
+      if (path.includes("product") || path.includes("item")) return "product";
+      if (path.includes("search") || path.includes("category")) return "search";
+      return "home";
+    }
+
+    function groupSessions(logs) {
+      const map = new Map();
+      logs.forEach((e) => {
+        if (!e.session_id) return;
+        const row = map.get(e.session_id) || {
+          session_id: e.session_id,
+          count: 0,
+          last_at: e.received_at,
+          pathname: e.pathname || "/",
+          risky: false,
+        };
+        row.count += 1;
+        row.risky = row.risky || ["tab_exit", "inactivity", "session_end", "cart_abandon_flag"].includes(e.event_type);
+        if (!row.last_at || new Date(e.received_at) > new Date(row.last_at)) {
+          row.last_at = e.received_at;
+          row.pathname = e.pathname || row.pathname;
+        }
+        map.set(e.session_id, row);
+      });
+      return [...map.values()].sort((a, b) => new Date(b.last_at) - new Date(a.last_at));
+    }
+
+    function renderClusters(data) {
+      const clusters = (data.clusters || []).filter((c) => c.cluster >= 0);
+      state.clusters = clusters;
+      const total = data.total_sessions || clusters.reduce((sum, c) => sum + c.count, 0);
+      const displayNames = clusters.map(friendlyClusterName);
+      chart.data.labels = displayNames;
+      chart.data.datasets[0].data = clusters.map((c) => c.count);
+      chart.data.datasets[0].backgroundColor = ["#185adb", "#14b8a6", "#e85d4f", "#f59e0b", "#047857"];
+      chart.update();
+
+      $("customer-types").innerHTML = clusters.map((c, idx) => {
+        const pct = total ? Math.round(c.count / total * 100) : 0;
+        const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${friendlyAction(a.action)}</span>`).join("");
+        return `
+          <div class="type-card ${typeTone(c)}" data-cluster="${c.cluster}">
+            <div class="type-top">
+              <div class="type-name">${displayNames[idx]}</div>
+              <div class="type-count">${fmt(c.count)}명 · ${pct}%</div>
+            </div>
+            <div class="type-desc">${friendlyClusterDesc(c)}</div>
+            <div class="chips">${chips}</div>
+          </div>`;
+      }).join("");
+      $("customer-types").querySelectorAll(".type-card").forEach((card) => {
+        card.addEventListener("click", () => loadClusterReport(card.dataset.cluster));
+      });
+    }
+
+    function renderSessions() {
+      if (!state.sessions.length) {
+        $("session-list").innerHTML = `<div class="empty">아직 최근 고객이 없습니다.</div>`;
+        return;
+      }
+      $("session-list").innerHTML = state.sessions.slice(0, 8).map((s, idx) => `
+        <div class="session-row ${s.session_id === state.selectedSessionId ? "active" : ""}" data-session="${s.session_id}">
+          <div>
+            <div class="sid">최근 고객 ${idx + 1}</div>
+            <div class="session-meta">${new Date(s.last_at).toLocaleTimeString("ko-KR")} · ${s.pathname} · 행동 ${s.count}개 · 참조 ${shortId(s.session_id)}</div>
+          </div>
+          <span class="badge ${s.risky ? "risk" : "ok"}">${s.risky ? "탐색 중지 신호" : "탐색 중"}</span>
+        </div>
+      `).join("");
+      $("session-list").querySelectorAll(".session-row").forEach((row) => {
+        row.addEventListener("click", () => selectSession(row.dataset.session));
+      });
+    }
+
+    function renderActivities() {
+      if (!state.logs.length) {
+        $("activity-list").innerHTML = `<div class="empty">행동 데이터를 기다리는 중입니다.</div>`;
+        return;
+      }
+      $("activity-list").innerHTML = state.logs.slice(0, 16).map((e) => `
+        <div class="activity">
+          <div class="activity-time">${new Date(e.received_at).toLocaleTimeString("ko-KR")}</div>
+          <div class="activity-main">${eventText(e)} <span style="color:#65758b;">최근 고객 ${customerNumber(e.session_id)}</span></div>
+        </div>
+      `).join("");
+    }
+
+    function selectSession(sessionId) {
+      state.selectedSessionId = sessionId;
+      $("session-input").dataset.sessionId = sessionId;
+      $("session-input").value = `최근 고객 ${customerNumber(sessionId)}`;
+      state.selectedEvents = state.logs
+        .filter((e) => e.session_id === sessionId)
+        .sort((a, b) => (a.event_seq || 0) - (b.event_seq || 0));
+      state.analysis = null;
+      $("result-box").innerHTML = `<div class="empty">최근 고객 ${customerNumber(sessionId)}을 선택했습니다.<br>“이 고객 분석”을 눌러 유형을 확인하세요.</div>`;
+      $("report-box").textContent = "고객 분석 후 리포트를 볼 수 있습니다.";
+      $("cluster-report").disabled = true;
+      $("session-report").disabled = true;
+      renderSessions();
+    }
+
+    async function analyzeSession() {
+      const sessionId = $("session-input").dataset.sessionId || $("session-input").value.trim();
+      if (!sessionId) return;
+      $("result-box").innerHTML = `<div class="empty">고객 행동을 분석하는 중입니다.</div>`;
+      try {
+        const result = await api(`/api/classify/session/${encodeURIComponent(sessionId)}`, { method: "POST" });
+        state.analysis = result;
+        if (!state.selectedEvents.length) {
+          state.selectedEvents = await api(`/api/logs?limit=200&session_id=${encodeURIComponent(sessionId)}`);
+        }
+        $("result-box").innerHTML = `
+          <div class="result-title">이 고객은 이런 유형에 가깝습니다</div>
+          <div class="persona">${result.persona || `고객 유형 ${result.cluster_id}`}</div>
+          <div class="result-grid">
+            <div class="mini"><div class="label">고객 유형</div><div class="value">${result.persona || `유형 ${result.cluster_id}`}</div></div>
+            <div class="mini"><div class="label">확신도</div><div class="value">${Math.round((result.confidence || 0) * 100)}%</div></div>
+            <div class="mini"><div class="label">행동 수</div><div class="value">${result.seq_len || "-"}</div></div>
+          </div>`;
+        $("cluster-report").disabled = false;
+        $("session-report").disabled = false;
+        $("report-box").textContent = "이제 “고객 리포트” 또는 “유형 리포트”를 눌러 운영 액션을 확인하세요.";
+      } catch (err) {
+        $("result-box").innerHTML = `<div class="empty">분석에 실패했습니다: ${err.message}</div>`;
+      }
+    }
+
+    function sessionPayload() {
+      return {
+        session_id: state.analysis?.session_id || state.selectedSessionId,
+        cluster_id: state.analysis?.cluster_id,
+        persona: state.analysis?.persona,
+        confidence: state.analysis?.confidence,
+        events: state.selectedEvents.map((e) => ({
+          event_type: e.event_type,
+          page: eventPage(e),
+          section: e.data?.section || "",
+        })),
+      };
+    }
+
+    async function loadSessionReport() {
+      if (!state.analysis) return;
+      $("report-box").textContent = "고객 리포트를 만드는 중입니다.";
+      try {
+        const result = await api("/api/report/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sessionPayload()),
+        });
+        $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
+      } catch (err) {
+        $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
+      }
+    }
+
+    async function loadClusterReport(clusterId = state.analysis?.cluster_id) {
+      if (clusterId === undefined || clusterId === null || clusterId === "") return;
+      $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
+      try {
+        const result = await api(`/api/report/cluster/${clusterId}`);
+        $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
+      } catch (err) {
+        $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
+      }
+    }
+
+    function updateAdvice(stats) {
+      const byType = stats.by_type || {};
+      const riskCount = (byType.tab_exit || 0) + (byType.inactivity || 0) + (byType.cart_abandon_flag || 0);
+      $("risk-signal-count").textContent = fmt(riskCount);
+      $("top-action-count").textContent = fmt(Math.max(...Object.values(byType).map((n) => Number(n) || 0), 0));
+      if (riskCount > 0) {
+        $("headline").textContent = "탐색 중지 신호가 있는 고객을 먼저 확인하세요.";
+        $("headline-detail").textContent = "탭을 떠남, 비활성, 장바구니 중단 같은 신호가 관찰됐습니다. 최근 고객을 선택해 어떤 유형인지 바로 확인할 수 있습니다.";
+        $("operator-advice").textContent = "구매 직전 망설이는 고객에게는 가격 혜택, 배송 안내, 리뷰 노출을 강화하는 액션이 좋습니다.";
+        $("advice-tag").textContent = "탐색 중지 관리 우선";
+      } else {
+        $("headline").textContent = "고객 행동이 정상적으로 수집되고 있습니다.";
+        $("headline-detail").textContent = "최근 행동 흐름을 보면서 상품 탐색, 장바구니, 결제 클릭으로 이어지는지 확인하세요.";
+        $("operator-advice").textContent = "최근 세션을 선택해 고객 유형을 확인하면 이번 주 리포트의 설명과 연결해서 볼 수 있습니다.";
+        $("advice-tag").textContent = "실시간 관찰";
+      }
+    }
+
+    async function loadSites() {
+      try {
+        const sites = await api("/api/logs/sites");
+        $("site-filter").innerHTML = `<option value="">전체 사이트</option>`;
+        sites.forEach((site) => {
+          const option = document.createElement("option");
+          option.value = site;
+          option.textContent = site.replace(/^https?:\/\//, "");
+          if (site === DEMO_ORIGIN) option.selected = true;
+          $("site-filter").appendChild(option);
+        });
+        state.origin = $("site-filter").value;
+      } catch {
+        state.origin = "";
+      }
+    }
+
+    async function refresh() {
+      const origin = state.origin ? `&origin=${encodeURIComponent(state.origin)}` : "";
+      const clusterOrigin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
+      try {
+        const [stats, logs, clusters] = await Promise.all([
+          api(`/api/logs/stats?${origin}`),
+          api(`/api/logs?limit=200${origin}`),
+          api(`/api/clusters${clusterOrigin}`),
+        ]);
+        $("total-events").textContent = fmt(stats.total);
+        $("recent-events").textContent = fmt(stats.last_hour);
+        $("active-sessions").textContent = fmt(stats.active_sessions);
+        state.logs = logs;
+        state.sessions = groupSessions(logs);
+        renderActivities();
+        renderSessions();
+        renderClusters(clusters);
+        updateAdvice(stats);
+        setStatus(true, `Live · ${new Date().toLocaleTimeString("ko-KR")}`);
+      } catch (err) {
+        setStatus(false, `연결 오류`);
+      }
+    }
+
+    async function rediscoverCustomerTypes() {
+      const btn = $("rediscover-types");
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = "고객 유형 찾는 중";
+      setStatus(true, "고객 유형을 다시 찾는 중");
+      $("operator-advice").textContent = "누적된 고객 행동을 다시 묶어 새로운 고객 유형이 있는지 확인하고 있습니다. 잠시만 기다려주세요.";
+      try {
+        const result = await api("/api/clusters/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ full: true }),
+        });
+        $("operator-advice").textContent = `고객 유형 찾기가 완료됐습니다. 현재 ${fmt(result.n_clusters)}개 유형이 발견됐고, ${fmt(result.retrain_session_count)}개 세션을 반영했습니다.`;
+        $("advice-tag").textContent = "유형 갱신 완료";
+        await refresh();
+      } catch (err) {
+        $("operator-advice").textContent = `고객 유형 찾기에 실패했습니다: ${err.message}`;
+        setStatus(false, "유형 찾기 실패");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+
+    $("site-filter").addEventListener("change", (e) => {
+      state.origin = e.target.value;
+      refresh();
+    });
+    $("expert-view").addEventListener("click", () => { window.location.href = "/dashboard.html"; });
+    $("rediscover-types").addEventListener("click", rediscoverCustomerTypes);
+    $("download-report").addEventListener("click", () => { window.location.href = "/api/report/weekly/download"; });
+    $("analyze-session").addEventListener("click", analyzeSession);
+    $("cluster-report").addEventListener("click", () => loadClusterReport());
+    $("session-report").addEventListener("click", loadSessionReport);
+    $("session-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") analyzeSession();
+    });
+    $("session-input").addEventListener("input", (e) => {
+      e.currentTarget.dataset.sessionId = "";
+    });
+
+    (async function init() {
+      await loadSites();
+      await refresh();
+      if (state.sessions[0]) selectSession(state.sessions[0].session_id);
+      setInterval(refresh, 2500);
+    })();
+  </script>
+</body>
+</html>

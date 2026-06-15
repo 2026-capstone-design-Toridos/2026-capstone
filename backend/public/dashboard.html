@@ -498,7 +498,9 @@
       <select id="site-filter" aria-label="사이트 필터">
         <option value="">전체 사이트</option>
       </select>
+      <button class="secondary" id="friendly-dashboard-btn">운영자 쉬운 화면</button>
       <button class="secondary" id="weekly-report-btn">주간 리포트 다운로드</button>
+      <button class="secondary" id="run-clustering-btn">클러스터링 실행</button>
       <button class="secondary" id="refresh-btn">새로고침</button>
       <span class="status" id="status">연결 확인 중</span>
     </div>
@@ -509,7 +511,7 @@
       <div class="demo-step">
         <span class="num">1</span>
         <div class="label">쇼핑몰에서 사용자 행동 발생</div>
-        <div class="hint">상품 탐색, 스크롤, 장바구니, 이탈 행동을 만든다.</div>
+        <div class="hint">상품 탐색, 스크롤, 장바구니, 탐색 중지 행동을 만든다.</div>
       </div>
       <div class="demo-step">
         <span class="num">2</span>
@@ -780,14 +782,14 @@
       case "add_to_cart": return `장바구니 담기 ${d.product_name || d.product_id || ""}`;
       case "remove_from_cart": return `장바구니 제거 ${d.product_id || ""}`;
       case "purchase_click": return "구매/결제 클릭";
-      case "cart_abandon_flag": return "장바구니 이탈 감지";
-      case "tab_exit": return "탭 이탈";
+      case "cart_abandon_flag": return "장바구니 이용 중단 감지";
+      case "tab_exit": return "탭을 떠남";
       case "tab_return": return "탭 복귀";
       case "inactivity": return `비활성 ${d.inactivity_duration ? `${Math.round(d.inactivity_duration / 1000)}초` : ""}`;
       case "scroll_depth": return `스크롤 ${d.depth_pct ?? d.scroll_pct ?? ""}%`;
       case "scroll_stop": return `스크롤 멈춤 ${d.position ?? ""}px`;
       case "section_enter": return `섹션 진입 ${d.section || ""}`;
-      case "section_exit": return `섹션 이탈 ${d.section || ""}`;
+      case "section_exit": return `섹션 탐색 중지 ${d.section || ""}`;
       case "hover_dwell": return `hover ${d.hover_text || d.hover_target || ""}`;
       case "search_use": return `검색 "${d.search_query || ""}"`;
       case "click": return `클릭 ${d.click_text || d.click_target || ""}`;
@@ -846,7 +848,7 @@
             <div class="sid">${s.session_id}</div>
             <div class="session-meta">${new Date(s.last_at).toLocaleTimeString("ko-KR")} · ${s.pathname || "/"} · ${s.count} events</div>
           </div>
-          <span class="pill ${risky ? "red" : "blue"}">${risky ? "이탈 신호" : "활동 중"}</span>
+          <span class="pill ${risky ? "red" : "blue"}">${risky ? "탐색 중지 신호" : "활동 중"}</span>
         </div>`;
     }).join("");
     list.querySelectorAll(".session-row").forEach((row) => {
@@ -1115,8 +1117,36 @@
   function downloadWeeklyReport() {
     window.location.href = "/api/report/weekly/download";
   }
+  async function runClustering() {
+    const btn = $("run-clustering-btn");
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "실행 중...";
+    $("cluster-mode").textContent = "HDBSCAN 전체 재클러스터링 실행 중";
+    setStatus(true, "클러스터링 실행 중");
+    try {
+      const result = await api("/api/clusters/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full: true }),
+      });
+      $("cluster-mode").textContent = `완료 · ${result.n_clusters ?? "-"}개 클러스터 · ${result.retrain_session_count ?? "-"}세션`;
+      setStatus(true, "클러스터링 완료");
+      await refreshAll();
+    } catch (err) {
+      $("cluster-mode").textContent = `클러스터링 실패: ${err.message}`;
+      setStatus(false, "클러스터링 실패");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+  $("friendly-dashboard-btn").addEventListener("click", () => {
+    window.location.href = "/operator-dashboard.html";
+  });
   $("refresh-btn").addEventListener("click", refreshAll);
   $("weekly-report-btn").addEventListener("click", downloadWeeklyReport);
+  $("run-clustering-btn").addEventListener("click", runClustering);
   $("weekly-report-panel-btn").addEventListener("click", downloadWeeklyReport);
   $("latest-btn").addEventListener("click", selectLatestSession);
   $("analyze-btn").addEventListener("click", analyzeSelectedSession);

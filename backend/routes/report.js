@@ -25,6 +25,8 @@ const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/
 // cluster_meta.json 경로 (ml/output/unsupervised_semantic/)
 const META_PATH = path.join(__dirname, '../../ml/output/unsupervised_semantic/cluster_meta.json');
 const REPORTS_DIR = path.join(__dirname, '../../ml/output/reports');
+const BLOCKED_TERM = '\uC774\uD0C8';
+const REPLACEMENT_TERM = '탐색 중지';
 
 // 인메모리 캐시 (서버 재시작 시 초기화)
 const reportCache = new Map();
@@ -54,6 +56,10 @@ function findLatestPdfReport() {
 
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function normalizeReportText(text) {
+  return String(text || '').replaceAll(BLOCKED_TERM, REPLACEMENT_TERM);
+}
 
 async function callGemini(prompt, retries = 3) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
@@ -124,6 +130,7 @@ function buildClusterPrompt(clusterId, profile) {
 3. 비즈니스 관점에서의 개선 제안 1~2가지
 
 문장 형태로만 작성하고, 번호나 불릿 포인트 없이 자연스럽게 이어지는 단락으로 써주세요.
+"${BLOCKED_TERM}"이라는 단어는 사용하지 말고 반드시 "${REPLACEMENT_TERM}"라고 표현하세요.
 `.trim();
 }
 
@@ -156,10 +163,11 @@ function buildSessionPrompt(body, profile) {
 
 위 정보를 바탕으로 다음을 한국어로 작성하세요 (총 3~5문장):
 1. 이 세션 유저가 보인 핵심 행동 특징
-2. 구매 전환 가능성 및 이탈 위험 판단
+2. 구매 전환 가능성 및 탐색 중지 위험 판단
 3. 이 유저에게 추천할 운영/마케팅 액션 1가지
 
 문장 형태로만, 번호 없이 자연스럽게 이어지는 단락으로 써주세요.
+"${BLOCKED_TERM}"이라는 단어는 사용하지 말고 반드시 "${REPLACEMENT_TERM}"라고 표현하세요.
 `.trim();
 }
 
@@ -169,7 +177,7 @@ router.get('/cluster/:clusterId', async (req, res) => {
 
   // 캐시 확인
   if (reportCache.has(clusterId)) {
-    return res.json({ cluster_id: clusterId, report: reportCache.get(clusterId), cached: true });
+    return res.json({ cluster_id: clusterId, report: normalizeReportText(reportCache.get(clusterId)), cached: true });
   }
 
   try {
@@ -182,7 +190,7 @@ router.get('/cluster/:clusterId', async (req, res) => {
     }
 
     const prompt = buildClusterPrompt(clusterId, profile);
-    const report = await callGemini(prompt);
+    const report = normalizeReportText(await callGemini(prompt));
 
     reportCache.set(clusterId, report);
 
@@ -202,12 +210,12 @@ router.get('/all', async (req, res) => {
 
     for (const [clusterId, profile] of Object.entries(profiles)) {
       if (reportCache.has(clusterId)) {
-        results.push({ cluster_id: clusterId, report: reportCache.get(clusterId), cached: true });
+        results.push({ cluster_id: clusterId, report: normalizeReportText(reportCache.get(clusterId)), cached: true });
         continue;
       }
       try {
         const prompt = buildClusterPrompt(clusterId, profile);
-        const report = await callGemini(prompt);
+        const report = normalizeReportText(await callGemini(prompt));
         reportCache.set(clusterId, report);
         results.push({ cluster_id: clusterId, report, cached: false });
       } catch (e) {
@@ -237,7 +245,7 @@ router.post('/session', async (req, res) => {
     const profile  = profiles[String(body.cluster_id)];
 
     const prompt = buildSessionPrompt(body, profile);
-    const report = await callGemini(prompt);
+    const report = normalizeReportText(await callGemini(prompt));
 
     res.json({
       session_id: body.session_id,

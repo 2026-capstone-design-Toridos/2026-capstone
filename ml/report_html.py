@@ -48,7 +48,7 @@ INTENT_BG    = {'높음': '#e8f5e9', '중간': '#fff3e0', '낮음': '#ffebee'}
 ACTION_KO = {
     'SCROLL_PRICE' : '가격 훑어보기',
     'START_SESSION': '방문 시작',
-    'TAB_OUT'      : '다른 창으로 이탈',
+    'TAB_OUT'      : '다른 창으로 탐색 중지',
     'CHECK_PRICE'  : '가격 비교',
     'ADD_CART'     : '장바구니 담기',
     'CLICK_BUY'    : '구매하기 클릭',
@@ -63,7 +63,7 @@ ACTION_KO = {
     'SEARCH'       : '검색',
     'FILTER'       : '필터 적용',
     'BACK'         : '이전으로 이동',
-    'EXIT_BOUNCE'  : '즉시 이탈',
+    'EXIT_BOUNCE'  : '즉시 탐색 중지',
     'INACTIVE'     : '장시간 머묾(비활성)',
     'NAVIGATE'     : '페이지 이동',
     'CART_VIEW'    : '장바구니 확인',
@@ -95,7 +95,7 @@ ACTION_KO = {
     'RAGE_CLICK'           : '반복 클릭(짜증 신호)',
     'DISTRACTED_EPISODE'   : '주의 분산',
     'EXIT_SESSION'         : '방문 종료',
-    'EXIT_BOUNCE'          : '즉시 이탈',
+    'EXIT_BOUNCE'          : '즉시 탐색 중지',
 }
 
 # 고객 특성과 무관한 일반 인터랙션 (대표 행동에서 제외)
@@ -173,14 +173,14 @@ def template_insight(name: str, profile: dict, intent: str, share_pct: int) -> s
         '가격 비교형': (
             f"전체 방문의 {share_pct}%로, 가격을 반복해서 확인하는 행동({top_txt})이 핵심입니다. "
             f"살 의향은 있으나 '더 싼 곳이 있을까' 고민하는 단계입니다. "
-            f"최저가 보장·적립금·기간 한정 할인 문구를 가격 옆에 노출하면 이탈을 막고 "
+            f"최저가 보장·적립금·기간 한정 할인 문구를 가격 옆에 노출하면 탐색 중지을 막고 "
             f"구매로 끌어올 수 있습니다."),
         '신중 탐색형': (
             f"전체 방문의 {share_pct}%이며, 후기·사이즈·상세 정보를 꼼꼼히 확인({top_txt})합니다. "
             f"실패 없는 구매를 원하는 고객이라 정보가 충분하면 전환됩니다. "
             f"리뷰 수를 늘리고 사이즈 가이드·실착 사진을 강화하면 구매 결정을 앞당길 수 있습니다."),
-        '이탈 위험형': (
-            f"전체 방문의 {share_pct}%로, 금방 다른 창으로 빠지거나 이탈하는 신호({top_txt})가 큽니다. "
+        '탐색 중지 위험형': (
+            f"전체 방문의 {share_pct}%로, 금방 다른 창으로 빠지거나 탐색 중지하는 신호({top_txt})가 큽니다. "
             f"현재 전환 가능성은 낮지만 재방문 유도로 회복할 수 있습니다. "
             f"장바구니 복귀 쿠폰·재방문 알림을 보내고, 페이지 로딩 속도와 첫 화면 매력도를 점검하세요."),
         '상품 집중형': (
@@ -315,7 +315,7 @@ def type_name(cid: str, profile: dict) -> str:
     elif price > 0.2:
         return '가격 비교형'
     elif leave > 0.25:
-        return '이탈 위험형'
+        return '탐색 중지 위험형'
     elif review > 0.08:
         return '신중 탐색형'
     elif img > 0.1:
@@ -800,9 +800,9 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     # ── 핵심 요약 / 우선 조치 자동 생성 ──────────────────────────────────────
     PRIORITY_ACTION = {
         '구매 결정형': '결제 단계를 줄이고 무료배송·즉시 쿠폰으로 구매를 마무리시키세요.',
-        '가격 비교형': '최저가 보장·적립금 문구를 가격 옆에 노출해 이탈을 막으세요.',
+        '가격 비교형': '최저가 보장·적립금 문구를 가격 옆에 노출해 탐색 중지을 막으세요.',
         '신중 탐색형': '리뷰 수와 사이즈 가이드를 강화해 구매 결정을 앞당기세요.',
-        '이탈 위험형': '장바구니 복귀 쿠폰·재방문 알림으로 다시 불러오세요.',
+        '탐색 중지 위험형': '장바구니 복귀 쿠폰·재방문 알림으로 다시 불러오세요.',
         '상품 집중형': '함께 구매한 상품·코디 추천으로 결정을 도우세요.',
         '비주얼 탐색형': '고화질 이미지·영상 콘텐츠로 체류와 구매를 늘리세요.',
         '홈 체류형': '기획전 배너로 상품 페이지로 유도하세요.',
@@ -909,13 +909,13 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         chk_rate  = rates[3] if len(rates) > 3 else 0
         buy_rate  = rates[4] if len(rates) > 4 else 0
         leak_line = (f"결제 단계까지 도달한 고객 중 가장 크게 빠져나가는 구간은 "
-                     f"<b>‘{b[0]}’ 진입으로, {b[1]}명({b[2]}%)이 이탈</b>합니다."
+                     f"<b>‘{b[0]}’ 진입으로, {b[1]}명({b[2]}%)이 탐색 중지</b>합니다."
                      if b else "")
         leak_type_line = (f" 이 구간에서 주로 멈추는 고객은 <b>{lt}</b>으로 분류됩니다. "
                           f"이 유형을 겨냥한 조치가 전환 회복에 가장 효과적입니다."
                           if lt else "")
         drop_rows = ''.join(
-            f"<tr><td>{s} 진입</td><td style='text-align:center;'>{d}명 이탈</td>"
+            f"<tr><td>{s} 진입</td><td style='text-align:center;'>{d}명 탐색 중지</td>"
             f"<td style='text-align:center; color:#b71c1c; font-weight:bold;'>{p}%</td></tr>"
             for s, d, p in funnel['drops'])
         # 유형별 단계 도달율 (퍼널 ↔ 유형 연결)
@@ -944,7 +944,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
                 cards.append(f"""
         <div style="break-inside:avoid; margin-bottom:5mm;">
           <div style="font-size:8.5pt; line-height:1.7; color:#37474f; margin-bottom:2mm;">
-            <b>이탈 {item.get('count', 0)}건</b>
+            <b>탐색 중지 {item.get('count', 0)}건</b>
             <span style="color:#90a4ae;">({item.get('share_pct', 0)}%)</span>
             · section <b>{item.get('section', 'unknown')}</b>
             · scrollY <b>{item.get('scroll_y', 0)}</b><br>
@@ -953,11 +953,11 @@ body {{ margin: 0; padding: 0; background: #fff; }}
           {img}
         </div>""")
             exit_capture_html = f"""
-    <div class="section-title" style="margin-top:5mm;">이탈 집중 화면 예시</div>
+    <div class="section-title" style="margin-top:5mm;">탐색 중지 집중 화면 예시</div>
     <div class="insight-box" style="margin-bottom:4mm;">
       <div class="insight-label">캡처 기준</div>
-      session_end/tab_exit/inactivity 이벤트를 page_url + section + scrollY 단위로 묶어 이탈이 많은 화면을 캡처했습니다.
-      빨간 가이드 라인은 해당 scrollY 기준으로 사용자가 머물다 이탈한 구역을 나타냅니다.
+      session_end/tab_exit/inactivity 이벤트를 page_url + section + scrollY 단위로 묶어 탐색 중지이 많은 화면을 캡처했습니다.
+      빨간 가이드 라인은 해당 scrollY 기준으로 사용자가 머물다 탐색 중지한 구역을 나타냅니다.
     </div>
     {''.join(cards)}
 """
@@ -984,9 +984,9 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       {leak_line}{leak_type_line}
     </div>
 
-    <div class="section-title" style="margin-top:5mm;">단계별 이탈 상세</div>
+    <div class="section-title" style="margin-top:5mm;">단계별 탐색 중지 상세</div>
     <table class="rec-table">
-      <tr><th>이탈 구간</th><th style="width:34mm; text-align:center;">이탈 인원</th><th style="width:24mm; text-align:center;">이탈율</th></tr>
+      <tr><th>탐색 중지 구간</th><th style="width:34mm; text-align:center;">탐색 중지 인원</th><th style="width:24mm; text-align:center;">탐색 중지율</th></tr>
       {drop_rows}
     </table>
 
@@ -1020,7 +1020,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
             capture_cards.append(f"""
     <div style="break-inside:avoid; margin-bottom:5mm;">
       <div style="font-size:8.5pt; line-height:1.7; color:#37474f; margin-bottom:2mm;">
-        <b>이탈 {item.get('count', 0)}건</b>
+        <b>탐색 중지 {item.get('count', 0)}건</b>
         <span style="color:#90a4ae;">({item.get('share_pct', 0)}%)</span>
         · section <b>{item.get('section', 'unknown')}</b>
         · scrollY <b>{item.get('scroll_y', 0)}</b><br>
@@ -1032,14 +1032,14 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 <div class="page">
   <div class="page-header">
     <span class="brand">GHOSTTRACKER</span>
-    <span class="page-title">이탈 집중 화면 예시</span>
+    <span class="page-title">탐색 중지 집중 화면 예시</span>
     <span class="period">{start} ~ {end}</span>
   </div>
   <div class="page-body">
     <div class="insight-box" style="margin-bottom:5mm;">
       <div class="insight-label">캡처 기준</div>
-      session_end/tab_exit/inactivity 이벤트를 page_url + section + scrollY 단위로 묶어 이탈이 많은 화면을 캡처했습니다.
-      빨간 가이드 라인은 해당 scrollY 기준으로 사용자가 머물다 이탈한 구역을 나타냅니다.
+      session_end/tab_exit/inactivity 이벤트를 page_url + section + scrollY 단위로 묶어 탐색 중지이 많은 화면을 캡처했습니다.
+      빨간 가이드 라인은 해당 scrollY 기준으로 사용자가 머물다 탐색 중지한 구역을 나타냅니다.
     </div>
     {''.join(capture_cards)}
   </div>
@@ -1071,7 +1071,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
             '구매 결정형': '결제 직전 단계 방문 — 마지막 망설임만 제거하면 전환.',
             '가격 비교형': '가격 검토가 길어지는 비교 단계 — 가격 신뢰 신호가 관건.',
             '신중 탐색형': '정보 확인이 길어지는 중간 단계 — 후기·사이즈 정보가 결정 좌우.',
-            '이탈 위험형': '초기 이탈 단계 — 재방문 유도와 진입 동선 점검 필요.',
+            '탐색 중지 위험형': '초기 탐색 중지 단계 — 재방문 유도와 진입 동선 점검 필요.',
             '상품 집중형': '특정 상품 심화 탐색 단계 — 추천·연관상품으로 결정 보조.',
             '비주얼 탐색형': '시각 정보 중심 탐색 단계 — 이미지·영상 강화가 효과적.',
             '홈 체류형': '상품 진입 전 초기 단계 — 진입 동선 단축이 우선.',
@@ -1164,7 +1164,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     STRATEGY = {
         '구매 결정형': '결제 과정 간소화 및 신속 배송 강조. 쿠폰 즉시 지급으로 마무리 유도.',
         '가격 비교형': '가격 비교 배너 및 최저가 보장 문구 노출. 적립금·할인 혜택 강조.',
-        '이탈 위험형': '재방문 유도 푸시 알림, 장바구니 복귀 쿠폰 발송. 로딩 속도 점검.',
+        '탐색 중지 위험형': '재방문 유도 푸시 알림, 장바구니 복귀 쿠폰 발송. 로딩 속도 점검.',
         '신중 탐색형': '상세 리뷰·사이즈 가이드 강화. 구매 후기 수 증가 이벤트 진행.',
         '비주얼 탐색형': '고품질 이미지 및 360° 뷰 제공. 스타일 코디 콘텐츠 추가.',
         '상품 집중형': '관련 상품 추천 기능 강화. 함께 구매한 상품 노출.',
@@ -1194,7 +1194,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       </div>
       <div style="font-size:9pt; line-height:1.9; color:#37474f;">
         구매 가능성이 높은 유형의 고객에게는 결제 전환을 도울 수 있는 즉각적인 혜택(쿠폰, 무료배송)을 우선 제공하고,
-        이탈 위험 유형에는 재방문 유도 자동화 메시지를 설정하는 것을 권장합니다.
+        탐색 중지 위험 유형에는 재방문 유도 자동화 메시지를 설정하는 것을 권장합니다.
         가격 비교형 고객에게는 가격 경쟁력을 명확히 보여주는 UI 개선이 전환율 향상에 효과적입니다.
         각 유형별 맞춤 전략을 월 1회 이상 점검하고 방문 패턴 변화에 따라 전략을 업데이트하시기 바랍니다.
       </div>
@@ -1308,13 +1308,13 @@ def generate_report(start_date: str, end_date: str, output_path: str):
     else:
         print("  → 세션 데이터 없음 → 퍼널 페이지 생략")
 
-    print("\n[2.5/4] 이탈 집중 화면 캡처 중...")
+    print("\n[2.5/4] 탐색 중지 집중 화면 캡처 중...")
     exit_captures = capture_exit_hotspots(BASE_DIR, EXIT_CAPTURE_DIR, start_date, end_date, limit=3)
     if exit_captures:
         captured = sum(1 for x in exit_captures if x.get('capture_b64'))
-        print(f"  → 이탈 집중 구역 {len(exit_captures)}개 분석, 캡처 {captured}개 생성")
+        print(f"  → 탐색 중지 집중 구역 {len(exit_captures)}개 분석, 캡처 {captured}개 생성")
     else:
-        print("  → 이탈 집중 구역 없음 또는 캡처 생략")
+        print("  → 탐색 중지 집중 구역 없음 또는 캡처 생략")
 
     # 4. HTML 생성
     print("\n[3/4] HTML 리포트 구성 중...")

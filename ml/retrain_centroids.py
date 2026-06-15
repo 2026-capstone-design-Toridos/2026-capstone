@@ -68,7 +68,8 @@ def load_model(meta: dict, device: str = 'cpu') -> TransformerMLM:
     # 구조 자동 감지
     vocab_size      = meta['vocab_size']
     embed_dim       = meta.get('embedding_dim', 64)
-    max_len         = meta.get('max_len', 60)
+    pos_key         = 'pos_emb.weight'
+    max_len         = state[pos_key].shape[0] - 5 if pos_key in state else meta.get('max_len', 60)
     num_layers_keys = [k for k in state if k.startswith('encoder.layers.') and k.endswith('.self_attn.in_proj_weight')]
     num_layers      = len(num_layers_keys)
     ff_key          = 'encoder.layers.0.linear1.weight'
@@ -77,6 +78,7 @@ def load_model(meta: dict, device: str = 'cpu') -> TransformerMLM:
     model = TransformerMLM(vocab_size, embed_dim, num_layers=num_layers,
                            max_len=max_len, dim_feedforward=dim_feedforward)
     model.load_state_dict(state)
+    model.to(device)
     model.eval()
     return model
 
@@ -86,9 +88,15 @@ def embed_session(model: TransformerMLM, token_ids: list,
                   meta: dict, device: str = 'cpu') -> np.ndarray:
     PAD = meta['special_tokens']['PAD_ID']
     CLS = meta['special_tokens']['CLS_ID']
+    UNK = meta['special_tokens'].get('UNK_ID', 1)
+    vocab_size = int(meta.get('vocab_size', 0))
     max_len = meta.get('max_len', 60)
 
-    ids     = [CLS] + token_ids[-(max_len - 1):]
+    safe_tokens = [
+        tok if isinstance(tok, int) and 0 <= tok < vocab_size else UNK
+        for tok in token_ids[-(max_len - 1):]
+    ]
+    ids     = [CLS] + safe_tokens
     pad_len = max_len - len(ids)
     ids     = ids + [PAD] * pad_len
 
@@ -195,7 +203,7 @@ def main():
     parser.add_argument('--alpha',   type=float, default=0.3, help='EMA 반영 비율 (기본 0.3)')
     args = parser.parse_args()
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cpu'
     print(f"\n디바이스: {device}")
 
     # 1. 메타 & 모델 로드
@@ -263,8 +271,8 @@ def main():
             sys.exit("hdbscan 설치 필요: pip install hdbscan")
         print("  HDBSCAN 전체 재클러스터링...")
         clusterer = hdbscan.HDBSCAN(min_cluster_size=3, min_samples=2,
-                                    metric='cosine')
-        labels = clusterer.fit_predict(embeddings)
+                                    metric='euclidean')
+        labels = clusterer.fit_predict(emb_norm)
         valid  = labels >= 0
         n_new  = len(set(labels[valid]))
         print(f"  → 새 클러스터: {n_new}개 "
@@ -307,7 +315,7 @@ def main():
     with open(META_PATH, 'w', encoding='utf-8') as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅ 완료!")
+    print("\n완료!")
     print(f"   cluster_meta.json 업데이트 ({final_n}개 클러스터)")
     print(f"   평균 신뢰도: {confidences.mean():.4f}")
     print(f"   cluster_server.py 재시작 시 자동 반영됩니다.")
