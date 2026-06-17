@@ -1,7 +1,7 @@
 {
   "base_path": "/content/drive/MyDrive/GhostTracker",
   "export_dir": "/content/drive/MyDrive/GhostTracker/export_artifacts",
-  "num_clusters": 10,
+  "num_clusters": 16,
   "cluster_ids": [
     0,
     1,
@@ -12,7 +12,13 @@
     6,
     7,
     8,
-    9
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
   ],
   "cluster_id_to_index": {
     "0": 0,
@@ -126,18 +132,82 @@
     "2": 1075,
     "3": 174
   },
-  "noise_count": 246,
+  "noise_count": 48,
   "cluster_profiles": {
-    "4": {
-      "count": 6,
+    "0": {
+      "count": 4,
+      "top_actions": [],
+      "page_dist": {}
+    },
+    "1": {
+      "count": 11,
+      "top_actions": [
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 11
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 1
+        }
+      ],
+      "page_dist": {
+        "CATEGORY": 11,
+        "HOME": 1
+      }
+    },
+    "2": {
+      "count": 3,
       "top_actions": [
         {
           "action": "SCROLL_HOME",
-          "count": 96
+          "count": 4
+        }
+      ],
+      "page_dist": {
+        "HOME": 4
+      }
+    },
+    "3": {
+      "count": 6,
+      "top_actions": [
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 6
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 6
+        },
+        {
+          "action": "START_INPUT",
+          "count": 2
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 1
+        },
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 1
+        }
+      ],
+      "page_dist": {
+        "CATEGORY": 7,
+        "CART": 6,
+        "CHECKOUT": 3
+      }
+    },
+    "4": {
+      "count": 5,
+      "top_actions": [
+        {
+          "action": "SCROLL_HOME",
+          "count": 93
         },
         {
           "action": "SCROLL_PRODUCT",
-          "count": 71
+          "count": 69
         },
         {
           "action": "ENTER_CATEGORY",
@@ -173,154 +243,11 @@
         }
       ],
       "page_dist": {
-        "PRODUCT": 178,
-        "HOME": 96,
+        "PRODUCT": 176,
+        "HOME": 93,
         "CATEGORY": 72,
         "CHECKOUT": 64,
         "CART": 17
-      }
-    },
-    "0": {
-      "count": 4,
-      "top_actions": [],
-      "page_dist": {}
-    },
-    "7": {
-      "count": 64,
-      "top_actions": [
-        {
-          "action": "ENTER_CATEGORY",
-          "count": 4990
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 1530
-        },
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 1235
-        },
-        {
-          "action": "ZOOM_IMAGE",
-          "count": 825
-        },
-        {
-          "action": "START_INPUT",
-          "count": 736
-        },
-        {
-          "action": "CHECK_SHIPPING",
-          "count": 661
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 596
-        },
-        {
-          "action": "SEARCH_USE",
-          "count": 432
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 285
-        },
-        {
-          "action": "CHECK_SIZE",
-          "count": 279
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 5798,
-        "PRODUCT": 2919,
-        "CHECKOUT": 2575,
-        "CART": 917,
-        "HOME": 260
-      }
-    },
-    "2": {
-      "count": 3,
-      "top_actions": [
-        {
-          "action": "SCROLL_HOME",
-          "count": 4
-        }
-      ],
-      "page_dist": {
-        "HOME": 4
-      }
-    },
-    "1": {
-      "count": 6,
-      "top_actions": [
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 6
-        },
-        {
-          "action": "SCROLL_HOME",
-          "count": 1
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 6,
-        "HOME": 1
-      }
-    },
-    "3": {
-      "count": 6,
-      "top_actions": [
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 6
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 6
-        },
-        {
-          "action": "START_INPUT",
-          "count": 2
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 1
-        },
-        {
-          "action": "ENTER_CATEGORY",
-          "count": 1
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 7,
-        "CART": 6,
-        "CHECKOUT": 3
-      }
-    },
-    "6": {
-      "count": 12,
-      "top_actions": [
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 48
-        },
-        {
-          "action": "EXIT_BOUNCE",
-          "count": 36
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 14
-        },
-        {
-          "action": "SCROLL_HOME",
-          "count": 4
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 48,
-        "PRODUCT": 36,
-        "CART": 14,
-        "HOME": 4
       }
     },
     "5": {
@@ -354,7 +281,68 @@
         "HOME": 2
       }
     },
-    "9": {
+    "6": {
+      "count": 13,
+      "top_actions": [
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 52
+        },
+        {
+          "action": "EXIT_BOUNCE",
+          "count": 39
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 15
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 4
+        }
+      ],
+      "page_dist": {
+        "CATEGORY": 52,
+        "PRODUCT": 39,
+        "CART": 15,
+        "HOME": 4
+      }
+    },
+    "7": {
+      "count": 5,
+      "top_actions": [
+        {
+          "action": "START_INPUT",
+          "count": 40
+        },
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 34
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 33
+        },
+        {
+          "action": "ENTER_CHECKOUT",
+          "count": 24
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 10
+        },
+        {
+          "action": "SEARCH_USE",
+          "count": 9
+        }
+      ],
+      "page_dist": {
+        "CHECKOUT": 97,
+        "CATEGORY": 49,
+        "PRODUCT": 4
+      }
+    },
+    "8": {
       "count": 12,
       "top_actions": [
         {
@@ -401,27 +389,288 @@
         "PRODUCT": 9
       }
     },
-    "8": {
-      "count": 5,
+    "9": {
+      "count": 3,
       "top_actions": [
         {
-          "action": "START_INPUT",
-          "count": 40
-        },
-        {
           "action": "ENTER_CATEGORY",
-          "count": 34
+          "count": 171
         },
         {
           "action": "EDIT_INPUT",
-          "count": 33
+          "count": 73
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 25
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 21
+        },
+        {
+          "action": "ENTER_CHECKOUT",
+          "count": 16
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 10
+        },
+        {
+          "action": "ZOOM_IMAGE",
+          "count": 10
+        },
+        {
+          "action": "START_INPUT",
+          "count": 9
+        },
+        {
+          "action": "SEARCH_USE",
+          "count": 2
+        },
+        {
+          "action": "CHANGE_QUANTITY",
+          "count": 1
+        }
+      ],
+      "page_dist": {
+        "CATEGORY": 175,
+        "CHECKOUT": 99,
+        "PRODUCT": 57,
+        "HOME": 10
+      }
+    },
+    "10": {
+      "count": 4,
+      "top_actions": [
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 234
+        },
+        {
+          "action": "START_INPUT",
+          "count": 228
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 215
+        },
+        {
+          "action": "SEARCH_USE",
+          "count": 148
+        },
+        {
+          "action": "ENTER_CHECKOUT",
+          "count": 28
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 14
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 6
+        },
+        {
+          "action": "ZOOM_IMAGE",
+          "count": 2
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 2
+        }
+      ],
+      "page_dist": {
+        "CHECKOUT": 471,
+        "CATEGORY": 389,
+        "PRODUCT": 15,
+        "HOME": 2
+      }
+    },
+    "11": {
+      "count": 3,
+      "top_actions": [
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 105
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 22
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 18
+        },
+        {
+          "action": "EXIT_BOUNCE",
+          "count": 15
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 6
+        },
+        {
+          "action": "ENTER_CHECKOUT",
+          "count": 3
+        },
+        {
+          "action": "CHECK_SHIPPING",
+          "count": 3
+        },
+        {
+          "action": "START_INPUT",
+          "count": 2
+        }
+      ],
+      "page_dist": {
+        "CATEGORY": 123,
+        "CHECKOUT": 27,
+        "PRODUCT": 15,
+        "CART": 9
+      }
+    },
+    "12": {
+      "count": 14,
+      "top_actions": [
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 5257
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 1178
+        },
+        {
+          "action": "ZOOM_IMAGE",
+          "count": 726
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 625
+        },
+        {
+          "action": "CHECK_SHIPPING",
+          "count": 545
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 321
+        },
+        {
+          "action": "CHECK_SIZE",
+          "count": 283
+        },
+        {
+          "action": "START_INPUT",
+          "count": 196
+        },
+        {
+          "action": "SEARCH_USE",
+          "count": 179
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 108
+        }
+      ],
+      "page_dist": {
+        "CATEGORY": 5551,
+        "PRODUCT": 2000,
+        "CHECKOUT": 1477,
+        "CART": 637,
+        "HOME": 125
+      }
+    },
+    "13": {
+      "count": 7,
+      "top_actions": [
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 306
+        },
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 280
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 207
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 185
+        },
+        {
+          "action": "ZOOM_IMAGE",
+          "count": 112
+        },
+        {
+          "action": "START_INPUT",
+          "count": 52
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 44
+        },
+        {
+          "action": "SEARCH_USE",
+          "count": 36
+        },
+        {
+          "action": "CHECK_SIZE",
+          "count": 31
         },
         {
           "action": "ENTER_CHECKOUT",
           "count": 24
-        },
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 672,
+        "CATEGORY": 338,
+        "CHECKOUT": 293,
+        "HOME": 50,
+        "CART": 30
+      }
+    },
+    "14": {
+      "count": 6,
+      "top_actions": [
         {
           "action": "HOVER_ELEMENT",
+          "count": 62
+        },
+        {
+          "action": "EXIT_BOUNCE",
+          "count": 38
+        },
+        {
+          "action": "START_INPUT",
+          "count": 36
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 33
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 32
+        },
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 32
+        },
+        {
+          "action": "CHECK_SHIPPING",
+          "count": 22
+        },
+        {
+          "action": "ENTER_CHECKOUT",
+          "count": 16
+        },
+        {
+          "action": "SCROLL_HOME",
           "count": 10
         },
         {
@@ -430,12 +679,198 @@
         }
       ],
       "page_dist": {
-        "CHECKOUT": 97,
-        "CATEGORY": 49,
-        "PRODUCT": 4
+        "CATEGORY": 88,
+        "CHECKOUT": 85,
+        "PRODUCT": 63,
+        "CART": 55,
+        "HOME": 10
+      }
+    },
+    "15": {
+      "count": 6,
+      "top_actions": [
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 104
+        },
+        {
+          "action": "START_INPUT",
+          "count": 77
+        },
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 69
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 68
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 57
+        },
+        {
+          "action": "EXIT_BOUNCE",
+          "count": 55
+        },
+        {
+          "action": "CHECK_SHIPPING",
+          "count": 45
+        },
+        {
+          "action": "ENTER_CHECKOUT",
+          "count": 33
+        },
+        {
+          "action": "SEARCH_USE",
+          "count": 18
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 9
+        }
+      ],
+      "page_dist": {
+        "CHECKOUT": 178,
+        "CATEGORY": 157,
+        "CART": 102,
+        "PRODUCT": 102
       }
     }
   },
-  "last_retrain": "2026-06-15T16:53:41.312621",
-  "retrain_session_count": 142
+  "last_retrain": "2026-06-16T22:11:11.172553",
+  "retrain_session_count": 155,
+  "nlp_labels": {
+    "0": {
+      "name": "행동 데이터 부족 고객",
+      "summary": "세션은 확인됐지만 대표 행동이나 방문 화면 정보가 부족해 패턴을 명확히 해석하기 어렵습니다.",
+      "action": "SDK 수집 상태와 페이지별 이벤트 매핑을 먼저 점검해 행동 데이터가 충분히 쌓이도록 보완하세요.",
+      "source": "fallback"
+    },
+    "1": {
+      "name": "페이지를 훑어보는 고객",
+      "summary": "요소 위에 머무름, 홈 화면 스크롤 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "2": {
+      "name": "페이지를 훑어보는 고객",
+      "summary": "홈 화면 스크롤 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "3": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "요소 위에 머무름, 가격 확인, 입력 시작 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "4": {
+      "name": "상품을 찾고 비교하는 고객",
+      "summary": "홈 화면 스크롤, 상품 페이지 스크롤, 카테고리 진입 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "5": {
+      "name": "탐색을 빠르게 멈추는 고객",
+      "summary": "요소 위에 머무름, 빠른 탐색 중지, 가격 확인 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "6": {
+      "name": "탐색을 빠르게 멈추는 고객",
+      "summary": "요소 위에 머무름, 빠른 탐색 중지, 가격 확인 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "7": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "입력 시작, 카테고리 진입, 입력 수정 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "8": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "결제 화면 진입, 입력 시작, 카테고리 진입 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "9": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "카테고리 진입, 입력 수정, 상품 페이지 스크롤 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "10": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "카테고리 진입, 입력 시작, 입력 수정 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "11": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "카테고리 진입, 입력 수정, 요소 위에 머무름 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "12": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "카테고리 진입, 입력 수정, 상품 이미지 확대 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "13": {
+      "name": "상품을 찾고 비교하는 고객",
+      "summary": "요소 위에 머무름, 카테고리 진입, 상품 페이지 스크롤 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "14": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "요소 위에 머무름, 빠른 탐색 중지, 입력 시작 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    },
+    "15": {
+      "name": "결제 단계에서 망설이는 고객",
+      "summary": "요소 위에 머무름, 입력 시작, 카테고리 진입 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "source": "fallback"
+    }
+  },
+  "nlp_labels_updated_at": "2026-06-16T13:11:16.522Z",
+  "nlp_labels_error": "Gemini API 오류 (503): {\"error\":{\"code\":503,\"message\":\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\"status\":\"UNAVAILABLE\"}}",
+  "silhouette": 0.48,
+  "davies_bouldin": 0.8351,
+  "cluster_quality": {
+    "sample_count": 155,
+    "clustered_session_count": 107,
+    "noise_count": 48,
+    "noise_rate": 0.3097,
+    "silhouette": 0.48,
+    "davies_bouldin": 0.8351,
+    "metrics_note": "",
+    "stability": {
+      "avg_profile_stability": 0.9818,
+      "per_cluster": {
+        "0": null,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 0.7273,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1
+      },
+      "method": "top_actions/page_dist Jaccard similarity against previous run"
+    }
+  }
 }

@@ -192,7 +192,7 @@
     .hero-card p { margin: 10px 0 0; color: var(--muted); line-height: 1.65; }
     .today-summary {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 12px;
       margin-top: 20px;
     }
@@ -249,12 +249,107 @@
     }
     .focus-metric strong { display: block; font-family: var(--font-point); font-size: 1.18rem; font-weight: 500; }
     .focus-metric span { color: var(--muted); font-size: 0.76rem; font-weight: 800; }
+    .source-top {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .source-top-title {
+      color: var(--muted);
+      font-family: var(--font-point);
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    .source-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid rgba(221, 231, 242, 0.82);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.76);
+      padding: 10px 11px;
+    }
+    .source-name {
+      min-width: 0;
+      font-family: var(--font-point);
+      font-size: 0.82rem;
+      font-weight: 500;
+      word-break: keep-all;
+    }
+    .source-count {
+      color: var(--muted);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
 
     .grid {
       display: grid;
       grid-template-columns: minmax(0, 1.05fr) minmax(390px, 0.95fr);
       gap: 16px;
       align-items: start;
+    }
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .insight-card {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(221, 231, 242, 0.9);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    .insight-head {
+      padding: 16px 18px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .insight-title {
+      font-family: var(--font-point);
+      font-size: 0.98rem;
+      font-weight: 500;
+    }
+    .insight-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+    .insight-body {
+      padding: 14px 18px 18px;
+      display: grid;
+      gap: 10px;
+    }
+    .insight-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fff, #f8fbff);
+      padding: 11px 12px;
+    }
+    .insight-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+    .insight-name {
+      font-family: var(--font-point);
+      font-size: 0.86rem;
+      font-weight: 500;
+    }
+    .insight-count {
+      color: var(--muted);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+    .insight-desc {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.79rem;
+      line-height: 1.5;
     }
     .stack { display: grid; gap: 16px; min-width: 0; }
     .card {
@@ -280,6 +375,30 @@
     .customer-types {
       display: grid;
       gap: 10px;
+    }
+    .quality-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .quality-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fff, #f8fbff);
+      padding: 12px;
+    }
+    .quality-item .label {
+      color: var(--muted);
+      font-family: var(--font-point);
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+    .quality-item .value {
+      margin-top: 5px;
+      font-family: var(--font-point);
+      font-size: 1.05rem;
+      font-weight: 500;
     }
     .type-card {
       position: relative;
@@ -310,8 +429,16 @@
       box-shadow: 0 14px 30px rgba(23, 32, 51, 0.1);
       background: #fff;
     }
-    .type-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
-    .type-name { font-family: var(--font-point); font-weight: 500; }
+    .type-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .type-name {
+      flex: 1;
+      min-width: 0;
+      font-family: var(--font-point);
+      font-weight: 500;
+      line-height: 1.35;
+      word-break: keep-all;
+      overflow-wrap: normal;
+    }
     .type-count {
       color: var(--muted);
       font-size: 0.8rem;
@@ -384,6 +511,12 @@
       white-space: nowrap;
     }
     .session-meta { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
+    .session-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
     .badge {
       display: inline-flex;
       align-items: center;
@@ -398,6 +531,7 @@
     .badge.risk { background: var(--red-soft); color: var(--red); }
     .badge.ok { background: var(--blue-soft); color: var(--blue); }
     .badge.good { background: var(--green-soft); color: var(--green); }
+    .badge.weak { background: var(--amber-soft); color: var(--amber); }
 
     .result-box {
       border: 1px solid var(--line);
@@ -408,6 +542,30 @@
     }
     .result-title { color: var(--muted); font-family: var(--font-point); font-size: 0.82rem; font-weight: 500; }
     .persona { margin-top: 7px; font-family: var(--font-point); font-size: 1.24rem; font-weight: 500; color: var(--blue); }
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-top: 13px;
+    }
+    .flow-step {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 9px;
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: #1e3a8a;
+      font-family: var(--font-point);
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .flow-arrow {
+      color: var(--muted);
+      font-family: var(--font-point);
+      font-size: 0.84rem;
+    }
     .result-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -479,15 +637,16 @@
     }
 
     @media (max-width: 1120px) {
-      .hero, .grid, .split { grid-template-columns: 1fr; }
-      .today-summary { grid-template-columns: repeat(3, 1fr); }
+      .hero, .grid, .split, .insight-grid { grid-template-columns: 1fr; }
+      .today-summary { grid-template-columns: repeat(2, 1fr); }
+      .quality-summary { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 720px) {
       .topbar, .actions { flex-direction: column; align-items: stretch; }
       main { padding: 16px; }
       .hero-card { padding: 22px; }
       .hero-card h2 { font-size: 1.55rem; }
-      .today-summary, .result-grid { grid-template-columns: 1fr; }
+      .today-summary, .result-grid, .quality-summary { grid-template-columns: 1fr; }
       .focus-metric { grid-template-columns: 1fr; }
       .session-search { grid-template-columns: 1fr; }
     }
@@ -521,6 +680,10 @@
         <p id="headline-detail">실시간 행동 데이터를 바탕으로 탐색 중지 신호, 주요 고객 유형, 추천 운영 액션을 정리합니다.</p>
         <div class="today-summary">
           <div class="summary-item">
+            <div class="label">방문자 수</div>
+            <div class="value" id="visitor-count">-</div>
+          </div>
+          <div class="summary-item">
             <div class="label">수집된 행동</div>
             <div class="value" id="total-events">-</div>
           </div>
@@ -548,7 +711,50 @@
             <span>주요 행동</span>
           </div>
         </div>
+        <div class="source-top" id="source-top">
+          <div class="source-top-title">유입 경로 TOP</div>
+          <div class="source-row"><div class="source-name">유입 경로 확인 중</div><div class="source-count">-</div></div>
+        </div>
       </aside>
+    </section>
+
+    <section class="insight-grid">
+      <section class="insight-card">
+        <div class="insight-head">
+          <div class="insight-title">오늘 가장 막히는 화면 TOP</div>
+          <div class="insight-sub">탐색 중지 신호가 가장 많이 모인 화면입니다.</div>
+        </div>
+        <div class="insight-body" id="blocked-pages">
+          <div class="empty">화면별 요약을 불러오는 중입니다.</div>
+        </div>
+      </section>
+      <section class="insight-card">
+        <div class="insight-head">
+          <div class="insight-title">주요 문제 원인 TOP</div>
+          <div class="insight-sub">고객이 멈춘 이유를 쉬운 말로 모았습니다.</div>
+        </div>
+        <div class="insight-body" id="issue-causes">
+          <div class="empty">문제 원인을 정리하는 중입니다.</div>
+        </div>
+      </section>
+      <section class="insight-card">
+        <div class="insight-head">
+          <div class="insight-title">실행 우선순위 추천</div>
+          <div class="insight-sub">오늘 먼저 손보면 좋은 순서입니다.</div>
+        </div>
+        <div class="insight-body" id="priority-actions">
+          <div class="empty">추천 액션을 준비하는 중입니다.</div>
+        </div>
+      </section>
+      <section class="insight-card">
+        <div class="insight-head">
+          <div class="insight-title">유입 경로별 성과 차이</div>
+          <div class="insight-sub">들어온 경로마다 주문 성공과 중지 비율이 다릅니다.</div>
+        </div>
+        <div class="insight-body" id="source-performance">
+          <div class="empty">유입 경로 비교를 불러오는 중입니다.</div>
+        </div>
+      </section>
     </section>
 
     <section class="grid">
@@ -557,10 +763,17 @@
           <div class="card-head">
             <div>
               <div class="card-title">고객 유형 한눈에 보기</div>
-              <div class="card-sub">숫자보다 “어떤 고객이 많은지”를 먼저 보여줍니다.</div>
+              <div class="card-sub">마지막으로 고객 유형 다시 찾기를 실행했을 때 확정된 유형을, 비슷한 세부 클러스터끼리 묶어 보여줍니다.</div>
+              <div class="card-sub" id="cluster-snapshot-note">마지막 클러스터링 시점을 불러오는 중입니다.</div>
             </div>
           </div>
           <div class="card-body">
+            <div class="quality-summary" id="quality-summary">
+              <div class="quality-item"><div class="label">검증 통과</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">검증 필요</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">분리도</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">미분류 비율</div><div class="value">-</div></div>
+            </div>
             <div class="split">
               <div class="chart-wrap">
                 <div class="chart-label">고객 유형 비중</div>
@@ -641,7 +854,7 @@
   </main>
 
   <script>
-    const DEMO_ORIGIN = "https://jh-web-nu.vercel.app";
+    const DEMO_ORIGIN = "https://toridos.vercel.app";
     const state = {
       origin: "",
       logs: [],
@@ -687,6 +900,10 @@
       const actions = (cluster.top_actions || []).map((a) => a.action);
       const label = cluster.label || "";
       const top3 = actions.slice(0, 3);
+      if (label.includes("행동 데이터 부족")) return "행동 데이터 부족 고객";
+      if (label.includes("결제 단계에서 망설이는 고객")) return "결제 단계에서 망설이는 고객";
+      if (label.includes("탐색을 빠르게 멈추는 고객")) return "탐색을 빠르게 멈추는 고객";
+      if (label.includes("페이지를 훑어보는 고객")) return "페이지를 훑어보는 고객";
       if (actions.includes("EXIT_SESSION") || (top3.includes("INACTIVE") && top3.includes("START_SESSION"))) return "탐색 중지 가능 고객";
       if (top3.includes("SEARCH_USE") || label.includes("SEARCH")) return "상품을 찾는 고객";
       if (top3.includes("CHECK_SIZE") || top3.includes("CHECK_PRICE")) return "구매 직전 망설이는 고객";
@@ -705,11 +922,142 @@
 
     function typeTone(cluster) {
       const name = friendlyClusterName(cluster);
+      if (name.includes("행동 데이터 부족")) return "exit";
+      if (name.includes("결제 단계")) return "intent";
+      if (name.includes("페이지를 훑어보는")) return "search";
+      if (name.includes("탐색을 빠르게")) return "exit";
       if (name.includes("구매 직전")) return "intent";
       if (name.includes("꼼꼼히")) return "compare";
       if (name.includes("상품을 찾는")) return "search";
       if (name.includes("탐색 중지")) return "exit";
       return "search";
+    }
+
+    function clusterDetails(clusterId) {
+      const cluster = state.clusters.find((c) => String(c.cluster) === String(clusterId));
+      if (!cluster) {
+        return null;
+      }
+      return {
+        label: cluster.label || friendlyClusterName(cluster),
+        summary: cluster.summary || friendlyClusterDesc(cluster),
+        action: cluster.action || "",
+      };
+    }
+
+    function completedSessionInsight(baseDetails = {}) {
+      return {
+        label: "주문을 완료한 고객",
+        summary: `이 고객은 실제 행동 흐름에서 장바구니 담기, 주문서 입력, 주문 성공까지 이어졌습니다. AI 기준 유형으로는 ${baseDetails?.label || "가장 가까운 유형"}에 가깝게 분류됐지만, 운영자 화면에서는 전환에 성공한 고객으로 보는 편이 더 자연스럽습니다.`,
+        action: "이 세션을 전환 성공 예시로 보고, 장바구니부터 주문 완료까지의 흐름을 다른 고객에게도 비슷하게 이어지도록 화면 순서와 안내 문구를 점검하세요.",
+      };
+    }
+
+    function operatorClusterMeta(name) {
+      if (name.includes("행동 데이터 부족")) {
+        return {
+          key: "unknown",
+          name: "행동 데이터 부족 고객",
+          summary: "대표 행동이나 방문 화면 정보가 적어 아직 별도 고객 유형으로 설명하기 어렵습니다.",
+          action: "SDK 수집 상태와 페이지별 이벤트 매핑을 먼저 점검해 행동 데이터가 충분히 쌓이도록 보완하세요.",
+        };
+      }
+      if (name.includes("결제 단계")) {
+        return {
+          key: "checkout_hesitation",
+          name: "결제 단계에서 망설이는 고객",
+          summary: "가격 확인, 입력 시작, 결제 진입처럼 구매 직전 행동이 많지만 마지막 단계에서 멈추는 유형입니다.",
+          action: "가격, 배송, 입력 안내를 더 분명하게 보여주고 결제 직전 불안 요소를 줄여보세요.",
+        };
+      }
+      if (name.includes("탐색을 빠르게")) {
+        return {
+          key: "quick_stop",
+          name: "탐색을 빠르게 멈추는 고객",
+          summary: "짧게 둘러본 뒤 탐색 중지 신호가 빨리 나타나는 유형입니다.",
+          action: "첫 화면과 상품 초반 구간에서 혜택, 대표 상품, 다음 행동 버튼을 더 강하게 보여주세요.",
+        };
+      }
+      if (name.includes("페이지를 훑어보는")) {
+        return {
+          key: "browse",
+          name: "페이지를 훑어보는 고객",
+          summary: "스크롤과 가벼운 탐색 위주로 둘러보지만 다음 행동으로 이어지지 않는 유형입니다.",
+          action: "상품 추천, 후기, 카테고리 이동 버튼처럼 다음 행동을 정해주는 안내를 보강하세요.",
+        };
+      }
+      if (name.includes("상품을 찾는") || name.includes("꼼꼼히")) {
+        return {
+          key: "compare",
+          name: "상품을 찾고 비교하는 고객",
+          summary: "검색, 카테고리 이동, 리뷰 확인처럼 비교 탐색 행동이 많은 유형입니다.",
+          action: "필터, 리뷰, 가격 비교 정보가 한눈에 보이도록 구성해 선택 속도를 높여주세요.",
+        };
+      }
+      return {
+        key: `cluster-${name}`,
+        name,
+        summary: "비슷한 행동 패턴을 보인 세부 클러스터를 묶어 보여주는 상위 유형입니다.",
+        action: "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      };
+    }
+
+    function aggregateTopActions(clusters) {
+      const counts = new Map();
+      clusters.forEach((cluster) => {
+        (cluster.top_actions || []).forEach((action) => {
+          counts.set(action.action, (counts.get(action.action) || 0) + (action.count || 0));
+        });
+      });
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([action, count]) => ({ action, count }));
+    }
+
+    function aggregateValidation(clusters) {
+      const statuses = clusters.map((cluster) => cluster.validation?.status).filter(Boolean);
+      if (!statuses.length) return { status: "weak" };
+      if (statuses.every((status) => status === "insufficient")) return { status: "insufficient" };
+      if (statuses.some((status) => status === "weak" || status === "insufficient")) return { status: "weak" };
+      return { status: "verified" };
+    }
+
+    function aggregateOperatorClusters(clusters) {
+      const groups = new Map();
+      clusters.forEach((cluster) => {
+        const baseName = friendlyClusterName(cluster);
+        const meta = operatorClusterMeta(baseName);
+        const row = groups.get(meta.key) || {
+          key: meta.key,
+          label: meta.name,
+          summary: meta.summary,
+          action: meta.action,
+          count: 0,
+          members: [],
+        };
+        row.count += cluster.count || 0;
+        row.members.push(cluster);
+        groups.set(meta.key, row);
+      });
+
+      return [...groups.values()]
+        .map((group) => {
+          const representative = [...group.members].sort((a, b) => (b.count || 0) - (a.count || 0))[0] || {};
+          return {
+            cluster: representative.cluster,
+            label: group.label,
+            summary: group.summary,
+            action: group.action,
+            count: group.count,
+            top_actions: aggregateTopActions(group.members),
+            validation: aggregateValidation(group.members),
+            members: group.members,
+            representative_cluster: representative.cluster,
+          };
+        })
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 4);
     }
 
     function friendlyAction(action) {
@@ -737,19 +1085,102 @@
 
     function eventText(e) {
       const d = e.data || {};
+      if (isOrderSuccessEvent(e)) return "주문 성공 화면을 확인했습니다.";
       switch (e.event_type) {
         case "session_start": return "고객이 쇼핑몰에 들어왔습니다.";
         case "product_click": return "상품을 눌러 자세히 봤습니다.";
         case "add_to_cart": return "장바구니에 상품을 담았습니다.";
         case "purchase_click": return "구매 또는 결제 버튼을 눌렀습니다.";
         case "tab_exit": return "쇼핑몰 탭을 벗어났습니다.";
+        case "tab_return": return "쇼핑몰 탭으로 돌아왔습니다.";
         case "inactivity": return "고객 움직임이 멈췄습니다.";
+        case "mouse_move": return "마우스를 움직였습니다.";
+        case "screen_resize": return "화면 크기가 바뀌었습니다.";
         case "section_exit": return `${d.section || "특정"} 영역을 벗어났습니다.`;
         case "scroll_depth": return "페이지를 스크롤하며 둘러봤습니다.";
         case "hover_dwell": return "특정 요소 위에 머물렀습니다.";
         case "search_use": return `검색어를 입력했습니다: ${d.search_query || ""}`;
         default: return e.event_type.replaceAll("_", " ");
       }
+    }
+
+    function isOrderSuccessEvent(e) {
+      const d = e.data || {};
+      const text = `${d.hover_text || ""} ${d.click_text || ""}`;
+      const target = `${d.hover_target || ""} ${d.click_target || ""}`.toLowerCase();
+      return text.includes("주문이 완료") || target.includes("complete");
+    }
+
+    function isRiskEvent(e) {
+      return ["tab_exit", "inactivity", "session_end", "cart_abandon_flag"].includes(e.event_type);
+    }
+
+    function shortEventText(e) {
+      const d = e.data || {};
+      const text = `${d.hover_text || ""} ${d.click_text || ""}`.trim();
+      const target = `${d.click_target || ""} ${d.hover_target || ""} ${d.input_target || ""}`.toLowerCase();
+      if (text.includes("주문이 완료") || target.includes("complete")) return "주문 성공";
+      if (target.includes("cart") || target.includes("basket")) return "장바구니 확인";
+      if (target.includes("phone") || target.includes("address") || target.includes("detail") || target.includes("memo")) return "배송 정보 입력";
+      const labels = {
+        session_start: "방문",
+        navigation: "페이지 이동",
+        page_view: "페이지 확인",
+        product_click: "상품 클릭",
+        add_to_cart: "장바구니 담기",
+        purchase_click: "주문 클릭",
+        tab_exit: "탭 떠남",
+        tab_return: "탭 돌아옴",
+        inactivity: "움직임 없음",
+        section_exit: "영역 벗어남",
+        scroll_depth: "스크롤",
+        hover_dwell: "머무름",
+        search_use: "검색",
+        cart_abandon_flag: "장바구니 중단",
+        session_end: "탐색 중지",
+      };
+      return labels[e.event_type] || e.event_type.replaceAll("_", " ");
+    }
+
+    function renderBehaviorFlow(events, limit = 6) {
+      if (!events.length) return `<div class="empty">아직 이 고객의 행동 흐름이 없습니다.</div>`;
+      const usefulTypes = new Set([
+        "session_start",
+        "navigation",
+        "product_click",
+        "add_to_cart",
+        "purchase_click",
+        "input_change",
+        "field_focus",
+        "field_blur",
+        "search_use",
+        "tab_exit",
+        "tab_return",
+        "inactivity",
+        "session_end",
+      ]);
+      const compact = [];
+      events.forEach((event) => {
+        const hasOrderComplete = `${event.data?.hover_text || ""} ${event.data?.click_text || ""}`.includes("주문이 완료")
+          || `${event.data?.hover_target || ""} ${event.data?.click_target || ""}`.toLowerCase().includes("complete");
+        if (!usefulTypes.has(event.event_type) && !hasOrderComplete) return;
+        const label = shortEventText(event);
+        if (compact[compact.length - 1] !== label) compact.push(label);
+      });
+      const meaningful = compact.filter((label) => !["페이지 이동", "탭 떠남", "탭 돌아옴", "움직임 없음"].includes(label));
+      const source = meaningful.length >= 3 ? meaningful : compact;
+      const display = source.length > limit
+        ? [...source.slice(0, Math.ceil(limit / 2)), `중간 ${source.length - limit}개 생략`, ...source.slice(-(Math.floor(limit / 2)))]
+        : source;
+      return `
+        <div class="result-title">이 고객의 행동 흐름</div>
+        <div class="flow">
+          ${display.map((label, idx, arr) => `
+            <span class="flow-step">${label}</span>
+            ${idx < arr.length - 1 ? `<span class="flow-arrow">→</span>` : ""}
+          `).join("")}
+        </div>
+      `;
     }
 
     function eventPage(e) {
@@ -771,23 +1202,202 @@
           last_at: e.received_at,
           pathname: e.pathname || "/",
           risky: false,
+          completed: false,
+          referrer: e.referrer || "",
+          utm_source: e.utm_source || "",
+          utm_campaign: e.utm_campaign || "",
         };
         row.count += 1;
-        row.risky = row.risky || ["tab_exit", "inactivity", "session_end", "cart_abandon_flag"].includes(e.event_type);
+        row.completed = row.completed || isOrderSuccessEvent(e);
+        row.risky = row.risky || isRiskEvent(e);
         if (!row.last_at || new Date(e.received_at) > new Date(row.last_at)) {
           row.last_at = e.received_at;
           row.pathname = e.pathname || row.pathname;
         }
+        if (!row.referrer && e.referrer) row.referrer = e.referrer;
+        if (!row.utm_source && e.utm_source) row.utm_source = e.utm_source;
+        if (!row.utm_campaign && e.utm_campaign) row.utm_campaign = e.utm_campaign;
         map.set(e.session_id, row);
       });
-      return [...map.values()].sort((a, b) => new Date(b.last_at) - new Date(a.last_at));
+      return [...map.values()]
+        .map((row) => ({ ...row, risky: row.completed ? false : row.risky }))
+        .sort((a, b) => new Date(b.last_at) - new Date(a.last_at));
+    }
+
+    function hostFromUrl(raw) {
+      if (!raw) return "";
+      try {
+        return new URL(raw).host.replace(/^www\./, "");
+      } catch {
+        return "";
+      }
+    }
+
+    function sourceTags(session) {
+      const tags = [];
+      if (session?.utm_source) tags.push(`유입: ${prettySourceName(session.utm_source)}`);
+      const refHost = hostFromUrl(session?.referrer);
+      if (refHost) tags.push(`이전 사이트: ${prettySourceName(refHost)}`);
+      if (session?.utm_campaign) tags.push(`캠페인: ${session.utm_campaign}`);
+      if (!tags.length) tags.push("직접 방문");
+      return tags;
+    }
+
+    function prettySourceName(raw) {
+      const value = String(raw || "").trim().toLowerCase();
+      if (!value) return "직접 방문";
+      if (value.includes("notion")) return "Notion";
+      if (value.includes("instagram") || value.includes("insta")) return "Instagram";
+      if (value.includes("facebook")) return "Facebook";
+      if (value.includes("github")) return "GitHub";
+      if (value.includes("kakao")) return "Kakao";
+      if (value.includes("google")) return "Google";
+      if (value.includes("naver")) return "Naver";
+      return String(raw).replace(/^www\./i, "");
+    }
+
+    function sessionSourceName(session) {
+      if (session?.utm_source) return prettySourceName(session.utm_source);
+      const refHost = hostFromUrl(session?.referrer);
+      if (refHost) return prettySourceName(refHost);
+      return "직접 방문";
+    }
+
+    function renderTopSources(payload = {}) {
+      const rows = Array.isArray(payload.sources)
+        ? payload.sources.map((item) => [item.name, item.count])
+        : [];
+      $("source-top").innerHTML = rows.length
+        ? `<div class="source-top-title">유입 경로 TOP</div>${rows.map(([name, count]) => `
+          <div class="source-row">
+            <div class="source-name">${name}</div>
+            <div class="source-count">${fmt(count)}명</div>
+          </div>
+        `).join("")}`
+        : `<div class="source-top-title">유입 경로 TOP</div><div class="source-row"><div class="source-name">유입 경로 없음</div><div class="source-count">0명</div></div>`;
+    }
+
+    function renderInsightList(targetId, items, renderItem, emptyText) {
+      const target = $(targetId);
+      if (!items?.length) {
+        target.innerHTML = `<div class="empty">${emptyText}</div>`;
+        return;
+      }
+      target.innerHTML = items.map(renderItem).join("");
+    }
+
+    function renderOperatorSummary(summary = {}) {
+      renderInsightList(
+        "blocked-pages",
+        summary.blocked_pages || [],
+        (item) => `
+          <div class="insight-item">
+            <div class="insight-top">
+              <div class="insight-name">${item.label}</div>
+              <div class="insight-count">${fmt(item.count)}명 · ${item.share || 0}%</div>
+            </div>
+            <div class="insight-desc">탐색 중지 신호가 이 화면에서 가장 많이 마무리됐습니다.</div>
+          </div>`,
+        "아직 막히는 화면 데이터가 없습니다.",
+      );
+
+      renderInsightList(
+        "issue-causes",
+        summary.issue_causes || [],
+        (item) => `
+          <div class="insight-item">
+            <div class="insight-top">
+              <div class="insight-name">${item.label}</div>
+              <div class="insight-count">${fmt(item.count)}명 · ${item.share || 0}%</div>
+            </div>
+            <div class="insight-desc">최근 탐색 중지 세션에서 반복해서 보인 패턴입니다.</div>
+          </div>`,
+        "아직 문제 원인 데이터가 없습니다.",
+      );
+
+      renderInsightList(
+        "priority-actions",
+        summary.priorities || [],
+        (item, idx) => `
+          <div class="insight-item">
+            <div class="insight-top">
+              <div class="insight-name">${idx + 1}. ${item.title}</div>
+            </div>
+            <div class="insight-desc">${item.detail}</div>
+          </div>`,
+        "추천할 운영 액션이 아직 없습니다.",
+      );
+
+      renderInsightList(
+        "source-performance",
+        summary.source_performance || [],
+        (item) => `
+          <div class="insight-item">
+            <div class="insight-top">
+              <div class="insight-name">${item.name}</div>
+              <div class="insight-count">${fmt(item.total)}명</div>
+            </div>
+            <div class="insight-desc">주문 성공 ${item.completion_rate}% · 탐색 중지 ${item.risk_rate}% · 많이 보는 화면 ${item.top_page}</div>
+          </div>`,
+        "유입 경로 성과 비교 데이터가 없습니다.",
+      );
+    }
+
+    function qualityValue(value, suffix = "") {
+      if (value === undefined || value === null || Number.isNaN(Number(value))) return "-";
+      return `${Number(value).toLocaleString("ko-KR")}${suffix}`;
+    }
+
+    function renderQualitySummary(quality = {}) {
+      const verified = quality.verified_clusters ?? 0;
+      const needsReview = (quality.weak_clusters ?? 0) + (quality.insufficient_clusters ?? 0);
+      const separation = quality.silhouette !== null && quality.silhouette !== undefined
+        ? Number(quality.silhouette).toFixed(2)
+        : "계산 전";
+      const noiseRate = quality.noise_rate !== null && quality.noise_rate !== undefined
+        ? `${Math.round(Number(quality.noise_rate) * 100)}%`
+        : "-";
+      $("quality-summary").innerHTML = `
+        <div class="quality-item"><div class="label">검증 통과</div><div class="value">${qualityValue(verified)}개</div></div>
+        <div class="quality-item"><div class="label">검증 필요</div><div class="value">${qualityValue(needsReview)}개</div></div>
+        <div class="quality-item"><div class="label">분리도</div><div class="value">${separation}</div></div>
+        <div class="quality-item"><div class="label">미분류 비율</div><div class="value">${noiseRate}</div></div>
+      `;
+    }
+
+    function renderClusterSnapshotInfo(data = {}) {
+      const meta = data.meta || {};
+      const stamp = meta.last_retrain
+        ? new Date(meta.last_retrain).toLocaleString("ko-KR")
+        : "기록 없음";
+      const note = data.source === "artifact_snapshot"
+        ? `선택한 사이트의 새 세션에 따라 바뀌지 않고, 마지막 고객 유형 다시 찾기 실행 시점(${stamp}) 기준으로 유지됩니다.`
+        : data.source === "site_snapshot"
+          ? `현재 선택한 사이트 기준으로 마지막 고객 유형 다시 찾기 실행 시점(${stamp})에 저장한 결과입니다. 새 세션만으로는 바뀌지 않습니다.`
+        : `현재 클러스터 기준은 ${stamp}에 저장된 결과입니다.`;
+      $("cluster-snapshot-note").textContent = note;
+    }
+
+    function validationBadge(validation = {}) {
+      if (validation.status === "verified") return `<span class="badge good">검증 통과</span>`;
+      if (validation.status === "insufficient") return `<span class="badge risk">데이터 부족</span>`;
+      return `<span class="badge weak">검증 필요</span>`;
     }
 
     function renderClusters(data) {
-      const clusters = (data.clusters || []).filter((c) => c.cluster >= 0);
-      state.clusters = clusters;
+      const rawClusters = (data.clusters || []).filter((c) => c.cluster >= 0);
+      state.clusters = rawClusters;
+      const clusters = aggregateOperatorClusters(rawClusters);
       const total = data.total_sessions || clusters.reduce((sum, c) => sum + c.count, 0);
-      const displayNames = clusters.map(friendlyClusterName);
+      const groupedQuality = {
+        ...(data.quality || {}),
+        verified_clusters: clusters.filter((cluster) => cluster.validation?.status === "verified").length,
+        weak_clusters: clusters.filter((cluster) => cluster.validation?.status === "weak").length,
+        insufficient_clusters: clusters.filter((cluster) => cluster.validation?.status === "insufficient").length,
+        visible_clusters: clusters.length,
+      };
+      renderQualitySummary(groupedQuality);
+      const displayNames = clusters.map((c) => c.label || friendlyClusterName(c));
       chart.data.labels = displayNames;
       chart.data.datasets[0].data = clusters.map((c) => c.count);
       chart.data.datasets[0].backgroundColor = ["#185adb", "#14b8a6", "#e85d4f", "#f59e0b", "#047857"];
@@ -797,13 +1407,15 @@
         const pct = total ? Math.round(c.count / total * 100) : 0;
         const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${friendlyAction(a.action)}</span>`).join("");
         return `
-          <div class="type-card ${typeTone(c)}" data-cluster="${c.cluster}">
+          <div class="type-card ${typeTone(c)}" data-cluster="${c.representative_cluster ?? c.cluster}">
             <div class="type-top">
               <div class="type-name">${displayNames[idx]}</div>
               <div class="type-count">${fmt(c.count)}명 · ${pct}%</div>
             </div>
-            <div class="type-desc">${friendlyClusterDesc(c)}</div>
+            <div class="chips">${validationBadge(c.validation)}</div>
+            <div class="type-desc">${c.summary || friendlyClusterDesc(c)}</div>
             <div class="chips">${chips}</div>
+            ${c.action ? `<div class="type-desc"><b>추천:</b> ${c.action}</div>` : ""}
           </div>`;
       }).join("");
       $("customer-types").querySelectorAll(".type-card").forEach((card) => {
@@ -821,8 +1433,9 @@
           <div>
             <div class="sid">최근 고객 ${idx + 1}</div>
             <div class="session-meta">${new Date(s.last_at).toLocaleTimeString("ko-KR")} · ${s.pathname} · 행동 ${s.count}개 · 참조 ${shortId(s.session_id)}</div>
+            <div class="session-tags">${sourceTags(s).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
           </div>
-          <span class="badge ${s.risky ? "risk" : "ok"}">${s.risky ? "탐색 중지 신호" : "탐색 중"}</span>
+          <span class="badge ${s.completed ? "good" : (s.risky ? "risk" : "ok")}">${s.completed ? "주문 성공" : (s.risky ? "탐색 중지 신호" : "탐색 중")}</span>
         </div>
       `).join("");
       $("session-list").querySelectorAll(".session-row").forEach((row) => {
@@ -851,7 +1464,12 @@
         .filter((e) => e.session_id === sessionId)
         .sort((a, b) => (a.event_seq || 0) - (b.event_seq || 0));
       state.analysis = null;
-      $("result-box").innerHTML = `<div class="empty">최근 고객 ${customerNumber(sessionId)}을 선택했습니다.<br>“이 고객 분석”을 눌러 유형을 확인하세요.</div>`;
+      const selectedSession = state.sessions.find((s) => s.session_id === sessionId);
+      $("result-box").innerHTML = `
+        ${renderBehaviorFlow(state.selectedEvents)}
+        <div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
+        <div class="type-desc">“이 고객 분석”을 누르면 이 행동 흐름이 어떤 고객 유형에 가까운지 보여줍니다.</div>
+      `;
       $("report-box").textContent = "고객 분석 후 리포트를 볼 수 있습니다.";
       $("cluster-report").disabled = true;
       $("session-report").disabled = true;
@@ -863,16 +1481,27 @@
       if (!sessionId) return;
       $("result-box").innerHTML = `<div class="empty">고객 행동을 분석하는 중입니다.</div>`;
       try {
-        const result = await api(`/api/classify/session/${encodeURIComponent(sessionId)}`, { method: "POST" });
-        state.analysis = result;
         if (!state.selectedEvents.length) {
           state.selectedEvents = await api(`/api/logs?limit=200&session_id=${encodeURIComponent(sessionId)}`);
         }
+        const result = await api(`/api/classify/session/${encodeURIComponent(sessionId)}`, { method: "POST" });
+        const details = clusterDetails(result.cluster_id);
+        const completed = result.completed || state.selectedEvents.some((event) => isOrderSuccessEvent(event));
+        const displayDetails = completed ? completedSessionInsight(details) : details;
+        state.analysis = {
+          ...result,
+          completed,
+          persona: displayDetails?.label || result.persona || `고객 유형 ${result.cluster_id}`,
+          summary: displayDetails?.summary || "이 고객은 현재 사이트의 상위 유형 목록에는 없지만, AI 분류 기준에 따라 가장 가까운 고객 유형으로 분류됐습니다.",
+          action: displayDetails?.action || "고객 리포트를 열어 실제 행동 흐름을 기준으로 추천 액션을 확인하세요.",
+        };
         $("result-box").innerHTML = `
           <div class="result-title">이 고객은 이런 유형에 가깝습니다</div>
-          <div class="persona">${result.persona || `고객 유형 ${result.cluster_id}`}</div>
+          <div class="persona">${state.analysis.persona}</div>
+          <div class="type-desc">${state.analysis.summary}</div>
+          ${state.analysis.action ? `<div class="type-desc"><b>추천:</b> ${state.analysis.action}</div>` : ""}
           <div class="result-grid">
-            <div class="mini"><div class="label">고객 유형</div><div class="value">${result.persona || `유형 ${result.cluster_id}`}</div></div>
+            <div class="mini"><div class="label">${completed ? "기준 유형" : "유형 ID"}</div><div class="value">C${result.cluster_id}</div></div>
             <div class="mini"><div class="label">확신도</div><div class="value">${Math.round((result.confidence || 0) * 100)}%</div></div>
             <div class="mini"><div class="label">행동 수</div><div class="value">${result.seq_len || "-"}</div></div>
           </div>`;
@@ -889,7 +1518,10 @@
         session_id: state.analysis?.session_id || state.selectedSessionId,
         cluster_id: state.analysis?.cluster_id,
         persona: state.analysis?.persona,
+        summary: state.analysis?.summary,
+        action: state.analysis?.action,
         confidence: state.analysis?.confidence,
+        prefer_local: true,
         events: state.selectedEvents.map((e) => ({
           event_type: e.event_type,
           page: eventPage(e),
@@ -907,7 +1539,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(sessionPayload()),
         });
-        $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
+        $("report-box").textContent = `${result.warning ? `${result.warning}\n\n` : ""}${result.report || "리포트가 비어 있습니다."}`;
       } catch (err) {
         $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
       }
@@ -917,7 +1549,10 @@
       if (clusterId === undefined || clusterId === null || clusterId === "") return;
       $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
       try {
-        const result = await api(`/api/report/cluster/${clusterId}`);
+        const params = new URLSearchParams({ prefer_local: "1" });
+        if (state.analysis?.persona) params.set("persona", state.analysis.persona);
+        if (state.analysis?.completed) params.set("completed", "1");
+        const result = await api(`/api/report/cluster/${clusterId}?${params.toString()}`);
         $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
       } catch (err) {
         $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
@@ -926,12 +1561,18 @@
 
     function updateAdvice(stats) {
       const byType = stats.by_type || {};
-      const riskCount = (byType.tab_exit || 0) + (byType.inactivity || 0) + (byType.cart_abandon_flag || 0);
+      const riskCount = state.sessions.filter((s) => s.risky).length;
+      const completedCount = state.sessions.filter((s) => s.completed).length;
       $("risk-signal-count").textContent = fmt(riskCount);
       $("top-action-count").textContent = fmt(Math.max(...Object.values(byType).map((n) => Number(n) || 0), 0));
-      if (riskCount > 0) {
+      if (completedCount > 0 && riskCount === 0) {
+        $("headline").textContent = "주문 성공 고객 흐름이 확인됐습니다.";
+        $("headline-detail").textContent = "장바구니, 배송 정보 입력, 주문 성공까지 이어진 세션이 관찰됐습니다. 최근 고객을 눌러 구매 흐름을 확인하세요.";
+        $("operator-advice").textContent = "구매 성공 고객의 행동 흐름을 기준으로 장바구니와 주문서 화면에서 막힘이 적은 구간을 찾아 다른 고객에게도 같은 동선을 강화하면 좋습니다.";
+        $("advice-tag").textContent = "구매 완료 흐름 확인";
+      } else if (riskCount > 0) {
         $("headline").textContent = "탐색 중지 신호가 있는 고객을 먼저 확인하세요.";
-        $("headline-detail").textContent = "탭을 떠남, 비활성, 장바구니 중단 같은 신호가 관찰됐습니다. 최근 고객을 선택해 어떤 유형인지 바로 확인할 수 있습니다.";
+        $("headline-detail").textContent = "주문 성공으로 이어지지 않은 세션에서 탭을 떠남, 비활성, 장바구니 중단 같은 신호가 관찰됐습니다.";
         $("operator-advice").textContent = "구매 직전 망설이는 고객에게는 가격 혜택, 배송 안내, 리뷰 노출을 강화하는 액션이 좋습니다.";
         $("advice-tag").textContent = "탐색 중지 관리 우선";
       } else {
@@ -963,19 +1604,26 @@
       const origin = state.origin ? `&origin=${encodeURIComponent(state.origin)}` : "";
       const clusterOrigin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
       try {
-        const [stats, logs, clusters] = await Promise.all([
+        const [stats, logs, sessions, sources, operatorSummary, clusters] = await Promise.all([
           api(`/api/logs/stats?${origin}`),
           api(`/api/logs?limit=200${origin}`),
-          api(`/api/clusters${clusterOrigin}`),
+          api(`/api/logs/sessions?limit=8${origin}`),
+          api(`/api/logs/sources?limit=3${origin}`),
+          api(`/api/logs/operator-summary?${origin}`),
+          api(`/api/clusters?mode=frozen${state.origin ? `&origin=${encodeURIComponent(state.origin)}` : ""}`),
         ]);
+        state.logs = logs;
+        state.sessions = Array.isArray(sessions) ? sessions : groupSessions(logs);
+        renderTopSources(sources);
+        renderOperatorSummary(operatorSummary);
+        $("visitor-count").textContent = fmt(stats.visitor_count ?? state.sessions.length);
         $("total-events").textContent = fmt(stats.total);
         $("recent-events").textContent = fmt(stats.last_hour);
         $("active-sessions").textContent = fmt(stats.active_sessions);
-        state.logs = logs;
-        state.sessions = groupSessions(logs);
         renderActivities();
         renderSessions();
         renderClusters(clusters);
+        renderClusterSnapshotInfo(clusters);
         updateAdvice(stats);
         setStatus(true, `Live · ${new Date().toLocaleTimeString("ko-KR")}`);
       } catch (err) {
@@ -994,9 +1642,11 @@
         const result = await api("/api/clusters/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ full: true }),
+          body: JSON.stringify({ full: true, origin: state.origin || "" }),
         });
-        $("operator-advice").textContent = `고객 유형 찾기가 완료됐습니다. 현재 ${fmt(result.n_clusters)}개 유형이 발견됐고, ${fmt(result.retrain_session_count)}개 세션을 반영했습니다.`;
+        $("operator-advice").textContent = result.snapshot_saved
+          ? `고객 유형 찾기가 완료됐습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 세부 유형, ${fmt(result.snapshot_session_count)}개 세션 스냅샷을 저장했습니다.`
+          : `고객 유형 찾기가 완료됐습니다. 현재 ${fmt(result.n_clusters)}개 유형이 발견됐고, ${fmt(result.retrain_session_count)}개 세션을 반영했습니다.`;
         $("advice-tag").textContent = "유형 갱신 완료";
         await refresh();
       } catch (err) {

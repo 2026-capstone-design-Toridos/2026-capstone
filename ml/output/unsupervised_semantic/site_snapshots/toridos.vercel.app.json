@@ -1,0 +1,54 @@
+{
+  "total_sessions": 9,
+  "n_clusters": 1,
+  "noise_count": 0,
+  "clusters": [
+    {
+      "cluster": 2,
+      "label": "페이지를 훑어보는 고객",
+      "summary": "홈 화면 스크롤 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "count": 9,
+      "top_actions": [
+        {
+          "action": "SCROLL_HOME",
+          "count": 4
+        }
+      ],
+      "page_dist": {
+        "HOME": 4
+      },
+      "validation": {
+        "status": "verified",
+        "label": "검증 통과",
+        "reasons": [],
+        "session_count": 9,
+        "session_share": 100,
+        "has_top_actions": true,
+        "has_page_distribution": true,
+        "stability": null
+      }
+    }
+  ],
+  "quality": {
+    "sample_count": 9,
+    "clustered_session_count": null,
+    "noise_count": 0,
+    "noise_rate": 0,
+    "silhouette": null,
+    "davies_bouldin": null,
+    "stability": null,
+    "verified_clusters": 1,
+    "weak_clusters": 0,
+    "insufficient_clusters": 0,
+    "visible_clusters": 1,
+    "note": ""
+  },
+  "source": "site_snapshot",
+  "origin": "https://toridos.vercel.app",
+  "sampled_sessions": 9,
+  "snapshot_basis": "classified_from_latest_cluster_model",
+  "last_retrain": "2026-06-16T19:58:14.308316",
+  "snapshot_origin": "https://toridos.vercel.app",
+  "snapshot_saved_at": "2026-06-16T10:58:16.802Z"
+}

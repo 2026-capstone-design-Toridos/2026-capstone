@@ -543,6 +543,18 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     page-break-after: always;
     position: relative;
     overflow: hidden;
+    background:
+        radial-gradient(circle at top right, rgba(86, 100, 210, 0.08), transparent 28%),
+        linear-gradient(180deg, #fcfdff 0%, #ffffff 100%);
+}}
+.page::before {{
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3.2mm;
+    background: linear-gradient(90deg, #1a237e 0%, #4f6bff 55%, #7dd3fc 100%);
 }}
 
 /* ── 표지 ── */
@@ -556,28 +568,52 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     text-align: center;
     padding: 30mm 20mm;
 }}
+.cover::before {{
+    content: '';
+    position: absolute;
+    width: 80mm;
+    height: 80mm;
+    top: -12mm;
+    right: -10mm;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 72%);
+}}
+.cover::after {{
+    content: '';
+    position: absolute;
+    width: 58mm;
+    height: 58mm;
+    bottom: 18mm;
+    left: -8mm;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(125,211,252,0.18) 0%, rgba(125,211,252,0) 72%);
+}}
 .cover .logo-line {{
     font-size: 13pt;
     letter-spacing: 4px;
-    opacity: 0.8;
+    opacity: 0.88;
     text-transform: uppercase;
     margin-bottom: 6mm;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px;
+    padding: 2.2mm 5mm;
 }}
 .cover .main-title {{
-    font-size: 26pt;
+    font-size: 28pt;
     font-weight: bold;
-    line-height: 1.3;
-    margin-bottom: 5mm;
+    line-height: 1.24;
+    margin-bottom: 5.5mm;
 }}
 .cover .sub-title {{
     font-size: 13pt;
-    opacity: 0.85;
+    opacity: 0.9;
     margin-bottom: 12mm;
 }}
 .cover .period-box {{
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.35);
-    border-radius: 6px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 999px;
     padding: 4mm 10mm;
     font-size: 10.5pt;
     margin-bottom: 16mm;
@@ -594,21 +630,22 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     margin-top: 4mm;
 }}
 .cover .kpi-item {{
-    background: rgba(255,255,255,0.12);
-    border-radius: 8px;
-    padding: 4mm 8mm;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+    padding: 4.5mm 8mm;
     min-width: 40mm;
     text-align: center;
 }}
 .cover .kpi-val {{
-    font-size: 20pt;
+    font-size: 21pt;
     font-weight: bold;
     display: block;
 }}
 .cover .kpi-lbl {{
     font-size: 8pt;
-    opacity: 0.8;
-    margin-top: 1mm;
+    opacity: 0.82;
+    margin-top: 1.4mm;
     display: block;
 }}
 .cover .footer-line {{
@@ -622,21 +659,67 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 
 /* ── 공통 페이지 헤더 ── */
 .page-header {{
-    background: #1a237e;
+    background: linear-gradient(90deg, #18216d 0%, #24328f 55%, #3046b5 100%);
     color: white;
-    padding: 5mm 12mm;
+    padding: 5.5mm 12mm 5mm;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
 }}
-.page-header .brand {{ font-size: 8pt; letter-spacing: 2px; opacity: 0.7; }}
+.page-header .brand {{
+    font-size: 8pt;
+    letter-spacing: 2px;
+    opacity: 0.9;
+    background: rgba(255,255,255,0.12);
+    padding: 1.4mm 3mm;
+    border-radius: 999px;
+}}
 .page-header .page-title {{ font-size: 13pt; font-weight: bold; }}
 .page-header .period {{ font-size: 8pt; opacity: 0.75; }}
 
 /* ── 공통 콘텐츠 영역 ── */
-.page-body {{ padding: 8mm 12mm; }}
+.page-body {{ padding: 9mm 12mm 8mm; }}
+.keep-block, .chart-center, .summary-kpi-row, .charts-row, .insight-box, .type-header, .stats-row {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+}}
+.section-block {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 5mm;
+}}
 
 /* ── 요약 페이지 ── */
+.summary-lead {{
+    background: linear-gradient(135deg, #f5f7ff 0%, #eef3ff 100%);
+    border: 1px solid #dbe4ff;
+    border-radius: 14px;
+    padding: 5.5mm 6mm;
+    margin-bottom: 6mm;
+}}
+.summary-lead .eyebrow {{
+    display: inline-block;
+    font-size: 8pt;
+    font-weight: bold;
+    color: #2940b5;
+    background: #e8edff;
+    border-radius: 999px;
+    padding: 1.2mm 3mm;
+    margin-bottom: 2.4mm;
+}}
+.summary-lead .headline {{
+    font-size: 14pt;
+    font-weight: bold;
+    color: #162252;
+    line-height: 1.45;
+    margin-bottom: 2mm;
+}}
+.summary-lead .copy {{
+    font-size: 9pt;
+    color: #4b5b72;
+    line-height: 1.8;
+}}
 .summary-kpi-row {{
     display: flex;
     gap: 5mm;
@@ -644,48 +727,54 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 }}
 .kpi-card {{
     flex: 1;
-    border-radius: 8px;
-    padding: 5mm 6mm;
-    text-align: center;
-    border-left: 4px solid;
+    border-radius: 12px;
+    padding: 5.2mm 6mm;
+    text-align: left;
+    border: 1px solid #d9e1ff;
+    border-top: 4px solid;
+    box-shadow: 0 4px 14px rgba(26, 35, 126, 0.06);
 }}
-.kpi-card.blue   {{ background:#e8eaf6; border-color:#3949AB; }}
-.kpi-card.green  {{ background:#e8f5e9; border-color:#2e7d32; }}
-.kpi-card.orange {{ background:#fff3e0; border-color:#e65100; }}
-.kpi-card .card-val {{ font-size: 22pt; font-weight: bold; color: #1a237e; }}
-.kpi-card .card-lbl {{ font-size: 8.5pt; color: #546e7a; margin-top: 1mm; }}
+.kpi-card.blue   {{ background:linear-gradient(180deg, #f3f5ff 0%, #edf1ff 100%); border-color:#4f6bff; }}
+.kpi-card.green  {{ background:linear-gradient(180deg, #eefbf3 0%, #e8f7ef 100%); border-color:#2e7d32; }}
+.kpi-card.orange {{ background:linear-gradient(180deg, #fff8ef 0%, #fff2df 100%); border-color:#e67e22; }}
+.kpi-card .card-val {{ font-size: 23pt; font-weight: bold; color: #162252; }}
+.kpi-card .card-lbl {{ font-size: 8.5pt; color: #607086; margin-top: 1.4mm; }}
 
 .section-title {{
     font-size: 11pt;
     font-weight: bold;
-    color: #1a237e;
-    border-bottom: 2px solid #e8eaf6;
-    padding-bottom: 2mm;
+    color: #162252;
+    border-left: 4px solid #4f6bff;
+    padding: 0.3mm 0 0.3mm 3mm;
     margin-bottom: 5mm;
+    break-after: avoid;
+    page-break-after: avoid;
 }}
 .chart-center {{ text-align: center; }}
 .chart-center img {{ max-width: 130mm; }}
 
 /* ── 클러스터 상세 페이지 ── */
 .type-header {{
-    background: linear-gradient(90deg, #1a237e, #3949AB);
+    background: linear-gradient(135deg, #162252 0%, #24328f 56%, #4f6bff 100%);
     color: white;
-    padding: 5mm 10mm;
-    border-radius: 8px;
+    padding: 5.4mm 10mm;
+    border-radius: 14px;
     margin-bottom: 5mm;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    box-shadow: 0 8px 18px rgba(26, 35, 126, 0.16);
 }}
 .type-header .type-num {{ font-size: 9pt; opacity: 0.75; }}
-.type-header .type-name {{ font-size: 15pt; font-weight: bold; margin-top: 1mm; }}
-.type-header .type-count {{ font-size: 9pt; opacity: 0.8; margin-top: 1mm; }}
+.type-header .type-name {{ font-size: 16pt; font-weight: bold; margin-top: 1mm; }}
+.type-header .type-count {{ font-size: 9pt; opacity: 0.86; margin-top: 1.3mm; }}
 .intent-badge {{
-    font-size: 11pt;
+    font-size: 10.5pt;
     font-weight: bold;
-    padding: 2mm 5mm;
-    border-radius: 20px;
+    padding: 2.2mm 5mm;
+    border-radius: 999px;
     white-space: nowrap;
+    border: 1px solid rgba(255,255,255,0.18);
 }}
 .stats-row {{
     display: flex;
@@ -693,10 +782,10 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     margin-bottom: 5mm;
 }}
 .stat-chip {{
-    background: #f5f7ff;
-    border: 1px solid #c5cae9;
-    border-radius: 6px;
-    padding: 2.5mm 5mm;
+    background: linear-gradient(180deg, #f9fbff 0%, #f3f6ff 100%);
+    border: 1px solid #d6dfff;
+    border-radius: 10px;
+    padding: 2.8mm 5mm;
     font-size: 8.5pt;
     color: #37474f;
 }}
@@ -709,27 +798,30 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     align-items: flex-start;
 }}
 .chart-box {{
-    background: #fafafa;
-    border: 1px solid #e8eaf6;
-    border-radius: 8px;
-    padding: 3mm;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    border: 1px solid #e3e9ff;
+    border-radius: 12px;
+    padding: 3.5mm;
     text-align: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
 }}
 .chart-box img {{ max-width: 100%; }}
 
 .insight-box {{
-    background: #f5f7ff;
-    border-left: 4px solid #3949AB;
-    border-radius: 0 8px 8px 0;
+    background: linear-gradient(180deg, #f8faff 0%, #f3f6ff 100%);
+    border: 1px solid #dfe6ff;
+    border-left: 4px solid #4f6bff;
+    border-radius: 12px;
     padding: 5mm 6mm;
     font-size: 9.5pt;
     line-height: 1.8;
     color: #263238;
+    box-shadow: 0 4px 12px rgba(26, 35, 126, 0.05);
 }}
 .insight-label {{
     font-size: 8.5pt;
     font-weight: bold;
-    color: #3949AB;
+    color: #2940b5;
     margin-bottom: 3mm;
     display: flex;
     align-items: center;
@@ -737,7 +829,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 }}
 .insight-label::before {{
     content: '●';
-    color: #3949AB;
+    color: #4f6bff;
 }}
 
 /* ── 제안 페이지 ── */
@@ -746,9 +838,11 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     border-collapse: collapse;
     font-size: 8.5pt;
     margin-top: 4mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
 }}
 .rec-table th {{
-    background: #1a237e;
+    background: linear-gradient(90deg, #18216d 0%, #24328f 100%);
     color: white;
     padding: 3mm 4mm;
     text-align: left;
@@ -761,9 +855,9 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     line-height: 1.6;
 }}
 .rec-table tr:nth-child(even) td {{ background: #f5f7ff; }}
-.badge-high   {{ background:#e8f5e9; color:#2e7d32; padding:1px 6px; border-radius:10px; font-size:8pt; white-space:nowrap; }}
-.badge-mid    {{ background:#fff3e0; color:#e65100; padding:1px 6px; border-radius:10px; font-size:8pt; white-space:nowrap; }}
-.badge-low    {{ background:#ffebee; color:#b71c1c; padding:1px 6px; border-radius:10px; font-size:8pt; white-space:nowrap; }}
+.badge-high   {{ background:#e8f5e9; color:#2e7d32; padding:1.2px 7px; border-radius:999px; font-size:8pt; white-space:nowrap; border:1px solid #c8e6c9; }}
+.badge-mid    {{ background:#fff3e0; color:#e65100; padding:1.2px 7px; border-radius:999px; font-size:8pt; white-space:nowrap; border:1px solid #ffd8a8; }}
+.badge-low    {{ background:#ffebee; color:#b71c1c; padding:1.2px 7px; border-radius:999px; font-size:8pt; white-space:nowrap; border:1px solid #ffcdd2; }}
     """
 
     # ── 표지 ──────────────────────────────────────────────────────────────────
@@ -814,6 +908,18 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     big_high = _pick('높음')
     big_risk = _pick('낮음')
     biggest  = _pick(None)
+    summary_focus = []
+    if biggest:
+        summary_focus.append(f"가장 많은 고객은 {biggest['name']} 유형")
+    if big_high:
+        summary_focus.append(f"바로 전환을 노릴 고객은 {big_high['name']} 유형")
+    if big_risk:
+        summary_focus.append(f"먼저 막아야 할 흐름은 {big_risk['name']} 유형")
+    summary_headline = ' · '.join(summary_focus[:2]) if summary_focus else '이번 주 고객 흐름을 유형 중심으로 정리했습니다.'
+    summary_copy = (
+        "숫자만 나열하기보다, 어떤 고객이 많았고 누구를 먼저 챙겨야 하는지 바로 읽히도록 정리한 페이지입니다. "
+        "아래 KPI와 유형 요약을 먼저 보고, 다음 장의 퍼널과 상세 유형 분석으로 내려가면 운영 우선순위를 더 빠르게 잡을 수 있습니다."
+    )
     _seen, _items = set(), []
     for tag, tp in [('지금 잡아야 할 고객', big_high),
                     ('새는 고객 막기', big_risk),
@@ -839,6 +945,12 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     <span class="period">{start} ~ {end}</span>
   </div>
   <div class="page-body">
+    <div class="summary-lead">
+      <div class="eyebrow">이번 주 핵심 포인트</div>
+      <div class="headline">{summary_headline}</div>
+      <div class="copy">{summary_copy}</div>
+    </div>
+
     <div class="summary-kpi-row">
       <div class="kpi-card blue">
         <div class="card-val">{total_visits:,}</div>
@@ -856,11 +968,25 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 
     {priority_html}
 
-    <div class="section-title">고객 유형별 방문 비율</div>
-    <div class="chart-center">
-      <img src="data:image/png;base64,{dist_chart}" />
+    <div class="section-block">
+      <div class="section-title">고객 유형별 방문 비율</div>
+      <div class="chart-center">
+        <img src="data:image/png;base64,{dist_chart}" />
+      </div>
     </div>
+  </div>
+</div>
+"""
 
+    summary_table_html = """
+<div class="page">
+  <div class="page-header">
+    <span class="brand">GHOSTTRACKER</span>
+    <span class="page-title">고객 유형 한눈에 보기</span>
+    <span class="period">{start} ~ {end}</span>
+  </div>
+  <div class="page-body">
+    <div class="section-block">
     <div class="section-title" style="margin-top:5mm;">고객 유형 한눈에 보기</div>
     <table class="rec-table">
       <tr>
@@ -895,9 +1021,10 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       구매 가능성은 실제 구매 완료가 아닌, 유형별 퍼널 하위 행동(장바구니·결제·구매 클릭) 도달율을 기준으로 한 상대 추정치입니다.
       모든 비율은 분석 기간 내 세션 기준입니다.
     </div>
+    </div>
   </div>
 </div>
-"""
+""".replace("{start}", start).replace("{end}", end)
 
     # ── 전환 퍼널 페이지 (세션 데이터 있을 때만) ──────────────────────────────
     funnel_html = ''
@@ -926,41 +1053,6 @@ body {{ margin: 0; padding: 0; background: #fff; }}
             f"<td style='text-align:center;'>{v['chk_rate']}%</td>"
             f"<td style='text-align:center; font-weight:bold; color:#1a237e;'>{v['buy_rate']}%</td></tr>"
             for nm, v in sorted(bt.items(), key=lambda x: -x[1]['buy_rate']))
-        exit_capture_html = ''
-        if exit_captures:
-            cards = []
-            for item in exit_captures:
-                if item.get('capture_b64'):
-                    img = (
-                        f"<img src=\"data:image/png;base64,{item.get('capture_b64','')}\" "
-                        f"style=\"width:100%; border:1px solid #e0e0e0; border-radius:6px;\"/>"
-                    )
-                else:
-                    img = (
-                        "<div style=\"height:52mm; border:1px dashed #cfd8dc; border-radius:6px; "
-                        "display:flex; align-items:center; justify-content:center; color:#78909c; font-size:8pt;\">"
-                        "캡처 생성 실패 - URL/섹션 정보만 표시</div>"
-                    )
-                cards.append(f"""
-        <div style="break-inside:avoid; margin-bottom:5mm;">
-          <div style="font-size:8.5pt; line-height:1.7; color:#37474f; margin-bottom:2mm;">
-            <b>탐색 중지 {item.get('count', 0)}건</b>
-            <span style="color:#90a4ae;">({item.get('share_pct', 0)}%)</span>
-            · section <b>{item.get('section', 'unknown')}</b>
-            · scrollY <b>{item.get('scroll_y', 0)}</b><br>
-            <span style="color:#607d8b;">{item.get('url', '')}</span>
-          </div>
-          {img}
-        </div>""")
-            exit_capture_html = f"""
-    <div class="section-title" style="margin-top:5mm;">탐색 중지 집중 화면 예시</div>
-    <div class="insight-box" style="margin-bottom:4mm;">
-      <div class="insight-label">캡처 기준</div>
-      session_end/tab_exit/inactivity 이벤트를 page_url + section + scrollY 단위로 묶어 탐색 중지이 많은 화면을 캡처했습니다.
-      빨간 가이드 라인은 해당 scrollY 기준으로 사용자가 머물다 탐색 중지한 구역을 나타냅니다.
-    </div>
-    {''.join(cards)}
-"""
         funnel_html = f"""
 <div class="page">
   <div class="page-header">
@@ -975,23 +1067,28 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       <div class="kpi-card green"><div class="card-val">{buy_rate}%</div><div class="card-lbl">구매 클릭 전환율</div></div>
     </div>
 
-    <div class="section-title">단계별 도달율</div>
-    <div class="chart-center"><img src="data:image/png;base64,{fchart}" style="max-width:160mm;"/></div>
-
-    <div class="section-title" style="margin-top:5mm;">가장 크게 새는 지점</div>
-    <div class="insight-box">
-      <div class="insight-label">진단</div>
-      {leak_line}{leak_type_line}
+    <div class="section-block">
+      <div class="section-title">단계별 도달율</div>
+      <div class="chart-center"><img src="data:image/png;base64,{fchart}" style="max-width:160mm;"/></div>
     </div>
 
+    <div class="section-block">
+      <div class="section-title" style="margin-top:5mm;">가장 크게 새는 지점</div>
+      <div class="insight-box">
+        <div class="insight-label">진단</div>
+        {leak_line}{leak_type_line}
+      </div>
+    </div>
+
+    <div class="section-block">
     <div class="section-title" style="margin-top:5mm;">단계별 탐색 중지 상세</div>
     <table class="rec-table">
       <tr><th>탐색 중지 구간</th><th style="width:34mm; text-align:center;">탐색 중지 인원</th><th style="width:24mm; text-align:center;">탐색 중지율</th></tr>
       {drop_rows}
     </table>
+    </div>
 
-    {exit_capture_html}
-
+    <div class="section-block">
     <div class="section-title" style="margin-top:5mm;">고객 유형별 단계 도달율</div>
     <table class="rec-table">
       <tr><th>고객 유형</th><th style="text-align:center;">세션</th><th style="text-align:center;">장바구니</th><th style="text-align:center;">결제 도달</th><th style="text-align:center;">구매 클릭</th></tr>
@@ -1000,13 +1097,14 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     <div style="font-size:7.5pt; color:#90a4ae; margin-top:2mm;">
       ※ 구매 가능성 등급은 위 '구매 클릭' 도달율을 전체 평균({funnel['avg_buy']}%) 대비 상대 평가하여 산정합니다.
     </div>
+    </div>
   </div>
 </div>
 """
 
-    # ── 클러스터 상세 페이지 12개 ─────────────────────────────────────────────
+    # ── 탐색 중지 캡처 페이지 ────────────────────────────────────────────────
     exit_capture_page = ''
-    if exit_captures and not funnel:
+    if exit_captures:
         capture_cards = []
         for item in exit_captures:
             img = (
@@ -1249,6 +1347,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 <body>
 {cover_html}
 {summary_html}
+{summary_table_html}
 {funnel_html}
 {exit_capture_page}
 {cluster_pages}

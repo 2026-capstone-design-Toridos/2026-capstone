@@ -24,6 +24,52 @@ const router  = express.Router();
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 
+function inferPage(doc = {}) {
+  const raw = `${doc.pathname || ''} ${doc.page_url || ''}`.toLowerCase();
+  if (raw.includes('checkout') || raw.includes('payment') || raw.includes('order')) return 'checkout';
+  if (raw.includes('cart') || raw.includes('basket')) return 'cart';
+  if (raw.includes('product') || raw.includes('item') || raw.includes('prod_')) return 'product';
+  if (raw.includes('search') || raw.includes('category') || raw.includes('collection')) return 'search';
+  return 'home';
+}
+
+function inferSection(doc = {}) {
+  return doc.data?.section || doc.section || '';
+}
+
+function inferElementSection(doc = {}) {
+  return doc.data?.element_section || doc.element_section || '';
+}
+
+function isOrderSuccessDoc(doc = {}) {
+  const text = `${doc.data?.hover_text || ''} ${doc.data?.click_text || ''}`;
+  const target = `${doc.data?.hover_target || ''} ${doc.data?.click_target || ''}`.toLowerCase();
+  return text.includes('주문이 완료') || target.includes('complete');
+}
+
+function normalizeEventType(doc = {}) {
+  const eventType = String(doc.event_type || '');
+  const page = inferPage(doc);
+
+  if (isOrderSuccessDoc(doc)) return 'CLICK_BUY';
+  if (eventType === 'purchase_click') return 'CLICK_BUY';
+  if (eventType === 'add_to_cart') return 'ADD_CART';
+  if (eventType === 'product_click') return page === 'product' ? 'ENTER_PRODUCT' : 'CLICK_ELEMENT';
+  if (eventType === 'tab_exit') return 'TAB_OUT';
+  if (eventType === 'tab_return') return 'TAB_RETURN';
+  if (eventType === 'inactivity') return 'INACTIVE';
+  if (eventType === 'search_use') return 'SEARCH_USE';
+  if (eventType === 'hover_dwell') return 'HOVER_ELEMENT';
+  if (eventType === 'section_exit') return 'EXIT_SESSION';
+  if (eventType === 'session_start') return 'START_SESSION';
+  if (eventType === 'click') return page === 'checkout' ? 'CLICK_BUY' : 'CLICK_ELEMENT';
+  if (eventType === 'scroll_depth' || eventType === 'scroll_speed' || eventType === 'scroll_stop' || eventType === 'scroll_milestone') {
+    if (page === 'product') return 'SCROLL_PRODUCT';
+    if (page === 'home') return 'SCROLL_HOME';
+  }
+  return eventType;
+}
+
 // ── 헬퍼: Python 클러스터 서버 호출 ──────────────────────────────────────────
 async function callCluster(path, body) {
   const url = `${CLUSTER_SERVER}${path}`;
@@ -106,19 +152,24 @@ router.post('/session/:sessionId', async (req, res) => {
       });
     }
 
-    // 이미 토큰이 있으면 그대로, 없으면 이벤트 배열로 보내서 서버에서 변환
+    const completed = docs.some(isOrderSuccessDoc);
+
+    // 클러스터 서버가 이해할 수 있는 이벤트 형식으로 정규화
     const events = docs.map((d) => ({
-      event_type: d.event_type,
-      page:       d.page || '',
-      section:    d.section || '',
-      element_section: d.element_section || '',
+      event_type: normalizeEventType(d),
+      page: inferPage(d),
+      section: inferSection(d),
+      element_section: inferElementSection(d),
     }));
 
     const result = await callCluster('/classify', {
       session_id: sessionId,
       events,
     });
-    res.json(result);
+    res.json({
+      ...result,
+      completed,
+    });
   } catch (err) {
     console.error('[classify/session] 오류:', err.message);
     res.status(err.status || 500).json({ error: err.message });

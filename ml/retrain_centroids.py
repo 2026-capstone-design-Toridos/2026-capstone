@@ -176,6 +176,66 @@ def compute_profiles(sessions: dict, assignments: dict, meta: dict) -> dict:
     return result
 
 
+def compute_quality_metrics(emb_norm: np.ndarray, labels: np.ndarray) -> dict:
+    valid = labels >= 0
+    n_total = int(len(labels))
+    n_valid = int(valid.sum())
+    n_noise = int((~valid).sum())
+    n_clusters = int(len(set(labels[valid]))) if n_valid else 0
+    metrics = {
+        'sample_count': n_total,
+        'clustered_session_count': n_valid,
+        'noise_count': n_noise,
+        'noise_rate': round(n_noise / n_total, 4) if n_total else None,
+        'silhouette': None,
+        'davies_bouldin': None,
+        'metrics_note': '',
+    }
+    if n_clusters < 2 or n_valid < 3:
+        metrics['metrics_note'] = '클러스터가 2개 미만이거나 표본이 적어 분리도 지표를 계산하지 않았습니다.'
+        return metrics
+    try:
+        from sklearn.metrics import silhouette_score, davies_bouldin_score
+        metrics['silhouette'] = round(float(silhouette_score(emb_norm[valid], labels[valid], metric='euclidean')), 4)
+        metrics['davies_bouldin'] = round(float(davies_bouldin_score(emb_norm[valid], labels[valid])), 4)
+    except Exception as exc:
+        metrics['metrics_note'] = f'품질 지표 계산 실패: {exc}'
+    return metrics
+
+
+def profile_signature(profile: dict) -> set:
+    actions = [f"A:{a.get('action')}" for a in profile.get('top_actions', [])[:5]]
+    pages = [f"P:{p}" for p in list((profile.get('page_dist') or {}).keys())[:5]]
+    return set(actions + pages)
+
+
+def compute_profile_stability(old_profiles: dict, new_profiles: dict) -> dict:
+    old_signatures = {
+        cid: profile_signature(profile)
+        for cid, profile in (old_profiles or {}).items()
+    }
+    per_cluster = {}
+    scores = []
+    for cid, profile in (new_profiles or {}).items():
+      sig = profile_signature(profile)
+      if not sig or not old_signatures:
+          per_cluster[str(cid)] = None
+          continue
+      best = 0.0
+      for old_sig in old_signatures.values():
+          if not old_sig:
+              continue
+          score = len(sig & old_sig) / len(sig | old_sig)
+          best = max(best, score)
+      per_cluster[str(cid)] = round(float(best), 4)
+      scores.append(best)
+    return {
+        'avg_profile_stability': round(float(np.mean(scores)), 4) if scores else None,
+        'per_cluster': per_cluster,
+        'method': 'top_actions/page_dist Jaccard similarity against previous run',
+    }
+
+
 # ── EMA centroid 업데이트 ─────────────────────────────────────────────────────
 def ema_update(old_centroids: np.ndarray, new_embeddings: list,
                assignments: list, n_clusters: int, alpha: float = 0.3) -> np.ndarray:
@@ -210,6 +270,7 @@ def main():
     print("\n[1/4] 모델 로드 중...")
     with open(META_PATH, encoding='utf-8') as f:
         meta = json.load(f)
+    old_profiles = meta.get('cluster_profiles', {})
     model = load_model(meta, device)
     print(f"  → TransformerMLM 로드 완료 (vocab={meta['vocab_size']}, dim={meta['embedding_dim']})")
 
@@ -286,6 +347,7 @@ def main():
         new_assignments = {sids[i]: int(labels[i]) for i in range(len(sids))}
         final_centroids = new_centroids
         final_n         = n_new
+        quality_metrics = compute_quality_metrics(emb_norm, labels)
     else:
         # EMA 업데이트
         print(f"  EMA 업데이트 (alpha={args.alpha})...")
@@ -293,9 +355,11 @@ def main():
                                      list(assignments), n_clusters, args.alpha)
         new_assignments = {sids[i]: int(assignments[i]) for i in range(len(sids))}
         final_n         = n_clusters
+        quality_metrics = compute_quality_metrics(emb_norm, assignments.astype(int))
 
     # 클러스터 프로파일 재계산
     new_profiles = compute_profiles(sessions, new_assignments, meta)
+    stability_metrics = compute_profile_stability(old_profiles, new_profiles)
 
     # 백업
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -312,6 +376,13 @@ def main():
     meta['cluster_profiles']      = new_profiles
     meta['last_retrain']          = datetime.now().isoformat()
     meta['retrain_session_count'] = len(sessions)
+    meta['silhouette']            = quality_metrics.get('silhouette')
+    meta['davies_bouldin']        = quality_metrics.get('davies_bouldin')
+    meta['noise_count']           = quality_metrics.get('noise_count')
+    meta['cluster_quality']       = {
+        **quality_metrics,
+        'stability': stability_metrics,
+    }
     with open(META_PATH, 'w', encoding='utf-8') as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 

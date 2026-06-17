@@ -271,13 +271,157 @@ def ws_recv(sock: socket.socket) -> dict:
 
 
 def cdp_call(sock: socket.socket, seq: int, method: str, params: dict | None = None) -> dict:
-    ws_send(sock, {"id": seq, "method": method, "params": params or {}})
-    while True:
-        msg = ws_recv(sock)
-        if msg.get("id") == seq:
+    retries = 3 if method == "Runtime.evaluate" else 1
+    last_error = None
+    for attempt in range(retries):
+        ws_send(sock, {"id": seq, "method": method, "params": params or {}})
+        while True:
+            msg = ws_recv(sock)
+            if msg.get("id") != seq:
+                continue
             if "error" in msg:
+                last_error = msg["error"]
+                message = str(last_error.get("message", "")).lower()
+                if method == "Runtime.evaluate" and "context was destroyed" in message and attempt < retries - 1:
+                    time.sleep(0.6 * (attempt + 1))
+                    break
                 raise RuntimeError(f"CDP {method} failed: {msg['error']}")
             return msg.get("result", {})
+    raise RuntimeError(f"CDP {method} failed: {last_error}")
+
+
+def js_quote(value: str) -> str:
+    return json.dumps(str(value or ""), ensure_ascii=False)
+
+
+def wait_for_meaningful_page(sock: socket.socket, seq: int) -> int:
+    expr = """
+        new Promise((resolve) => {
+          const done = () => resolve({
+            readyState: document.readyState,
+            textLength: (document.body?.innerText || '').trim().length,
+            scrollHeight: document.documentElement?.scrollHeight || 0,
+            imageCount: document.images?.length || 0
+          });
+          let ticks = 0;
+          const good = () => {
+            const text = (document.body?.innerText || '').trim().length;
+            const height = document.documentElement?.scrollHeight || 0;
+            const loadingEl = !!document.querySelector(
+              '[aria-busy="true"], .loading, .loader, .spinner, .skeleton, [class*="loading"], [class*="spinner"], [class*="skeleton"]'
+            );
+            return document.readyState === 'complete' && text >= 80 && height >= 700 && !loadingEl;
+          };
+          if (good()) {
+            setTimeout(done, 1200);
+            return;
+          }
+          const timer = setInterval(() => {
+            ticks += 1;
+            if (good() || ticks >= 25) {
+              clearInterval(timer);
+              setTimeout(done, 1500);
+            }
+          }, 300);
+        })
+    """
+    cdp_call(sock, seq, "Runtime.evaluate", {"expression": expr, "awaitPromise": True, "returnByValue": True})
+    return seq + 1
+
+
+def focus_hotspot_area(sock: socket.socket, seq: int, hotspot: dict) -> tuple[int, dict]:
+    section = js_quote(hotspot.get("section", ""))
+    scroll_y = int(hotspot.get("scroll_y", 0))
+    expr = f"""
+        (() => {{
+          const section = {section}.toLowerCase();
+          const targetScroll = {scroll_y};
+          const selectors = section && section !== 'unknown' ? [
+            `[data-section="${{section}}"]`,
+            `[data-section*="${{section}}"]`,
+            `[data-element-section="${{section}}"]`,
+            `[id="${{section}}"]`,
+            `[id*="${{section}}"]`,
+            `[class="${{section}}"]`,
+            `[class*="${{section}}"]`,
+            `section[id*="${{section}}"]`,
+            `section[class*="${{section}}"]`
+          ] : [];
+          const visibleScore = (el) => {{
+            if (!el) return -1;
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            if (!rect.width || !rect.height) return -1;
+            if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return -1;
+            const visibleH = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+            const visibleW = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+            return visibleH * visibleW;
+          }};
+          let best = null;
+          for (const sel of selectors) {{
+            const nodes = [...document.querySelectorAll(sel)].slice(0, 12);
+            for (const node of nodes) {{
+              if (!best || visibleScore(node) > visibleScore(best)) best = node;
+            }}
+            if (best && visibleScore(best) > 0) break;
+          }}
+          let highlightY = Math.round(window.innerHeight * 0.24);
+          if (best) {{
+            const rect = best.getBoundingClientRect();
+            const desiredTop = Math.max(0, window.scrollY + rect.top - window.innerHeight * 0.18);
+            window.scrollTo(0, desiredTop);
+            const after = best.getBoundingClientRect();
+            highlightY = Math.round(Math.min(window.innerHeight * 0.78, Math.max(96, after.top + Math.min(after.height * 0.5, 180))));
+          }} else {{
+            window.scrollTo(0, targetScroll);
+            highlightY = Math.round(Math.min(window.innerHeight * 0.72, Math.max(96, window.innerHeight * 0.22)));
+          }}
+          return {{
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+            documentHeight: document.documentElement?.scrollHeight || 0,
+            finalScrollY: Math.round(window.scrollY),
+            highlightY,
+            sectionFound: !!best,
+            bodyTextLength: (document.body?.innerText || '').trim().length
+          }};
+        }})()
+    """
+    res = cdp_call(sock, seq, "Runtime.evaluate", {"expression": expr, "returnByValue": True})
+    return seq + 1, res.get("result", {}).get("value", {}) or {}
+
+
+def capture_looks_blank(path: str) -> bool:
+    if not path or not os.path.exists(path):
+        return True
+    try:
+        from PIL import Image, ImageStat
+
+        img = Image.open(path).convert("RGB")
+        img.thumbnail((220, 140))
+
+        def metrics(sample):
+            gray = sample.convert("L")
+            stat = ImageStat.Stat(gray)
+            pixels = list(gray.getdata())
+            white_ratio = sum(1 for px in pixels if px >= 245) / max(1, len(pixels))
+            stddev = stat.stddev[0] if stat.stddev else 0
+            mean = stat.mean[0] if stat.mean else 255
+            return white_ratio, stddev, mean
+
+        full_white, full_stddev, full_mean = metrics(img)
+        w, h = img.size
+        focus = img.crop((int(w * 0.14), int(h * 0.12), int(w * 0.86), int(h * 0.78)))
+        focus_white, focus_stddev, focus_mean = metrics(focus)
+
+        return (
+            full_white > 0.90
+            or (full_stddev < 14 and full_mean > 225)
+            or focus_white > 0.88
+            or (focus_stddev < 11 and focus_mean > 228)
+        )
+    except Exception:
+        return False
 
 
 def capture_hotspot(hotspot: dict, out_dir: str, index: int) -> str:
@@ -332,24 +476,26 @@ def capture_hotspot(hotspot: dict, out_dir: str, index: int) -> str:
         seq = 1
         cdp_call(sock, seq, "Page.enable")
         seq += 1
-        time.sleep(2.5)
-        cdp_call(
-            sock,
-            seq,
-            "Runtime.evaluate",
-            {"expression": f"window.scrollTo(0, {int(hotspot.get('scroll_y', 0))}); true"},
-        )
-        seq += 1
-        time.sleep(0.8)
-        res = cdp_call(
-            sock,
-            seq,
-            "Page.captureScreenshot",
-            {"format": "png", "fromSurface": True, "captureBeyondViewport": False},
-        )
-        with open(out_path, "wb") as f:
-            f.write(base64.b64decode(res["data"]))
-        return out_path
+        seq = wait_for_meaningful_page(sock, seq)
+        for attempt in range(2):
+            seq, focus_meta = focus_hotspot_area(sock, seq, hotspot)
+            hotspot["captured_scroll_y"] = focus_meta.get("finalScrollY", int(hotspot.get("scroll_y", 0)))
+            hotspot["highlight_y"] = focus_meta.get("highlightY")
+            hotspot["section_found"] = bool(focus_meta.get("sectionFound"))
+            time.sleep(1.0 if attempt == 0 else 2.0)
+            res = cdp_call(
+                sock,
+                seq,
+                "Page.captureScreenshot",
+                {"format": "png", "fromSurface": True, "captureBeyondViewport": False},
+            )
+            seq += 1
+            with open(out_path, "wb") as f:
+                f.write(base64.b64decode(res["data"]))
+            if not capture_looks_blank(out_path):
+                return out_path
+            seq = wait_for_meaningful_page(sock, seq)
+        return ""
     except Exception as exc:
         print(f"  -> capture failed: {hotspot.get('url')} ({exc})")
         return ""
@@ -378,7 +524,9 @@ def annotate_capture(path: str, hotspot: dict) -> str:
         overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
         w, h = img.size
-        y = int(h * 0.58)
+        raw_y = hotspot.get("highlight_y")
+        y = int(raw_y) if isinstance(raw_y, (int, float)) else int(h * 0.24)
+        y = max(70, min(h - 70, y))
         draw.rectangle([0, y - 34, w, y + 34], fill=(229, 57, 53, 54))
         draw.line([0, y, w, y], fill=(229, 57, 53, 230), width=5)
         try:
@@ -387,7 +535,7 @@ def annotate_capture(path: str, hotspot: dict) -> str:
             font = ImageFont.load_default()
         text = (
             f"Exit hotspot: {hotspot['count']} sessions / "
-            f"section {hotspot['section']} / scrollY {hotspot['scroll_y']}"
+            f"section {hotspot['section']} / scrollY {hotspot.get('captured_scroll_y', hotspot['scroll_y'])}"
         )
         draw.rounded_rectangle([18, 18, min(w - 18, 780), 70], radius=8, fill=(183, 28, 28, 224))
         draw.text((34, 35), text[:100], fill=(255, 255, 255, 255), font=font)

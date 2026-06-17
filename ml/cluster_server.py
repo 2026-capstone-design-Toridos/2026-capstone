@@ -213,8 +213,13 @@ class ClusterPredictor:
         self.vocab: Dict[str, int] = meta["vocab"]   # token → id
         self.id2tok = {v: k for k, v in self.vocab.items()}
 
-        # ── cluster_labels: 명시적으로 있으면 사용, 없으면 cluster_profiles에서 생성 ──
-        if meta.get("cluster_labels"):
+        # ── cluster_labels: NLP 라벨이 있으면 우선 사용 ─────────────────────
+        if meta.get("nlp_labels"):
+            self.cluster_labels = {
+                str(k): (v.get("name") if isinstance(v, dict) else str(v))
+                for k, v in meta["nlp_labels"].items()
+            }
+        elif meta.get("cluster_labels"):
             self.cluster_labels: Dict[str, str] = {
                 str(k): v for k, v in meta["cluster_labels"].items()
             }
