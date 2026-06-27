@@ -534,7 +534,7 @@ var GhostTracker = (() => {
       // C(IIFE)의 로컬 send()를 이것으로 교체하면 A 코어와 연결됨
       //   function send(eventType, payload) { window.__GT?.emit(eventType, payload); }
       emit,
-      // subsection dwell: C의 IntersectionObserver가 진입/이탈 시 호출
+      // subsection dwell: C의 IntersectionObserver가 진입/탐색 중지 시 호출
       subsectionEnter: (subsection_id) => {
         if (!subsection_id) return;
         _subsectionEnterTimes[subsection_id] = Date.now();

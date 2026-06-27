@@ -5,8 +5,12 @@ const cors        = require('cors');
 const path        = require('path');
 const { connectDB } = require('./db');
 
-const collectRouter = require('./routes/collect');
-const logsRouter    = require('./routes/logs');
+const collectRouter  = require('./routes/collect');
+const logsRouter     = require('./routes/logs');
+const predictRouter  = require('./routes/predict');
+const clustersRouter = require('./routes/clusters');
+const classifyRouter = require('./routes/classify');
+const reportRouter   = require('./routes/report');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -32,6 +36,10 @@ app.use(express.json({ limit: '1mb' }));
 // ── 라우터 ────────────────────────────────────────────────────
 app.use('/collect', collectRouter);
 app.use('/api/logs', logsRouter);
+app.use('/api/predict', predictRouter);
+app.use('/api/clusters', clustersRouter);
+app.use('/api/classify', classifyRouter);
+app.use('/api/report',  reportRouter);
 
 // ── 헬스체크 ──────────────────────────────────────────────────
 app.get('/health', (req, res) => {

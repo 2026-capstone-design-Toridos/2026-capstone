@@ -1,0 +1,1 @@
+[GhostTracker] DB 연결 실패: MONGODB_URI 환경변수가 설정되지 않았습니다.
