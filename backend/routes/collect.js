@@ -3,6 +3,8 @@ const router  = express.Router();
 const Event   = require('../models/Event');
 
 /**
+ * collect.js — SDK 이벤트를 수집하는 엔드포인트
+ *
  * POST /collect
  *
  * SDK sender.js 가 보내는 형식:

@@ -1,0 +1,1744 @@
+/*
+ * 운영자 화면 전용 HTML 파일
+ * - SDK가 보내는 이벤트를 실시간으로 수집하고, 요약/분석하여 운영자에게 보여줌
+ * - 운영자가 쉽게 이해할 수 있는 언어로 번역된 인사이트와 액션을 제공
+ */
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GhostTracker | 운영자 쉬운 화면</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
+    @font-face {
+      font-family: "GmarketSans";
+      src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff") format("woff");
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --soft: #f3f6fa;
+      --line: #dde7f2;
+      --text: #172033;
+      --muted: #65758b;
+      --blue: #185adb;
+      --blue-soft: #e9f1ff;
+      --green: #047857;
+      --green-soft: #e7f7ef;
+      --amber: #b45309;
+      --amber-soft: #fff4dd;
+      --red: #c2410c;
+      --red-soft: #fff0e8;
+      --coral: #e85d4f;
+      --mint: #14b8a6;
+      --ink: #111827;
+      --shadow: 0 18px 48px rgba(23, 32, 51, 0.1);
+      --font-body: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-point: "GmarketSans", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% -8%, rgba(24, 90, 219, 0.16), transparent 32%),
+        radial-gradient(circle at 82% 0%, rgba(20, 184, 166, 0.13), transparent 28%),
+        linear-gradient(180deg, #fbfcff 0%, var(--bg) 34%, #eef3f8 100%);
+      color: var(--text);
+      font-family: var(--font-body);
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 28px;
+      background: rgba(255, 255, 255, 0.82);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand { display: flex; gap: 12px; align-items: center; }
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--ink), #26354f);
+      color: #fff;
+      font-family: var(--font-point);
+      font-weight: 900;
+      box-shadow: 0 12px 26px rgba(17, 24, 39, 0.18);
+    }
+    .brand h1 { margin: 0; font-family: var(--font-point); font-size: 1.08rem; font-weight: 500; }
+    .brand p { margin: 2px 0 0; color: var(--muted); font-size: 0.82rem; }
+
+    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    select, input, button { font: inherit; }
+    select, input {
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--text);
+      padding: 0 12px;
+      outline: none;
+    }
+    button {
+      height: 40px;
+      border: 0;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--blue), #0f7ae5);
+      color: #fff;
+      font-family: var(--font-point);
+      font-weight: 800;
+      padding: 0 15px;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(24, 90, 219, 0.18);
+    }
+    button.secondary {
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-family: var(--font-point);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+    .live::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+    .live.bad { background: var(--red-soft); color: var(--red); }
+
+    main {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 26px 28px 44px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 370px;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(236, 245, 255, 0.94) 52%, rgba(228, 250, 246, 0.92) 100%);
+      border: 1px solid rgba(221, 231, 242, 0.96);
+      border-radius: 12px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      right: -90px;
+      top: -90px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(24, 90, 219, 0.2), transparent 64%);
+      pointer-events: none;
+    }
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--blue);
+      font-family: var(--font-point);
+      font-size: 0.78rem;
+      font-weight: 500;
+      border: 1px solid rgba(24, 90, 219, 0.16);
+      margin-bottom: 14px;
+    }
+    .hero-kicker::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--coral);
+      box-shadow: 0 0 0 5px rgba(232, 93, 79, 0.12);
+    }
+    .hero-card h2 { position: relative; margin: 0; font-family: var(--font-point); font-size: 2.05rem; font-weight: 500; line-height: 1.22; letter-spacing: 0; max-width: 760px; }
+    .hero-card p { margin: 10px 0 0; color: var(--muted); line-height: 1.65; }
+    .today-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .summary-item {
+      border: 1px solid rgba(221, 231, 242, 0.94);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.76);
+      padding: 14px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+    }
+    .summary-item .label { color: var(--muted); font-size: 0.8rem; font-weight: 800; }
+    .summary-item .value { margin-top: 7px; font-family: var(--font-point); font-size: 2rem; font-weight: 500; }
+
+    .recommend-box {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ffffff 0%, #fffaf2 100%);
+      border: 1px solid rgba(234, 179, 8, 0.24);
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .recommend-box::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 5px;
+      background: linear-gradient(90deg, var(--coral), #f59e0b, var(--mint));
+    }
+    .recommend-box h3 { margin: 0 0 8px; font-family: var(--font-point); font-size: 1rem; font-weight: 500; }
+    .recommend-box .text { color: var(--muted); line-height: 1.6; font-size: 0.93rem; }
+    .recommend-box .tag {
+      display: inline-flex;
+      margin-top: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--amber-soft);
+      color: var(--amber);
+      font-family: var(--font-point);
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    .focus-metric {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .focus-metric div {
+      border-radius: 10px;
+      padding: 11px;
+      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid rgba(221, 231, 242, 0.82);
+    }
+    .focus-metric strong { display: block; font-family: var(--font-point); font-size: 1.18rem; font-weight: 500; }
+    .focus-metric span { color: var(--muted); font-size: 0.76rem; font-weight: 800; }
+    .source-top {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .source-top-title {
+      color: var(--muted);
+      font-family: var(--font-point);
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    .source-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid rgba(221, 231, 242, 0.82);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.76);
+      padding: 10px 11px;
+    }
+    .source-name {
+      min-width: 0;
+      font-family: var(--font-point);
+      font-size: 0.82rem;
+      font-weight: 500;
+      word-break: keep-all;
+    }
+    .source-count {
+      color: var(--muted);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(390px, 0.95fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .insight-card {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(221, 231, 242, 0.9);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    .insight-head {
+      padding: 16px 18px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .insight-title {
+      font-family: var(--font-point);
+      font-size: 0.98rem;
+      font-weight: 500;
+    }
+    .insight-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+    .insight-body {
+      padding: 14px 18px 18px;
+      display: grid;
+      gap: 10px;
+    }
+    .insight-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fff, #f8fbff);
+      padding: 11px 12px;
+    }
+    .insight-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+    .insight-name {
+      font-family: var(--font-point);
+      font-size: 0.86rem;
+      font-weight: 500;
+    }
+    .insight-count {
+      color: var(--muted);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+    .insight-desc {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.79rem;
+      line-height: 1.5;
+    }
+    .stack { display: grid; gap: 16px; min-width: 0; }
+    .card {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(221, 231, 242, 0.9);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .card-title { font-family: var(--font-point); font-weight: 500; font-size: 1.06rem; }
+    .card-sub { color: var(--muted); font-size: 0.84rem; margin-top: 4px; line-height: 1.45; }
+    .card-body { padding: 18px 20px; }
+
+    .customer-types {
+      display: grid;
+      gap: 10px;
+    }
+    .quality-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .quality-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fff, #f8fbff);
+      padding: 12px;
+    }
+    .quality-item .label {
+      color: var(--muted);
+      font-family: var(--font-point);
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+    .quality-item .value {
+      margin-top: 5px;
+      font-family: var(--font-point);
+      font-size: 1.05rem;
+      font-weight: 500;
+    }
+    .type-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 15px 15px 15px 18px;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .type-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--blue);
+    }
+    .type-card.intent::before { background: var(--coral); }
+    .type-card.compare::before { background: var(--mint); }
+    .type-card.search::before { background: var(--blue); }
+    .type-card.exit::before { background: var(--amber); }
+    .type-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(24, 90, 219, 0.35);
+      box-shadow: 0 14px 30px rgba(23, 32, 51, 0.1);
+      background: #fff;
+    }
+    .type-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .type-name {
+      flex: 1;
+      min-width: 0;
+      font-family: var(--font-point);
+      font-weight: 500;
+      line-height: 1.35;
+      word-break: keep-all;
+      overflow-wrap: normal;
+    }
+    .type-count {
+      color: var(--muted);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+    .type-desc {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+      margin-top: 8px;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip {
+      padding: 4px 8px;
+      border-radius: 7px;
+      background: var(--soft);
+      color: #475569;
+      font-family: var(--font-point);
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .chart-wrap {
+      min-height: 260px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.82), rgba(243,246,250,0.95));
+      border-radius: 11px;
+      padding: 14px;
+    }
+    .chart-label { color: var(--muted); font-family: var(--font-point); font-size: 0.8rem; font-weight: 500; margin-bottom: 10px; }
+
+    .session-search {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+    .session-list { display: grid; gap: 8px; max-height: 330px; overflow: auto; padding-right: 2px; }
+    .session-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .session-row:hover, .session-row.active {
+      transform: translateY(-1px);
+      border-color: var(--blue);
+      background: linear-gradient(135deg, #ffffff, var(--blue-soft));
+      box-shadow: 0 12px 26px rgba(24, 90, 219, 0.1);
+    }
+    .sid {
+      font-size: 0.9rem;
+      font-family: var(--font-point);
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .session-meta { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
+    .session-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 9px;
+      border-radius: 999px;
+      font-family: var(--font-point);
+      font-size: 0.74rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .badge.risk { background: var(--red-soft); color: var(--red); }
+    .badge.ok { background: var(--blue-soft); color: var(--blue); }
+    .badge.good { background: var(--green-soft); color: var(--green); }
+    .badge.weak { background: var(--amber-soft); color: var(--amber); }
+
+    .result-box {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: linear-gradient(180deg, #fff, #f8fbff);
+      padding: 16px;
+      min-height: 165px;
+    }
+    .result-title { color: var(--muted); font-family: var(--font-point); font-size: 0.82rem; font-weight: 500; }
+    .persona { margin-top: 7px; font-family: var(--font-point); font-size: 1.24rem; font-weight: 500; color: var(--blue); }
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-top: 13px;
+    }
+    .flow-step {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 9px;
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: #1e3a8a;
+      font-family: var(--font-point);
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .flow-arrow {
+      color: var(--muted);
+      font-family: var(--font-point);
+      font-size: 0.84rem;
+    }
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .mini {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 9px;
+      padding: 10px;
+    }
+    .mini .label { color: var(--muted); font-family: var(--font-point); font-size: 0.72rem; font-weight: 500; }
+    .mini .value { margin-top: 4px; font-family: var(--font-point); font-weight: 500; }
+
+    .report {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fffdf8;
+      padding: 16px;
+      line-height: 1.75;
+      min-height: 220px;
+      white-space: pre-wrap;
+    }
+    .report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .activity-list {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+      padding: 2px 2px 2px 6px;
+    }
+    .activity {
+      position: relative;
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr);
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px 12px;
+      font-size: 0.84rem;
+      box-shadow: 0 8px 18px rgba(23, 32, 51, 0.05);
+    }
+    .activity::before {
+      content: "";
+      position: absolute;
+      left: -5px;
+      top: 16px;
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--mint);
+      box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.12);
+    }
+    .activity-time { color: var(--muted); font-size: 0.78rem; }
+    .activity-main { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .empty {
+      border: 1px dashed #c5d2e2;
+      background: var(--soft);
+      color: var(--muted);
+      border-radius: 11px;
+      padding: 28px 16px;
+      text-align: center;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1120px) {
+      .hero, .grid, .split, .insight-grid { grid-template-columns: 1fr; }
+      .today-summary { grid-template-columns: repeat(2, 1fr); }
+      .quality-summary { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 720px) {
+      .topbar, .actions { flex-direction: column; align-items: stretch; }
+      main { padding: 16px; }
+      .hero-card { padding: 22px; }
+      .hero-card h2 { font-size: 1.55rem; }
+      .today-summary, .result-grid, .quality-summary { grid-template-columns: 1fr; }
+      .focus-metric { grid-template-columns: 1fr; }
+      .session-search { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">GT</div>
+      <div>
+        <h1>쇼핑몰 운영자 화면</h1>
+        <p>고객 행동을 쉬운 말로 보고, 바로 할 일을 확인합니다.</p>
+      </div>
+    </div>
+    <div class="actions">
+      <select id="site-filter" aria-label="사이트 선택">
+        <option value="">전체 사이트</option>
+      </select>
+      <button class="secondary" id="rediscover-types">고객 유형 다시 찾기</button>
+      <button id="download-report">주간 리포트 다운로드</button>
+      <button class="secondary" id="expert-view">전문가 화면</button>
+      <span class="live" id="status">연결 확인 중</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-card">
+        <div class="hero-kicker">오늘의 운영 포커스</div>
+        <h2 id="headline">오늘 고객들은 어디서 망설이고 있을까요?</h2>
+        <p id="headline-detail">실시간 행동 데이터를 바탕으로 탐색 중지 신호, 주요 고객 유형, 추천 운영 액션을 정리합니다.</p>
+        <div class="today-summary">
+          <div class="summary-item">
+            <div class="label">방문자 수</div>
+            <div class="value" id="visitor-count">-</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">수집된 행동</div>
+            <div class="value" id="total-events">-</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">최근 1시간</div>
+            <div class="value" id="recent-events">-</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">관찰 중인 세션</div>
+            <div class="value" id="active-sessions">-</div>
+          </div>
+        </div>
+      </div>
+      <aside class="recommend-box">
+        <h3>지금 운영자가 볼 것</h3>
+        <div class="text" id="operator-advice">데이터를 불러오는 중입니다.</div>
+        <span class="tag" id="advice-tag">실시간 진단</span>
+        <div class="focus-metric">
+          <div>
+            <strong id="risk-signal-count">-</strong>
+            <span>탐색 중지 신호</span>
+          </div>
+          <div>
+            <strong id="top-action-count">-</strong>
+            <span>주요 행동</span>
+          </div>
+        </div>
+        <div class="source-top" id="source-top">
+          <div class="source-top-title">유입 경로 TOP</div>
+          <div class="source-row"><div class="source-name">유입 경로 확인 중</div><div class="source-count">-</div></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="insight-grid">
+      <section class="insight-card">
+        <div class="insight-head">
+          <div class="insight-title">오늘 가장 막히는 화면 TOP</div>
+          <div class="insight-sub">탐색 중지 신호가 가장 많이 모인 화면입니다.</div>
+        </div>
+        <div class="insight-body" id="blocked-pages">
+          <div class="empty">화면별 요약을 불러오는 중입니다.</div>
+        </div>
+      </section>
+      <section class="insight-card">
+        <div class="insight-head">
+          <div class="insight-title">주요 문제 원인 TOP</div>
+          <div class="insight-sub">고객이 멈춘 이유를 쉬운 말로 모았습니다.</div>
+        </div>
+        <div class="insight-body" id="issue-causes">
+          <div class="empty">문제 원인을 정리하는 중입니다.</div>
+        </div>
+      </section>
+      <section class="insight-card">
+        <div class="insight-head">
+          <div class="insight-title">실행 우선순위 추천</div>
+          <div class="insight-sub">오늘 먼저 손보면 좋은 순서입니다.</div>
+        </div>
+        <div class="insight-body" id="priority-actions">
+          <div class="empty">추천 액션을 준비하는 중입니다.</div>
+        </div>
+      </section>
+      <section class="insight-card">
+        <div class="insight-head">
+          <div class="insight-title">유입 경로별 성과 차이</div>
+          <div class="insight-sub">들어온 경로마다 주문 성공과 중지 비율이 다릅니다.</div>
+        </div>
+        <div class="insight-body" id="source-performance">
+          <div class="empty">유입 경로 비교를 불러오는 중입니다.</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="grid">
+      <div class="stack">
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">고객 유형 한눈에 보기</div>
+              <div class="card-sub">마지막으로 고객 유형 다시 찾기를 실행했을 때 확정된 유형을, 비슷한 세부 클러스터끼리 묶어 보여줍니다.</div>
+              <div class="card-sub" id="cluster-snapshot-note">마지막 클러스터링 시점을 불러오는 중입니다.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="quality-summary" id="quality-summary">
+              <div class="quality-item"><div class="label">검증 통과</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">검증 필요</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">분리도</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">미분류 비율</div><div class="value">-</div></div>
+            </div>
+            <div class="split">
+              <div class="chart-wrap">
+                <div class="chart-label">고객 유형 비중</div>
+                <canvas id="type-chart" height="190"></canvas>
+              </div>
+              <div class="customer-types" id="customer-types">
+                <div class="empty">고객 유형을 불러오는 중입니다.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">방금 들어온 고객 행동</div>
+              <div class="card-sub">데모 중 쇼핑몰에서 움직이면 여기에 바로 표시됩니다.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="activity-list" id="activity-list">
+              <div class="empty">행동 데이터를 기다리는 중입니다.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">고객 1명 자세히 보기</div>
+              <div class="card-sub">최근 고객을 누르고 “이 고객 분석”을 누르면 쉬운 설명이 나옵니다.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="session-search">
+              <input id="session-input" placeholder="아래 고객을 선택하거나 참조번호를 입력" />
+              <button id="analyze-session">이 고객 분석</button>
+            </div>
+            <div class="session-list" id="session-list">
+              <div class="empty">최근 고객을 불러오는 중입니다.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">선택한 고객 분석 결과</div>
+              <div class="card-sub">AI 모델이 이 고객을 어떤 유형으로 보는지 설명합니다.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="result-box" id="result-box">
+              <div class="empty">고객을 선택하고 분석 버튼을 눌러주세요.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">운영 액션 리포트</div>
+              <div class="card-sub">고객 유형에 맞춰 어떤 운영 액션을 하면 좋을지 보여줍니다.</div>
+            </div>
+            <div class="report-actions">
+              <button class="secondary" id="cluster-report" disabled>유형 리포트</button>
+              <button class="secondary" id="session-report" disabled>고객 리포트</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="report" id="report-box">분석 결과가 준비되면 리포트가 여기에 표시됩니다.</div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /*
+      운영자 대시보드 스크립트.
+      백엔드에서 로그, 세션, 클러스터링 결과를 가져와 운영자가 보기 쉬운 말로 바꿔서 보여준다.
+      2.5초마다 polling으로 갱신하고, 고객 유형(클러스터)은 버튼을 눌러야 다시 계산된다.
+    */
+    const DEMO_ORIGIN = "https://toridos.vercel.app";
+    const state = {
+      origin: "",
+      logs: [],
+      sessions: [],
+      clusters: [],
+      selectedSessionId: "",
+      selectedEvents: [],
+      analysis: null,
+    };
+
+    Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue("--font-body").trim();
+
+    const $ = (id) => document.getElementById(id); // id로 엘리먼트 가져오기
+    const fmt = (n) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("ko-KR") : "-"; // 숫자를 천단위 콤마로
+    const shortId = (sid) => sid ? `${sid.slice(0, 8)}...${sid.slice(-4)}` : "-"; // 세션ID 앞뒤만 잘라서 표시
+    const customerNumber = (sessionId) => { // 세션ID를 "최근 고객 n번" 순번으로 변환
+      const idx = state.sessions.findIndex((s) => s.session_id === sessionId);
+      return idx >= 0 ? idx + 1 : "?";
+    };
+
+    // 고객 유형 비중 도넛 차트
+    const chart = new Chart($("type-chart"), {
+      type: "doughnut",
+      data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0 }] },
+      options: {
+        cutout: "58%",
+        plugins: { legend: { position: "bottom", labels: { color: "#475569", boxWidth: 11 } } },
+      },
+    });
+
+    // fetch 감싸서 에러 응답이면 메시지 같이 던져줌
+    async function api(path, options) {
+      const res = await fetch(path, options);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      return body;
+    }
+
+    // 상단 연결 상태 표시(정상/오류) 갱신
+    function setStatus(ok, text) {
+      $("status").textContent = text;
+      $("status").className = ok ? "live" : "live bad";
+    }
+
+    // 클러스터 라벨/대표 행동을 보고 운영자가 알아볼 수 있는 이름으로 바꿔준다
+    function friendlyClusterName(cluster) {
+      const actions = (cluster.top_actions || []).map((a) => a.action);
+      const label = cluster.label || "";
+      const top3 = actions.slice(0, 3);
+      if (label.includes("행동 데이터 부족")) return "행동 데이터 부족 고객";
+      if (label.includes("결제 단계에서 망설이는 고객")) return "결제 단계에서 망설이는 고객";
+      if (label.includes("탐색을 빠르게 멈추는 고객")) return "탐색을 빠르게 멈추는 고객";
+      if (label.includes("페이지를 훑어보는 고객")) return "페이지를 훑어보는 고객";
+      if (actions.includes("EXIT_SESSION") || (top3.includes("INACTIVE") && top3.includes("START_SESSION"))) return "탐색 중지 가능 고객";
+      if (top3.includes("SEARCH_USE") || label.includes("SEARCH")) return "상품을 찾는 고객";
+      if (top3.includes("CHECK_SIZE") || top3.includes("CHECK_PRICE")) return "구매 직전 망설이는 고객";
+      if (top3.includes("VIEW_REVIEW") || top3.includes("ZOOM_IMAGE")) return "꼼꼼히 비교하는 고객";
+      return `고객 유형 ${cluster.cluster}`;
+    }
+
+    // 유형 이름에 맞는 설명 문구
+    function friendlyClusterDesc(cluster) {
+      const name = friendlyClusterName(cluster);
+      if (name.includes("꼼꼼히")) return "리뷰와 이미지를 많이 확인합니다. 상세 정보와 후기 노출이 중요합니다.";
+      if (name.includes("구매 직전")) return "가격, 사이즈, 배송 정보를 확인하며 망설입니다. 쿠폰이나 배송 안내가 효과적입니다.";
+      if (name.includes("상품을 찾는")) return "검색과 카테고리 이동이 많습니다. 추천 상품과 검색 결과 정리가 중요합니다.";
+      if (name.includes("탐색 중지")) return "홈 화면에서 오래 머물거나 움직임이 줄어듭니다. 첫 화면 배너와 빠른 혜택 제안이 필요합니다.";
+      return "행동 패턴을 바탕으로 묶인 고객 유형입니다.";
+    }
+
+    // 유형마다 카드 강조 색(class) 결정
+    function typeTone(cluster) {
+      const name = friendlyClusterName(cluster);
+      if (name.includes("행동 데이터 부족")) return "exit";
+      if (name.includes("결제 단계")) return "intent";
+      if (name.includes("페이지를 훑어보는")) return "search";
+      if (name.includes("탐색을 빠르게")) return "exit";
+      if (name.includes("구매 직전")) return "intent";
+      if (name.includes("꼼꼼히")) return "compare";
+      if (name.includes("상품을 찾는")) return "search";
+      if (name.includes("탐색 중지")) return "exit";
+      return "search";
+    }
+
+    // cluster id로 라벨/설명/추천 액션 찾기
+    function clusterDetails(clusterId) {
+      const cluster = state.clusters.find((c) => String(c.cluster) === String(clusterId));
+      if (!cluster) {
+        return null;
+      }
+      return {
+        label: cluster.label || friendlyClusterName(cluster),
+        summary: cluster.summary || friendlyClusterDesc(cluster),
+        action: cluster.action || "",
+      };
+    }
+
+    // 주문 완료한 세션은 AI 분류 결과 대신 이 설명으로 덮어씀
+    function completedSessionInsight(baseDetails = {}) {
+      return {
+        label: "주문을 완료한 고객",
+        summary: `이 고객은 실제 행동 흐름에서 장바구니 담기, 주문서 입력, 주문 성공까지 이어졌습니다. AI 기준 유형으로는 ${baseDetails?.label || "가장 가까운 유형"}에 가깝게 분류됐지만, 운영자 화면에서는 전환에 성공한 고객으로 보는 편이 더 자연스럽습니다.`,
+        action: "이 세션을 전환 성공 예시로 보고, 장바구니부터 주문 완료까지의 흐름을 다른 고객에게도 비슷하게 이어지도록 화면 순서와 안내 문구를 점검하세요.",
+      };
+    }
+
+    // 세부 클러스터 이름을 상위 카테고리(key)로 묶기 위한 설명/추천 액션 정의
+    function operatorClusterMeta(name) {
+      if (name.includes("행동 데이터 부족")) {
+        return {
+          key: "unknown",
+          name: "행동 데이터 부족 고객",
+          summary: "대표 행동이나 방문 화면 정보가 적어 아직 별도 고객 유형으로 설명하기 어렵습니다.",
+          action: "SDK 수집 상태와 페이지별 이벤트 매핑을 먼저 점검해 행동 데이터가 충분히 쌓이도록 보완하세요.",
+        };
+      }
+      if (name.includes("결제 단계")) {
+        return {
+          key: "checkout_hesitation",
+          name: "결제 단계에서 망설이는 고객",
+          summary: "가격 확인, 입력 시작, 결제 진입처럼 구매 직전 행동이 많지만 마지막 단계에서 멈추는 유형입니다.",
+          action: "가격, 배송, 입력 안내를 더 분명하게 보여주고 결제 직전 불안 요소를 줄여보세요.",
+        };
+      }
+      if (name.includes("탐색을 빠르게")) {
+        return {
+          key: "quick_stop",
+          name: "탐색을 빠르게 멈추는 고객",
+          summary: "짧게 둘러본 뒤 탐색 중지 신호가 빨리 나타나는 유형입니다.",
+          action: "첫 화면과 상품 초반 구간에서 혜택, 대표 상품, 다음 행동 버튼을 더 강하게 보여주세요.",
+        };
+      }
+      if (name.includes("페이지를 훑어보는")) {
+        return {
+          key: "browse",
+          name: "페이지를 훑어보는 고객",
+          summary: "스크롤과 가벼운 탐색 위주로 둘러보지만 다음 행동으로 이어지지 않는 유형입니다.",
+          action: "상품 추천, 후기, 카테고리 이동 버튼처럼 다음 행동을 정해주는 안내를 보강하세요.",
+        };
+      }
+      if (name.includes("상품을 찾는") || name.includes("꼼꼼히")) {
+        return {
+          key: "compare",
+          name: "상품을 찾고 비교하는 고객",
+          summary: "검색, 카테고리 이동, 리뷰 확인처럼 비교 탐색 행동이 많은 유형입니다.",
+          action: "필터, 리뷰, 가격 비교 정보가 한눈에 보이도록 구성해 선택 속도를 높여주세요.",
+        };
+      }
+      return {
+        key: `cluster-${name}`,
+        name,
+        summary: "비슷한 행동 패턴을 보인 세부 클러스터를 묶어 보여주는 상위 유형입니다.",
+        action: "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      };
+    }
+
+    // 그룹에 속한 세부 클러스터들의 top_actions를 합쳐서 상위 3개만
+    function aggregateTopActions(clusters) {
+      const counts = new Map();
+      clusters.forEach((cluster) => {
+        (cluster.top_actions || []).forEach((action) => {
+          counts.set(action.action, (counts.get(action.action) || 0) + (action.count || 0));
+        });
+      });
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([action, count]) => ({ action, count }));
+    }
+
+    // 그룹 안에서 가장 낮은 검증 상태를 대표값으로 사용
+    function aggregateValidation(clusters) {
+      const statuses = clusters.map((cluster) => cluster.validation?.status).filter(Boolean);
+      if (!statuses.length) return { status: "weak" };
+      if (statuses.every((status) => status === "insufficient")) return { status: "insufficient" };
+      if (statuses.some((status) => status === "weak" || status === "insufficient")) return { status: "weak" };
+      return { status: "verified" };
+    }
+
+    // 세부 클러스터를 같은 카테고리끼리 합쳐서 상위 4개만 화면에 노출
+    function aggregateOperatorClusters(clusters) {
+      const groups = new Map();
+      clusters.forEach((cluster) => {
+        const baseName = friendlyClusterName(cluster);
+        const meta = operatorClusterMeta(baseName);
+        const row = groups.get(meta.key) || {
+          key: meta.key,
+          label: meta.name,
+          summary: meta.summary,
+          action: meta.action,
+          count: 0,
+          members: [],
+        };
+        row.count += cluster.count || 0;
+        row.members.push(cluster);
+        groups.set(meta.key, row);
+      });
+
+      return [...groups.values()]
+        .map((group) => {
+          const representative = [...group.members].sort((a, b) => (b.count || 0) - (a.count || 0))[0] || {};
+          return {
+            cluster: representative.cluster,
+            label: group.label,
+            summary: group.summary,
+            action: group.action,
+            count: group.count,
+            top_actions: aggregateTopActions(group.members),
+            validation: aggregateValidation(group.members),
+            members: group.members,
+            representative_cluster: representative.cluster,
+          };
+        })
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 4);
+    }
+
+    // 이벤트 액션 코드를 쉬운 말로 바꾸는 표
+    function friendlyAction(action) {
+      const labels = {
+        START_SESSION: "쇼핑몰 방문",
+        ENTER_HOME: "첫 화면 진입",
+        ENTER_PRODUCT: "상품 상세 확인",
+        VIEW_PRODUCT: "상품 살펴봄",
+        CLICK_ELEMENT: "버튼 또는 메뉴 클릭",
+        SCROLL_PAGE: "페이지를 아래로 살펴봄",
+        SEARCH_USE: "상품 검색",
+        VIEW_REVIEW: "리뷰 확인",
+        ZOOM_IMAGE: "상품 이미지 확대",
+        CHECK_SIZE: "사이즈 확인",
+        CHECK_PRICE: "가격 확인",
+        ADD_TO_CART: "장바구니 담기",
+        PURCHASE_CLICK: "구매 버튼 클릭",
+        TAB_EXIT: "탭을 떠남",
+        EXIT_SESSION: "탐색 중지",
+        EXIT_BOUNCE: "빠른 탐색 중지",
+        INACTIVE: "움직임 없음",
+      };
+      return labels[action] || action.replaceAll("_", " ").toLowerCase();
+    }
+
+    // 활동 목록에 보여줄 한 줄 문구로 변환
+    function eventText(e) {
+      const d = e.data || {};
+      if (isOrderSuccessEvent(e)) return "주문 성공 화면을 확인했습니다.";
+      switch (e.event_type) {
+        case "session_start": return "고객이 쇼핑몰에 들어왔습니다.";
+        case "product_click": return "상품을 눌러 자세히 봤습니다.";
+        case "add_to_cart": return "장바구니에 상품을 담았습니다.";
+        case "purchase_click": return "구매 또는 결제 버튼을 눌렀습니다.";
+        case "tab_exit": return "쇼핑몰 탭을 벗어났습니다.";
+        case "tab_return": return "쇼핑몰 탭으로 돌아왔습니다.";
+        case "inactivity": return "고객 움직임이 멈췄습니다.";
+        case "mouse_move": return "마우스를 움직였습니다.";
+        case "screen_resize": return "화면 크기가 바뀌었습니다.";
+        case "section_exit": return `${d.section || "특정"} 영역을 벗어났습니다.`;
+        case "scroll_depth": return "페이지를 스크롤하며 둘러봤습니다.";
+        case "hover_dwell": return "특정 요소 위에 머물렀습니다.";
+        case "search_use": return `검색어를 입력했습니다: ${d.search_query || ""}`;
+        default: return e.event_type.replaceAll("_", " ");
+      }
+    }
+
+    // 별도 "주문 완료" 이벤트가 없어서 클릭/호버 텍스트로 주문 성공 여부를 추정
+    function isOrderSuccessEvent(e) {
+      const d = e.data || {};
+      const text = `${d.hover_text || ""} ${d.click_text || ""}`;
+      const target = `${d.hover_target || ""} ${d.click_target || ""}`.toLowerCase();
+      return text.includes("주문이 완료") || target.includes("complete");
+    }
+
+    // 탐색 중지로 볼 만한 이벤트 타입인지 판단
+    function isRiskEvent(e) {
+      return ["tab_exit", "inactivity", "session_end", "cart_abandon_flag"].includes(e.event_type);
+    }
+
+    // 행동 흐름(renderBehaviorFlow)에 넣을 짧은 라벨
+    function shortEventText(e) {
+      const d = e.data || {};
+      const text = `${d.hover_text || ""} ${d.click_text || ""}`.trim();
+      const target = `${d.click_target || ""} ${d.hover_target || ""} ${d.input_target || ""}`.toLowerCase();
+      if (text.includes("주문이 완료") || target.includes("complete")) return "주문 성공";
+      if (target.includes("cart") || target.includes("basket")) return "장바구니 확인";
+      if (target.includes("phone") || target.includes("address") || target.includes("detail") || target.includes("memo")) return "배송 정보 입력";
+      const labels = {
+        session_start: "방문",
+        navigation: "페이지 이동",
+        page_view: "페이지 확인",
+        product_click: "상품 클릭",
+        add_to_cart: "장바구니 담기",
+        purchase_click: "주문 클릭",
+        tab_exit: "탭 떠남",
+        tab_return: "탭 돌아옴",
+        inactivity: "움직임 없음",
+        section_exit: "영역 벗어남",
+        scroll_depth: "스크롤",
+        hover_dwell: "머무름",
+        search_use: "검색",
+        cart_abandon_flag: "장바구니 중단",
+        session_end: "탐색 중지",
+      };
+      return labels[e.event_type] || e.event_type.replaceAll("_", " ");
+    }
+
+    // 이벤트 목록을 화살표로 이어진 행동 흐름 HTML로 변환
+    function renderBehaviorFlow(events, limit = 6) {
+      if (!events.length) return `<div class="empty">아직 이 고객의 행동 흐름이 없습니다.</div>`;
+      const usefulTypes = new Set([
+        "session_start",
+        "navigation",
+        "product_click",
+        "add_to_cart",
+        "purchase_click",
+        "input_change",
+        "field_focus",
+        "field_blur",
+        "search_use",
+        "tab_exit",
+        "tab_return",
+        "inactivity",
+        "session_end",
+      ]);
+      const compact = [];
+      events.forEach((event) => {
+        const hasOrderComplete = `${event.data?.hover_text || ""} ${event.data?.click_text || ""}`.includes("주문이 완료")
+          || `${event.data?.hover_target || ""} ${event.data?.click_target || ""}`.toLowerCase().includes("complete");
+        if (!usefulTypes.has(event.event_type) && !hasOrderComplete) return;
+        const label = shortEventText(event);
+        if (compact[compact.length - 1] !== label) compact.push(label);
+      });
+      const meaningful = compact.filter((label) => !["페이지 이동", "탭 떠남", "탭 돌아옴", "움직임 없음"].includes(label));
+      const source = meaningful.length >= 3 ? meaningful : compact;
+      // 흐름이 너무 길면 앞뒤만 보여주고 중간은 생략
+      const display = source.length > limit
+        ? [...source.slice(0, Math.ceil(limit / 2)), `중간 ${source.length - limit}개 생략`, ...source.slice(-(Math.floor(limit / 2)))]
+        : source;
+      return `
+        <div class="result-title">이 고객의 행동 흐름</div>
+        <div class="flow">
+          ${display.map((label, idx, arr) => `
+            <span class="flow-step">${label}</span>
+            ${idx < arr.length - 1 ? `<span class="flow-arrow">→</span>` : ""}
+          `).join("")}
+        </div>
+      `;
+    }
+
+    // URL로 어떤 페이지(홈/상품/장바구니/결제 등)였는지 분류
+    function eventPage(e) {
+      const path = `${e.pathname || ""} ${e.page_url || ""}`.toLowerCase();
+      if (path.includes("checkout") || path.includes("payment")) return "checkout";
+      if (path.includes("cart") || path.includes("basket")) return "cart";
+      if (path.includes("product") || path.includes("item")) return "product";
+      if (path.includes("search") || path.includes("category")) return "search";
+      return "home";
+    }
+
+    // 세션별 로그를 한 행으로 합치고 마지막 활동 시간 기준으로 정렬 (세션 목록 API가 없을 때 fallback)
+    function groupSessions(logs) {
+      const map = new Map();
+      logs.forEach((e) => {
+        if (!e.session_id) return;
+        const row = map.get(e.session_id) || {
+          session_id: e.session_id,
+          count: 0,
+          last_at: e.received_at,
+          pathname: e.pathname || "/",
+          risky: false,
+          completed: false,
+          referrer: e.referrer || "",
+          utm_source: e.utm_source || "",
+          utm_campaign: e.utm_campaign || "",
+        };
+        row.count += 1;
+        row.completed = row.completed || isOrderSuccessEvent(e);
+        row.risky = row.risky || isRiskEvent(e);
+        if (!row.last_at || new Date(e.received_at) > new Date(row.last_at)) {
+          row.last_at = e.received_at;
+          row.pathname = e.pathname || row.pathname;
+        }
+        if (!row.referrer && e.referrer) row.referrer = e.referrer;
+        if (!row.utm_source && e.utm_source) row.utm_source = e.utm_source;
+        if (!row.utm_campaign && e.utm_campaign) row.utm_campaign = e.utm_campaign;
+        map.set(e.session_id, row);
+      });
+      return [...map.values()]
+        .map((row) => ({ ...row, risky: row.completed ? false : row.risky }))
+        .sort((a, b) => new Date(b.last_at) - new Date(a.last_at));
+    }
+
+    // referrer URL에서 도메인만 뽑기
+    function hostFromUrl(raw) {
+      if (!raw) return "";
+      try {
+        return new URL(raw).host.replace(/^www\./, "");
+      } catch {
+        return "";
+      }
+    }
+
+    // 세션 카드에 보여줄 유입 경로 태그들
+    function sourceTags(session) {
+      const tags = [];
+      if (session?.utm_source) tags.push(`유입: ${prettySourceName(session.utm_source)}`);
+      const refHost = hostFromUrl(session?.referrer);
+      if (refHost) tags.push(`이전 사이트: ${prettySourceName(refHost)}`);
+      if (session?.utm_campaign) tags.push(`캠페인: ${session.utm_campaign}`);
+      if (!tags.length) tags.push("직접 방문");
+      return tags;
+    }
+
+    // 도메인/유입값을 알아보기 좋은 이름으로 (notion, instagram 등)
+    function prettySourceName(raw) {
+      const value = String(raw || "").trim().toLowerCase();
+      if (!value) return "직접 방문";
+      if (value.includes("notion")) return "Notion";
+      if (value.includes("instagram") || value.includes("insta")) return "Instagram";
+      if (value.includes("facebook")) return "Facebook";
+      if (value.includes("github")) return "GitHub";
+      if (value.includes("kakao")) return "Kakao";
+      if (value.includes("google")) return "Google";
+      if (value.includes("naver")) return "Naver";
+      return String(raw).replace(/^www\./i, "");
+    }
+
+    // 세션 하나의 대표 유입 경로 이름
+    function sessionSourceName(session) {
+      if (session?.utm_source) return prettySourceName(session.utm_source);
+      const refHost = hostFromUrl(session?.referrer);
+      if (refHost) return prettySourceName(refHost);
+      return "직접 방문";
+    }
+
+    // 유입 경로 TOP 목록 렌더링
+    function renderTopSources(payload = {}) {
+      const rows = Array.isArray(payload.sources)
+        ? payload.sources.map((item) => [item.name, item.count])
+        : [];
+      $("source-top").innerHTML = rows.length
+        ? `<div class="source-top-title">유입 경로 TOP</div>${rows.map(([name, count]) => `
+          <div class="source-row">
+            <div class="source-name">${name}</div>
+            <div class="source-count">${fmt(count)}명</div>
+          </div>
+        `).join("")}`
+        : `<div class="source-top-title">유입 경로 TOP</div><div class="source-row"><div class="source-name">유입 경로 없음</div><div class="source-count">0명</div></div>`;
+    }
+
+    // 인사이트 카드 4종이 공통으로 쓰는 리스트 렌더러
+    function renderInsightList(targetId, items, renderItem, emptyText) {
+      const target = $(targetId);
+      if (!items?.length) {
+        target.innerHTML = `<div class="empty">${emptyText}</div>`;
+        return;
+      }
+      target.innerHTML = items.map(renderItem).join("");
+    }
+
+    // 막히는 화면 / 문제 원인 / 우선순위 / 유입 경로 성과 4개 카드 채우기
+    function renderOperatorSummary(summary = {}) {
+      renderInsightList(
+        "blocked-pages",
+        summary.blocked_pages || [],
+        (item) => `
+          <div class="insight-item">
+            <div class="insight-top">
+              <div class="insight-name">${item.label}</div>
+              <div class="insight-count">${fmt(item.count)}명 · ${item.share || 0}%</div>
+            </div>
+            <div class="insight-desc">탐색 중지 신호가 이 화면에서 가장 많이 마무리됐습니다.</div>
+          </div>`,
+        "아직 막히는 화면 데이터가 없습니다.",
+      );
+
+      renderInsightList(
+        "issue-causes",
+        summary.issue_causes || [],
+        (item) => `
+          <div class="insight-item">
+            <div class="insight-top">
+              <div class="insight-name">${item.label}</div>
+              <div class="insight-count">${fmt(item.count)}명 · ${item.share || 0}%</div>
+            </div>
+            <div class="insight-desc">최근 탐색 중지 세션에서 반복해서 보인 패턴입니다.</div>
+          </div>`,
+        "아직 문제 원인 데이터가 없습니다.",
+      );
+
+      renderInsightList(
+        "priority-actions",
+        summary.priorities || [],
+        (item, idx) => `
+          <div class="insight-item">
+            <div class="insight-top">
+              <div class="insight-name">${idx + 1}. ${item.title}</div>
+            </div>
+            <div class="insight-desc">${item.detail}</div>
+          </div>`,
+        "추천할 운영 액션이 아직 없습니다.",
+      );
+
+      renderInsightList(
+        "source-performance",
+        summary.source_performance || [],
+        (item) => `
+          <div class="insight-item">
+            <div class="insight-top">
+              <div class="insight-name">${item.name}</div>
+              <div class="insight-count">${fmt(item.total)}명</div>
+            </div>
+            <div class="insight-desc">주문 성공 ${item.completion_rate}% · 탐색 중지 ${item.risk_rate}% · 많이 보는 화면 ${item.top_page}</div>
+          </div>`,
+        "유입 경로 성과 비교 데이터가 없습니다.",
+      );
+    }
+
+    // 값이 없으면 "-"로 표시
+    function qualityValue(value, suffix = "") {
+      if (value === undefined || value === null || Number.isNaN(Number(value))) return "-";
+      return `${Number(value).toLocaleString("ko-KR")}${suffix}`;
+    }
+
+    // 검증 통과/필요, 분리도, 미분류 비율 카드 채우기
+    function renderQualitySummary(quality = {}) {
+      const verified = quality.verified_clusters ?? 0;
+      const needsReview = (quality.weak_clusters ?? 0) + (quality.insufficient_clusters ?? 0);
+      const separation = quality.silhouette !== null && quality.silhouette !== undefined
+        ? Number(quality.silhouette).toFixed(2)
+        : "계산 전";
+      const noiseRate = quality.noise_rate !== null && quality.noise_rate !== undefined
+        ? `${Math.round(Number(quality.noise_rate) * 100)}%`
+        : "-";
+      $("quality-summary").innerHTML = `
+        <div class="quality-item"><div class="label">검증 통과</div><div class="value">${qualityValue(verified)}개</div></div>
+        <div class="quality-item"><div class="label">검증 필요</div><div class="value">${qualityValue(needsReview)}개</div></div>
+        <div class="quality-item"><div class="label">분리도</div><div class="value">${separation}</div></div>
+        <div class="quality-item"><div class="label">미분류 비율</div><div class="value">${noiseRate}</div></div>
+      `;
+    }
+
+    // 클러스터 결과는 실시간이 아니라 마지막 "고객 유형 다시 찾기" 실행 시점 스냅샷이라는 걸 안내
+    function renderClusterSnapshotInfo(data = {}) {
+      const meta = data.meta || {};
+      const stamp = meta.last_retrain
+        ? new Date(meta.last_retrain).toLocaleString("ko-KR")
+        : "기록 없음";
+      const note = data.source === "artifact_snapshot"
+        ? `선택한 사이트의 새 세션에 따라 바뀌지 않고, 마지막 고객 유형 다시 찾기 실행 시점(${stamp}) 기준으로 유지됩니다.`
+        : data.source === "site_snapshot"
+          ? `현재 선택한 사이트 기준으로 마지막 고객 유형 다시 찾기 실행 시점(${stamp})에 저장한 결과입니다. 새 세션만으로는 바뀌지 않습니다.`
+        : `현재 클러스터 기준은 ${stamp}에 저장된 결과입니다.`;
+      $("cluster-snapshot-note").textContent = note;
+    }
+
+    // 검증 상태를 뱃지 HTML로
+    function validationBadge(validation = {}) {
+      if (validation.status === "verified") return `<span class="badge good">검증 통과</span>`;
+      if (validation.status === "insufficient") return `<span class="badge risk">데이터 부족</span>`;
+      return `<span class="badge weak">검증 필요</span>`;
+    }
+
+    // 클러스터 차트/카드 전체 그리기
+    function renderClusters(data) {
+      // cluster -1은 노이즈(미분류) 묶음이라 화면에는 제외
+      const rawClusters = (data.clusters || []).filter((c) => c.cluster >= 0);
+      state.clusters = rawClusters;
+      const clusters = aggregateOperatorClusters(rawClusters);
+      const total = data.total_sessions || clusters.reduce((sum, c) => sum + c.count, 0);
+      const groupedQuality = {
+        ...(data.quality || {}),
+        verified_clusters: clusters.filter((cluster) => cluster.validation?.status === "verified").length,
+        weak_clusters: clusters.filter((cluster) => cluster.validation?.status === "weak").length,
+        insufficient_clusters: clusters.filter((cluster) => cluster.validation?.status === "insufficient").length,
+        visible_clusters: clusters.length,
+      };
+      renderQualitySummary(groupedQuality);
+      const displayNames = clusters.map((c) => c.label || friendlyClusterName(c));
+      chart.data.labels = displayNames;
+      chart.data.datasets[0].data = clusters.map((c) => c.count);
+      chart.data.datasets[0].backgroundColor = ["#185adb", "#14b8a6", "#e85d4f", "#f59e0b", "#047857"];
+      chart.update();
+
+      $("customer-types").innerHTML = clusters.map((c, idx) => {
+        const pct = total ? Math.round(c.count / total * 100) : 0;
+        const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${friendlyAction(a.action)}</span>`).join("");
+        return `
+          <div class="type-card ${typeTone(c)}" data-cluster="${c.representative_cluster ?? c.cluster}">
+            <div class="type-top">
+              <div class="type-name">${displayNames[idx]}</div>
+              <div class="type-count">${fmt(c.count)}명 · ${pct}%</div>
+            </div>
+            <div class="chips">${validationBadge(c.validation)}</div>
+            <div class="type-desc">${c.summary || friendlyClusterDesc(c)}</div>
+            <div class="chips">${chips}</div>
+            ${c.action ? `<div class="type-desc"><b>추천:</b> ${c.action}</div>` : ""}
+          </div>`;
+      }).join("");
+      $("customer-types").querySelectorAll(".type-card").forEach((card) => {
+        card.addEventListener("click", () => loadClusterReport(card.dataset.cluster));
+      });
+    }
+
+    // 최근 고객 목록 렌더링
+    function renderSessions() {
+      if (!state.sessions.length) {
+        $("session-list").innerHTML = `<div class="empty">아직 최근 고객이 없습니다.</div>`;
+        return;
+      }
+      $("session-list").innerHTML = state.sessions.slice(0, 8).map((s, idx) => `
+        <div class="session-row ${s.session_id === state.selectedSessionId ? "active" : ""}" data-session="${s.session_id}">
+          <div>
+            <div class="sid">최근 고객 ${idx + 1}</div>
+            <div class="session-meta">${new Date(s.last_at).toLocaleTimeString("ko-KR")} · ${s.pathname} · 행동 ${s.count}개 · 참조 ${shortId(s.session_id)}</div>
+            <div class="session-tags">${sourceTags(s).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
+          </div>
+          <span class="badge ${s.completed ? "good" : (s.risky ? "risk" : "ok")}">${s.completed ? "주문 성공" : (s.risky ? "탐색 중지 신호" : "탐색 중")}</span>
+        </div>
+      `).join("");
+      $("session-list").querySelectorAll(".session-row").forEach((row) => {
+        row.addEventListener("click", () => selectSession(row.dataset.session));
+      });
+    }
+
+    // 방금 들어온 행동 목록 렌더링
+    function renderActivities() {
+      if (!state.logs.length) {
+        $("activity-list").innerHTML = `<div class="empty">행동 데이터를 기다리는 중입니다.</div>`;
+        return;
+      }
+      $("activity-list").innerHTML = state.logs.slice(0, 16).map((e) => `
+        <div class="activity">
+          <div class="activity-time">${new Date(e.received_at).toLocaleTimeString("ko-KR")}</div>
+          <div class="activity-main">${eventText(e)} <span style="color:#65758b;">최근 고객 ${customerNumber(e.session_id)}</span></div>
+        </div>
+      `).join("");
+    }
+
+    // 고객 선택 시 분석 결과 초기화하고 행동 흐름부터 보여주기
+    function selectSession(sessionId) {
+      state.selectedSessionId = sessionId;
+      $("session-input").dataset.sessionId = sessionId;
+      $("session-input").value = `최근 고객 ${customerNumber(sessionId)}`;
+      state.selectedEvents = state.logs
+        .filter((e) => e.session_id === sessionId)
+        .sort((a, b) => (a.event_seq || 0) - (b.event_seq || 0));
+      state.analysis = null;
+      const selectedSession = state.sessions.find((s) => s.session_id === sessionId);
+      $("result-box").innerHTML = `
+        ${renderBehaviorFlow(state.selectedEvents)}
+        <div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
+        <div class="type-desc">“이 고객 분석”을 누르면 이 행동 흐름이 어떤 고객 유형에 가까운지 보여줍니다.</div>
+      `;
+      $("report-box").textContent = "고객 분석 후 리포트를 볼 수 있습니다.";
+      $("cluster-report").disabled = true;
+      $("session-report").disabled = true;
+      renderSessions();
+    }
+
+    // 선택한 세션을 분류 API로 분석
+    async function analyzeSession() {
+      const sessionId = $("session-input").dataset.sessionId || $("session-input").value.trim();
+      if (!sessionId) return;
+      $("result-box").innerHTML = `<div class="empty">고객 행동을 분석하는 중입니다.</div>`;
+      try {
+        if (!state.selectedEvents.length) {
+          state.selectedEvents = await api(`/api/logs?limit=200&session_id=${encodeURIComponent(sessionId)}`);
+        }
+        const result = await api(`/api/classify/session/${encodeURIComponent(sessionId)}`, { method: "POST" });
+        const details = clusterDetails(result.cluster_id);
+        const completed = result.completed || state.selectedEvents.some((event) => isOrderSuccessEvent(event));
+        // 실제로 주문까지 완료한 세션은 AI가 분류한 유형 대신 "주문 완료" 설명으로 덮어씀
+        const displayDetails = completed ? completedSessionInsight(details) : details;
+        state.analysis = {
+          ...result,
+          completed,
+          persona: displayDetails?.label || result.persona || `고객 유형 ${result.cluster_id}`,
+          summary: displayDetails?.summary || "이 고객은 현재 사이트의 상위 유형 목록에는 없지만, AI 분류 기준에 따라 가장 가까운 고객 유형으로 분류됐습니다.",
+          action: displayDetails?.action || "고객 리포트를 열어 실제 행동 흐름을 기준으로 추천 액션을 확인하세요.",
+        };
+        $("result-box").innerHTML = `
+          <div class="result-title">이 고객은 이런 유형에 가깝습니다</div>
+          <div class="persona">${state.analysis.persona}</div>
+          <div class="type-desc">${state.analysis.summary}</div>
+          ${state.analysis.action ? `<div class="type-desc"><b>추천:</b> ${state.analysis.action}</div>` : ""}
+          <div class="result-grid">
+            <div class="mini"><div class="label">${completed ? "기준 유형" : "유형 ID"}</div><div class="value">C${result.cluster_id}</div></div>
+            <div class="mini"><div class="label">확신도</div><div class="value">${Math.round((result.confidence || 0) * 100)}%</div></div>
+            <div class="mini"><div class="label">행동 수</div><div class="value">${result.seq_len || "-"}</div></div>
+          </div>`;
+        $("cluster-report").disabled = false;
+        $("session-report").disabled = false;
+        $("report-box").textContent = "이제 “고객 리포트” 또는 “유형 리포트”를 눌러 운영 액션을 확인하세요.";
+      } catch (err) {
+        $("result-box").innerHTML = `<div class="empty">분석에 실패했습니다: ${err.message}</div>`;
+      }
+    }
+
+    // 세션 리포트 요청용 데이터 묶기
+    function sessionPayload() {
+      return {
+        session_id: state.analysis?.session_id || state.selectedSessionId,
+        cluster_id: state.analysis?.cluster_id,
+        persona: state.analysis?.persona,
+        summary: state.analysis?.summary,
+        action: state.analysis?.action,
+        confidence: state.analysis?.confidence,
+        prefer_local: true,
+        events: state.selectedEvents.map((e) => ({
+          event_type: e.event_type,
+          page: eventPage(e),
+          section: e.data?.section || "",
+        })),
+      };
+    }
+
+    // 고객 리포트 받아와서 표시
+    async function loadSessionReport() {
+      if (!state.analysis) return;
+      $("report-box").textContent = "고객 리포트를 만드는 중입니다.";
+      try {
+        const result = await api("/api/report/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sessionPayload()),
+        });
+        $("report-box").textContent = `${result.warning ? `${result.warning}\n\n` : ""}${result.report || "리포트가 비어 있습니다."}`;
+      } catch (err) {
+        $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
+      }
+    }
+
+    // 유형 리포트 받아와서 표시
+    async function loadClusterReport(clusterId = state.analysis?.cluster_id) {
+      if (clusterId === undefined || clusterId === null || clusterId === "") return;
+      $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
+      try {
+        const params = new URLSearchParams({ prefer_local: "1" });
+        if (state.analysis?.persona) params.set("persona", state.analysis.persona);
+        if (state.analysis?.completed) params.set("completed", "1");
+        const result = await api(`/api/report/cluster/${clusterId}?${params.toString()}`);
+        $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
+      } catch (err) {
+        $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
+      }
+    }
+
+    // 완료/위험 세션 수에 따라 헤드라인과 추천 문구를 다르게 보여줌
+    function updateAdvice(stats) {
+      const byType = stats.by_type || {};
+      const riskCount = state.sessions.filter((s) => s.risky).length;
+      const completedCount = state.sessions.filter((s) => s.completed).length;
+      $("risk-signal-count").textContent = fmt(riskCount);
+      $("top-action-count").textContent = fmt(Math.max(...Object.values(byType).map((n) => Number(n) || 0), 0));
+      if (completedCount > 0 && riskCount === 0) {
+        $("headline").textContent = "주문 성공 고객 흐름이 확인됐습니다.";
+        $("headline-detail").textContent = "장바구니, 배송 정보 입력, 주문 성공까지 이어진 세션이 관찰됐습니다. 최근 고객을 눌러 구매 흐름을 확인하세요.";
+        $("operator-advice").textContent = "구매 성공 고객의 행동 흐름을 기준으로 장바구니와 주문서 화면에서 막힘이 적은 구간을 찾아 다른 고객에게도 같은 동선을 강화하면 좋습니다.";
+        $("advice-tag").textContent = "구매 완료 흐름 확인";
+      } else if (riskCount > 0) {
+        $("headline").textContent = "탐색 중지 신호가 있는 고객을 먼저 확인하세요.";
+        $("headline-detail").textContent = "주문 성공으로 이어지지 않은 세션에서 탭을 떠남, 비활성, 장바구니 중단 같은 신호가 관찰됐습니다.";
+        $("operator-advice").textContent = "구매 직전 망설이는 고객에게는 가격 혜택, 배송 안내, 리뷰 노출을 강화하는 액션이 좋습니다.";
+        $("advice-tag").textContent = "탐색 중지 관리 우선";
+      } else {
+        $("headline").textContent = "고객 행동이 정상적으로 수집되고 있습니다.";
+        $("headline-detail").textContent = "최근 행동 흐름을 보면서 상품 탐색, 장바구니, 결제 클릭으로 이어지는지 확인하세요.";
+        $("operator-advice").textContent = "최근 세션을 선택해 고객 유형을 확인하면 이번 주 리포트의 설명과 연결해서 볼 수 있습니다.";
+        $("advice-tag").textContent = "실시간 관찰";
+      }
+    }
+
+    // 사이트 필터 옵션 채우기
+    async function loadSites() {
+      try {
+        const sites = await api("/api/logs/sites");
+        $("site-filter").innerHTML = `<option value="">전체 사이트</option>`;
+        sites.forEach((site) => {
+          const option = document.createElement("option");
+          option.value = site;
+          option.textContent = site.replace(/^https?:\/\//, "");
+          if (site === DEMO_ORIGIN) option.selected = true;
+          $("site-filter").appendChild(option);
+        });
+        state.origin = $("site-filter").value;
+      } catch {
+        state.origin = "";
+      }
+    }
+
+    // 2.5초마다 호출되는 메인 갱신 함수 - 통계/로그/세션/클러스터를 받아서 화면 전체를 다시 그림
+    async function refresh() {
+      const origin = state.origin ? `&origin=${encodeURIComponent(state.origin)}` : "";
+      const clusterOrigin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
+      try {
+        // 화면에 필요한 데이터를 한 번에 병렬로 가져옴 (2.5초마다 호출됨)
+        const [stats, logs, sessions, sources, operatorSummary, clusters] = await Promise.all([
+          api(`/api/logs/stats?${origin}`),
+          api(`/api/logs?limit=200${origin}`),
+          api(`/api/logs/sessions?limit=8${origin}`),
+          api(`/api/logs/sources?limit=3${origin}`),
+          api(`/api/logs/operator-summary?${origin}`),
+          api(`/api/clusters?mode=frozen${state.origin ? `&origin=${encodeURIComponent(state.origin)}` : ""}`),
+        ]);
+        state.logs = logs;
+        state.sessions = Array.isArray(sessions) ? sessions : groupSessions(logs);
+        renderTopSources(sources);
+        renderOperatorSummary(operatorSummary);
+        $("visitor-count").textContent = fmt(stats.visitor_count ?? state.sessions.length);
+        $("total-events").textContent = fmt(stats.total);
+        $("recent-events").textContent = fmt(stats.last_hour);
+        $("active-sessions").textContent = fmt(stats.active_sessions);
+        renderActivities();
+        renderSessions();
+        renderClusters(clusters);
+        renderClusterSnapshotInfo(clusters);
+        updateAdvice(stats);
+        setStatus(true, `Live · ${new Date().toLocaleTimeString("ko-KR")}`);
+      } catch (err) {
+        setStatus(false, `연결 오류`);
+      }
+    }
+
+    // "고객 유형 다시 찾기" 버튼 핸들러 - 클러스터링을 새로 돌리고 스냅샷으로 저장
+    async function rediscoverCustomerTypes() {
+      const btn = $("rediscover-types");
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = "고객 유형 찾는 중";
+      setStatus(true, "고객 유형을 다시 찾는 중");
+      $("operator-advice").textContent = "누적된 고객 행동을 다시 묶어 새로운 고객 유형이 있는지 확인하고 있습니다. 잠시만 기다려주세요.";
+      try {
+        const result = await api("/api/clusters/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ full: true, origin: state.origin || "" }),
+        });
+        $("operator-advice").textContent = result.snapshot_saved
+          ? `고객 유형 찾기가 완료됐습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 세부 유형, ${fmt(result.snapshot_session_count)}개 세션 스냅샷을 저장했습니다.`
+          : `고객 유형 찾기가 완료됐습니다. 현재 ${fmt(result.n_clusters)}개 유형이 발견됐고, ${fmt(result.retrain_session_count)}개 세션을 반영했습니다.`;
+        $("advice-tag").textContent = "유형 갱신 완료";
+        await refresh();
+      } catch (err) {
+        $("operator-advice").textContent = `고객 유형 찾기에 실패했습니다: ${err.message}`;
+        setStatus(false, "유형 찾기 실패");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+
+    $("site-filter").addEventListener("change", (e) => {
+      state.origin = e.target.value;
+      refresh();
+    });
+    $("expert-view").addEventListener("click", () => { window.location.href = "/dashboard.html"; });
+    $("rediscover-types").addEventListener("click", rediscoverCustomerTypes);
+    $("download-report").addEventListener("click", () => { window.location.href = "/api/report/weekly/download"; });
+    $("analyze-session").addEventListener("click", analyzeSession);
+    $("cluster-report").addEventListener("click", () => loadClusterReport());
+    $("session-report").addEventListener("click", loadSessionReport);
+    $("session-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") analyzeSession();
+    });
+    $("session-input").addEventListener("input", (e) => {
+      e.currentTarget.dataset.sessionId = "";
+    });
+
+    // 사이트 목록 로드 -> 첫 데이터 갱신 -> 최근 세션 자동 선택 -> 2.5초마다 polling
+    (async function init() {
+      await loadSites();
+      await refresh();
+      if (state.sessions[0]) selectSession(state.sessions[0].session_id);
+      setInterval(refresh, 2500);
+    })();
+  </script>
+</body>
+</html>

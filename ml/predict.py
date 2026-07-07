@@ -1,3 +1,10 @@
+"""
+predict.py — XGBoost 모델로 이탈 확률을 예측하는 실험용 스크립트
+
+역할: model.pkl을 로드하고 최신 session_features CSV를 읽어 세션별 이탈 확률을 출력한다.
+      초기 실험용으로 만들었고, 현재 운영 분류는 cluster_server.py가 담당한다.
+"""
+
 import joblib
 import pandas as pd
 import glob

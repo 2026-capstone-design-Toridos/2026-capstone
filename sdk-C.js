@@ -1,5 +1,5 @@
 /**
- * sdk-C.js  —  C 담당 (김다민)
+ * sdk-C.js — GhostTracker SDK 스크롤·섹션·이커머스 이벤트 수집
  *
  * 역할: 스크롤 / 섹션 / 서브섹션 / 이커머스 / 리뷰 이벤트 수집
  *   - scroll: depth, milestone, stop, direction_change, speed
@@ -16,6 +16,7 @@
  *   - subsection enter/exit → window.__GT.subsectionEnter/Exit (A가 dwell 시간 계산)
  */
 
+// C 모듈 초기화 — 스크롤·섹션·서브섹션·이커머스·리뷰 트래커를 순서대로 연결
 export function initC(handleRawEvent) {
   if (typeof handleRawEvent !== 'function') {
     throw new Error('initC requires handleRawEvent function');
@@ -34,6 +35,7 @@ export function initC(handleRawEvent) {
 // SCROLL TRACKING
 // ─────────────────────────────────────────────────────────────
 
+// 스크롤 depth·milestone·stop·방향 변화·속도를 감지한다
 function _initScrollTracking(handleRawEvent) {
   let ticking        = false;
   let lastDepth      = -1;
@@ -128,6 +130,7 @@ function _initScrollTracking(handleRawEvent) {
 //   2순위: HTML5 시맨틱 태그 자동 추론 (inferred: true)
 // ─────────────────────────────────────────────────────────────
 
+// 명시 마킹과 시맨틱 태그 추론으로 섹션 진입/이탈/재방문/전환을 추적한다
 function _initSectionTracking(handleRawEvent) {
   const activeSections = new Set();
   const visitCount = {};
@@ -479,6 +482,7 @@ function _initSectionTracking(handleRawEvent) {
 // dwell 시간 계산은 A(window.__GT)에 위임
 // ─────────────────────────────────────────────────────────────
 
+// data-subsection 요소를 IntersectionObserver로 감시해 enter/exit를 A bridge로 넘긴다 (dwell 계산은 A 담당)
 function _initSubsectionTracking(handleRawEvent) {
   const visitCount = {};
 
@@ -576,6 +580,7 @@ function _initSubsectionTracking(handleRawEvent) {
 //   purchase-btn               → purchase_click
 // ─────────────────────────────────────────────────────────────
 
+// 명시 마킹(Layer 1)과 휴리스틱(Layer 2) 두 단계로 장바구니·구매·상품 이벤트를 잡는다
 function _initEcommerceTracking(handleRawEvent) {
   // option_change: 동일 select 반복 변경 추적
   const optionChangeCounts = new WeakMap();
@@ -903,6 +908,7 @@ function _initEcommerceTracking(handleRawEvent) {
 //     [data-ghost-role="review-section/review-item"] 명시 마킹 > CSS 클래스/id 추론
 // ─────────────────────────────────────────────────────────────
 
+// 리뷰 영역 클릭·페이지 이동·페이지 스크롤·패널 내부 스크롤을 한 곳에서 감지한다
 function _initReviewTracking(handleRawEvent) {
   // ── 리뷰 컨테이너 선택자 (섹션/패널 전체) ─────────────────
   const REVIEW_CONTAINER_SEL = [

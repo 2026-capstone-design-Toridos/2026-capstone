@@ -1,0 +1,2727 @@
+[
+  {
+    "session_id": "08a47b6e-271a-42e7-9d33-35d2fba97176",
+    "debug_events": [
+      {
+        "timestamp": 1776058787390.0,
+        "event_seq": 1,
+        "event_type": "session_start",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|START_SESSION|NONE"
+      },
+      {
+        "timestamp": 1776058796626.0,
+        "event_seq": 2,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776058800525.0,
+        "event_seq": 3,
+        "event_type": "tab_return",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_RETURN|GAP_MEDIUM"
+      },
+      {
+        "timestamp": 1776058801222.0,
+        "event_seq": 4,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776058801223.0,
+        "event_seq": 5,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801229.0,
+        "event_seq": 6,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776058801230.0,
+        "event_seq": 7,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801236.0,
+        "event_seq": 8,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801243.0,
+        "event_seq": 9,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776058801244.0,
+        "event_seq": 10,
+        "event_type": "scroll_milestone",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776058801244.0,
+        "event_seq": 11,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801250.0,
+        "event_seq": 12,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801251.0,
+        "event_seq": 13,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801257.0,
+        "event_seq": 14,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801257.0,
+        "event_seq": 15,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801264.0,
+        "event_seq": 16,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801264.0,
+        "event_seq": 17,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801271.0,
+        "event_seq": 18,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801271.0,
+        "event_seq": 19,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801278.0,
+        "event_seq": 20,
+        "event_type": "scroll_milestone",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801278.0,
+        "event_seq": 21,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801285.0,
+        "event_seq": 22,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801285.0,
+        "event_seq": 23,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801292.0,
+        "event_seq": 24,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801299.0,
+        "event_seq": 25,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801299.0,
+        "event_seq": 26,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801305.0,
+        "event_seq": 27,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801312.0,
+        "event_seq": 28,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801313.0,
+        "event_seq": 29,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801319.0,
+        "event_seq": 30,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801326.0,
+        "event_seq": 31,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801328.0,
+        "event_seq": 32,
+        "event_type": "scroll_milestone",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801328.0,
+        "event_seq": 33,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801334.0,
+        "event_seq": 34,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801340.0,
+        "event_seq": 35,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801341.0,
+        "event_seq": 36,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801347.0,
+        "event_seq": 37,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801354.0,
+        "event_seq": 38,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801354.0,
+        "event_seq": 39,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801361.0,
+        "event_seq": 40,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801368.0,
+        "event_seq": 41,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801368.0,
+        "event_seq": 42,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801375.0,
+        "event_seq": 43,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801382.0,
+        "event_seq": 44,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801382.0,
+        "event_seq": 45,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801389.0,
+        "event_seq": 46,
+        "event_type": "scroll_milestone",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801389.0,
+        "event_seq": 47,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801696.0,
+        "event_seq": 48,
+        "event_type": "scroll_stop",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_stop"
+      },
+      {
+        "timestamp": 1776058801834.0,
+        "event_seq": 49,
+        "event_type": "scroll_direction_change",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_direction_change"
+      },
+      {
+        "timestamp": 1776058801834.0,
+        "event_seq": 50,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801854.0,
+        "event_seq": 51,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801861.0,
+        "event_seq": 52,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801862.0,
+        "event_seq": 53,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801869.0,
+        "event_seq": 54,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776058801869.0,
+        "event_seq": 55,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801891.0,
+        "event_seq": 56,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801891.0,
+        "event_seq": 57,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801903.0,
+        "event_seq": 58,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801903.0,
+        "event_seq": 59,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801910.0,
+        "event_seq": 60,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776058801910.0,
+        "event_seq": 61,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801916.0,
+        "event_seq": 62,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776058801917.0,
+        "event_seq": 63,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801924.0,
+        "event_seq": 64,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776058801924.0,
+        "event_seq": 65,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801931.0,
+        "event_seq": 66,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776058801931.0,
+        "event_seq": 67,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801938.0,
+        "event_seq": 68,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776058801938.0,
+        "event_seq": 69,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058801944.0,
+        "event_seq": 70,
+        "event_type": "scroll_depth",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|SCROLL_HOME|SCROLL_UNKNOWN"
+      },
+      {
+        "timestamp": 1776058801945.0,
+        "event_seq": 71,
+        "event_type": "scroll_speed",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776058802251.0,
+        "event_seq": 72,
+        "event_type": "scroll_stop",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|scroll_stop"
+      },
+      {
+        "timestamp": 1776058812975.0,
+        "event_seq": 73,
+        "event_type": "inactivity",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|INACTIVE|GAP_SHORT"
+      },
+      {
+        "timestamp": 1776058812975.0,
+        "event_seq": 74,
+        "event_type": "click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776058812975.0,
+        "event_seq": 75,
+        "event_type": "time_to_first_click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|time_to_first_click"
+      },
+      {
+        "timestamp": 1776058822627.0,
+        "event_seq": 76,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_LONG"
+      },
+      {
+        "timestamp": 1776058822630.0,
+        "event_seq": 77,
+        "event_type": "click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776058824643.0,
+        "event_seq": 78,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776058826782.0,
+        "event_seq": 79,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776058826794.0,
+        "event_seq": 80,
+        "event_type": "click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776058828784.0,
+        "event_seq": 81,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776058832026.0,
+        "event_seq": 82,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_LONG"
+      },
+      {
+        "timestamp": 1776058832028.0,
+        "event_seq": 83,
+        "event_type": "click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776058834027.0,
+        "event_seq": 84,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776058835862.0,
+        "event_seq": 85,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776058835866.0,
+        "event_seq": 86,
+        "event_type": "field_focus",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|START_INPUT|FOCUS"
+      },
+      {
+        "timestamp": 1776058835870.0,
+        "event_seq": 87,
+        "event_type": "click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776058837877.0,
+        "event_seq": 88,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776058842175.0,
+        "event_seq": 89,
+        "event_type": "field_blur",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|EDIT_INPUT|BLUR"
+      },
+      {
+        "timestamp": 1776058842176.0,
+        "event_seq": 90,
+        "event_type": "input_abandon",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|ABANDON_INPUT|EMPTY"
+      },
+      {
+        "timestamp": 1776058842185.0,
+        "event_seq": 91,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776058922197.0,
+        "event_seq": 1,
+        "event_type": "session_start",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|START_SESSION|NONE"
+      },
+      {
+        "timestamp": 1776058931914.0,
+        "event_seq": 1,
+        "event_type": "session_start",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|START_SESSION|NONE"
+      },
+      {
+        "timestamp": 1776058934468.0,
+        "event_seq": 2,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776058940960.0,
+        "event_seq": 1,
+        "event_type": "session_start",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|START_SESSION|NONE"
+      },
+      {
+        "timestamp": 1776058949224.0,
+        "event_seq": 2,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776059026054.0,
+        "event_seq": 3,
+        "event_type": "inactivity",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776059026054.0,
+        "event_seq": 4,
+        "event_type": "tab_return",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776059027163.0,
+        "event_seq": 5,
+        "event_type": "click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776059027163.0,
+        "event_seq": 6,
+        "event_type": "time_to_first_click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|time_to_first_click"
+      },
+      {
+        "timestamp": 1776059028303.0,
+        "event_seq": 7,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776059028309.0,
+        "event_seq": 8,
+        "event_type": "click",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776059029175.0,
+        "event_seq": 9,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776059029320.0,
+        "event_seq": 10,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776059030969.0,
+        "event_seq": 11,
+        "event_type": "tab_return",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_RETURN|GAP_SHORT"
+      },
+      {
+        "timestamp": 1776059033842.0,
+        "event_seq": 12,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      }
+    ]
+  },
+  {
+    "session_id": "3bd4623a-e84f-4c4a-83a5-b6f0ede15258",
+    "debug_events": [
+      {
+        "timestamp": 1776656182239.0,
+        "event_seq": 1,
+        "event_type": "session_start",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|START_SESSION|NONE"
+      },
+      {
+        "timestamp": 1776656182244.0,
+        "event_seq": 2,
+        "event_type": "navigation",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|ENTER_HOME|NONE"
+      },
+      {
+        "timestamp": 1776656184353.0,
+        "event_seq": 3,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776656212410.0,
+        "event_seq": 4,
+        "event_type": "inactivity",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776656212410.0,
+        "event_seq": 5,
+        "event_type": "tab_return",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776656214029.0,
+        "event_seq": 6,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776656214556.0,
+        "event_seq": 7,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776656221794.0,
+        "event_seq": 8,
+        "event_type": "tab_return",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_RETURN|GAP_MEDIUM"
+      },
+      {
+        "timestamp": 1776656222995.0,
+        "event_seq": 9,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776656223203.0,
+        "event_seq": 10,
+        "event_type": "navigation",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ENTER_PRODUCT|NONE"
+      },
+      {
+        "timestamp": 1776656223350.0,
+        "event_seq": 11,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776656223350.0,
+        "event_seq": 12,
+        "event_type": "time_to_first_click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|time_to_first_click"
+      },
+      {
+        "timestamp": 1776656223844.0,
+        "event_seq": 13,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776656223952.0,
+        "event_seq": 14,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776656224422.0,
+        "event_seq": 15,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776656225961.0,
+        "event_seq": 16,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776656236062.0,
+        "event_seq": 17,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_SHORT"
+      },
+      {
+        "timestamp": 1776656236062.0,
+        "event_seq": 18,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776656236562.0,
+        "event_seq": 19,
+        "event_type": "screen_resize",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|screen_resize"
+      },
+      {
+        "timestamp": 1776656236760.0,
+        "event_seq": 20,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776656237128.0,
+        "event_seq": 21,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776656238127.0,
+        "event_seq": 22,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776656238256.0,
+        "event_seq": 23,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776656240261.0,
+        "event_seq": 24,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776656257827.0,
+        "event_seq": 25,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_MEDIUM"
+      },
+      {
+        "timestamp": 1776656257827.0,
+        "event_seq": 26,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_LONG"
+      },
+      {
+        "timestamp": 1776656258844.0,
+        "event_seq": 27,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776656259544.0,
+        "event_seq": 28,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776656259794.0,
+        "event_seq": 29,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776656260794.0,
+        "event_seq": 30,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776656261811.0,
+        "event_seq": 31,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776656262140.0,
+        "event_seq": 32,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776656598018.0,
+        "event_seq": 33,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776656598018.0,
+        "event_seq": 34,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776656599469.0,
+        "event_seq": 35,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776658700827.0,
+        "event_seq": 36,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776658700827.0,
+        "event_seq": 37,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776658701558.0,
+        "event_seq": 38,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776664225664.0,
+        "event_seq": 39,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776664225664.0,
+        "event_seq": 40,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776664281069.0,
+        "event_seq": 41,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776664281069.0,
+        "event_seq": 42,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776666734646.0,
+        "event_seq": 43,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776666734646.0,
+        "event_seq": 44,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776666735896.0,
+        "event_seq": 45,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666736347.0,
+        "event_seq": 46,
+        "event_type": "navigation",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ENTER_PRODUCT|NONE"
+      },
+      {
+        "timestamp": 1776666736360.0,
+        "event_seq": 47,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776666736679.0,
+        "event_seq": 48,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666737066.0,
+        "event_seq": 49,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666739079.0,
+        "event_seq": 50,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666743196.0,
+        "event_seq": 51,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666744240.0,
+        "event_seq": 52,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666744313.0,
+        "event_seq": 53,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666746288.0,
+        "event_seq": 54,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666746377.0,
+        "event_seq": 55,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776666753290.0,
+        "event_seq": 56,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_MEDIUM"
+      },
+      {
+        "timestamp": 1776666755964.0,
+        "event_seq": 57,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666917739.0,
+        "event_seq": 58,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776666917739.0,
+        "event_seq": 59,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_LONG"
+      },
+      {
+        "timestamp": 1776666920045.0,
+        "event_seq": 60,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666920432.0,
+        "event_seq": 61,
+        "event_type": "navigation",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ENTER_PRODUCT|NONE"
+      },
+      {
+        "timestamp": 1776666920437.0,
+        "event_seq": 62,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776666920437.0,
+        "event_seq": 63,
+        "event_type": "product_click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|VIEW_PRODUCT|CLICK"
+      },
+      {
+        "timestamp": 1776666921875.0,
+        "event_seq": 64,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666923761.0,
+        "event_seq": 65,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|VIEW_REVIEW|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666923878.0,
+        "event_seq": 66,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666924679.0,
+        "event_seq": 67,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666924961.0,
+        "event_seq": 68,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776666924961.0,
+        "event_seq": 69,
+        "event_type": "scroll_milestone",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776666924961.0,
+        "event_seq": 70,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776666925011.0,
+        "event_seq": 71,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776666925011.0,
+        "event_seq": 72,
+        "event_type": "scroll_milestone",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776666925011.0,
+        "event_seq": 73,
+        "event_type": "scroll_milestone",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776666925011.0,
+        "event_seq": 74,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776666925228.0,
+        "event_seq": 75,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776666925344.0,
+        "event_seq": 76,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666925528.0,
+        "event_seq": 77,
+        "event_type": "scroll_stop",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_stop"
+      },
+      {
+        "timestamp": 1776666925620.0,
+        "event_seq": 78,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776666925879.0,
+        "event_seq": 79,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666926368.0,
+        "event_seq": 80,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776666926700.0,
+        "event_seq": 81,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776666927012.0,
+        "event_seq": 82,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666927882.0,
+        "event_seq": 83,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666928152.0,
+        "event_seq": 84,
+        "event_type": "navigation",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ENTER_PRODUCT|NONE"
+      },
+      {
+        "timestamp": 1776666928240.0,
+        "event_seq": 85,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_UNKNOWN"
+      },
+      {
+        "timestamp": 1776666928240.0,
+        "event_seq": 86,
+        "event_type": "scroll_direction_change",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_direction_change"
+      },
+      {
+        "timestamp": 1776666928240.0,
+        "event_seq": 87,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776666928540.0,
+        "event_seq": 88,
+        "event_type": "scroll_stop",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_stop"
+      },
+      {
+        "timestamp": 1776666929078.0,
+        "event_seq": 89,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CHECK_PRICE|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666929844.0,
+        "event_seq": 90,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666930411.0,
+        "event_seq": 91,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776666930568.0,
+        "event_seq": 92,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776666930922.0,
+        "event_seq": 93,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776667301445.0,
+        "event_seq": 94,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1776667301445.0,
+        "event_seq": 95,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776667303682.0,
+        "event_seq": 96,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667304598.0,
+        "event_seq": 97,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667306114.0,
+        "event_seq": 98,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CHECK_PRICE|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667306598.0,
+        "event_seq": 99,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667306814.0,
+        "event_seq": 100,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776667372291.0,
+        "event_seq": 1,
+        "event_type": "session_start",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|START_SESSION|NONE"
+      },
+      {
+        "timestamp": 1776667374614.0,
+        "event_seq": 2,
+        "event_type": "navigation",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ENTER_PRODUCT|NONE"
+      },
+      {
+        "timestamp": 1776667375919.0,
+        "event_seq": 3,
+        "event_type": "navigation",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ENTER_PRODUCT|NONE"
+      },
+      {
+        "timestamp": 1776667376770.0,
+        "event_seq": 4,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667377019.0,
+        "event_seq": 5,
+        "event_type": "navigation",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ENTER_PRODUCT|NONE"
+      },
+      {
+        "timestamp": 1776667377023.0,
+        "event_seq": 6,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776667377023.0,
+        "event_seq": 7,
+        "event_type": "time_to_first_click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|time_to_first_click"
+      },
+      {
+        "timestamp": 1776667377023.0,
+        "event_seq": 8,
+        "event_type": "product_click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|VIEW_PRODUCT|CLICK"
+      },
+      {
+        "timestamp": 1776667379295.0,
+        "event_seq": 11,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776667381627.0,
+        "event_seq": 12,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_SHORT"
+      },
+      {
+        "timestamp": 1776667382810.0,
+        "event_seq": 13,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776667383014.0,
+        "event_seq": 14,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667383811.0,
+        "event_seq": 15,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667384113.0,
+        "event_seq": 16,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ADD_CART|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667390046.0,
+        "event_seq": 24,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776667397788.0,
+        "event_seq": 26,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776667398707.0,
+        "event_seq": 27,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667412979.0,
+        "event_seq": 28,
+        "event_type": "inactivity",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|INACTIVE|GAP_MEDIUM"
+      },
+      {
+        "timestamp": 1776667412979.0,
+        "event_seq": 29,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_LONG"
+      },
+      {
+        "timestamp": 1776667413522.0,
+        "event_seq": 30,
+        "event_type": "navigation",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ENTER_PRODUCT|NONE"
+      },
+      {
+        "timestamp": 1776667413525.0,
+        "event_seq": 31,
+        "event_type": "click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|CLICK_ELEMENT|CLICK"
+      },
+      {
+        "timestamp": 1776667413525.0,
+        "event_seq": 32,
+        "event_type": "time_to_first_click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|time_to_first_click"
+      },
+      {
+        "timestamp": 1776667413525.0,
+        "event_seq": 33,
+        "event_type": "product_click",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|VIEW_PRODUCT|CLICK"
+      },
+      {
+        "timestamp": 1776667414447.0,
+        "event_seq": 34,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667415214.0,
+        "event_seq": 35,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667416547.0,
+        "event_seq": 36,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667417230.0,
+        "event_seq": 37,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667417246.0,
+        "event_seq": 38,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667417993.0,
+        "event_seq": 39,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1776667419230.0,
+        "event_seq": 40,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667426444.0,
+        "event_seq": 41,
+        "event_type": "tab_return",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_RETURN|GAP_MEDIUM"
+      },
+      {
+        "timestamp": 1776667428597.0,
+        "event_seq": 42,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667428997.0,
+        "event_seq": 43,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667430614.0,
+        "event_seq": 44,
+        "event_type": "mouse_move",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1776667433885.0,
+        "event_seq": 45,
+        "event_type": "image_zoom",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ZOOM_IMAGE|ZOOM"
+      },
+      {
+        "timestamp": 1776667433939.0,
+        "event_seq": 46,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776667433939.0,
+        "event_seq": 47,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776667433959.0,
+        "event_seq": 48,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776667433959.0,
+        "event_seq": 49,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776667433980.0,
+        "event_seq": 50,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776667433980.0,
+        "event_seq": 51,
+        "event_type": "scroll_milestone",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776667433980.0,
+        "event_seq": 52,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776667434002.0,
+        "event_seq": 53,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_HIGH"
+      },
+      {
+        "timestamp": 1776667434002.0,
+        "event_seq": 54,
+        "event_type": "scroll_milestone",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776667434002.0,
+        "event_seq": 55,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776667434079.0,
+        "event_seq": 56,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667434159.0,
+        "event_seq": 57,
+        "event_type": "image_zoom",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ZOOM_IMAGE|ZOOM"
+      },
+      {
+        "timestamp": 1776667434303.0,
+        "event_seq": 58,
+        "event_type": "scroll_stop",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_stop"
+      },
+      {
+        "timestamp": 1776667434334.0,
+        "event_seq": 59,
+        "event_type": "scroll_direction_change",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_direction_change"
+      },
+      {
+        "timestamp": 1776667434334.0,
+        "event_seq": 60,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776667434358.0,
+        "event_seq": 61,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776667434364.0,
+        "event_seq": 62,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID"
+      },
+      {
+        "timestamp": 1776667434364.0,
+        "event_seq": 63,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776667434393.0,
+        "event_seq": 64,
+        "event_type": "scroll_depth",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW"
+      },
+      {
+        "timestamp": 1776667434393.0,
+        "event_seq": 65,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      },
+      {
+        "timestamp": 1776667434494.0,
+        "event_seq": 66,
+        "event_type": "hover_dwell",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1776667434593.0,
+        "event_seq": 67,
+        "event_type": "image_zoom",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|ZOOM_IMAGE|ZOOM"
+      },
+      {
+        "timestamp": 1776667434693.0,
+        "event_seq": 68,
+        "event_type": "scroll_stop",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_stop"
+      },
+      {
+        "timestamp": 1776667434847.0,
+        "event_seq": 69,
+        "event_type": "scroll_speed",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|UNKNOWN_EVENT|scroll_speed"
+      }
+    ]
+  },
+  {
+    "session_id": "374c257f-53c6-4044-8614-a055ed616c00",
+    "debug_events": [
+      {
+        "timestamp": 1777182549478.0,
+        "event_seq": 1,
+        "event_type": "session_start",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|START_SESSION|NONE"
+      },
+      {
+        "timestamp": 1777182549482.0,
+        "event_seq": 2,
+        "event_type": "section_enter",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|section_enter"
+      },
+      {
+        "timestamp": 1777182549981.0,
+        "event_seq": 3,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182550538.0,
+        "event_seq": 4,
+        "event_type": "click",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|CLICK"
+      },
+      {
+        "timestamp": 1777182550538.0,
+        "event_seq": 5,
+        "event_type": "time_to_first_click",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|time_to_first_click"
+      },
+      {
+        "timestamp": 1777182551312.0,
+        "event_seq": 6,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182551496.0,
+        "event_seq": 7,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182553514.0,
+        "event_seq": 8,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182553662.0,
+        "event_seq": 9,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182555029.0,
+        "event_seq": 10,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182555528.0,
+        "event_seq": 11,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182555566.0,
+        "event_seq": 12,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182556295.0,
+        "event_seq": 13,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182556722.0,
+        "event_seq": 14,
+        "event_type": "click",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|CLICK"
+      },
+      {
+        "timestamp": 1777182557071.0,
+        "event_seq": 15,
+        "event_type": "click",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|CLICK"
+      },
+      {
+        "timestamp": 1777182557579.0,
+        "event_seq": 16,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182557645.0,
+        "event_seq": 17,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182558363.0,
+        "event_seq": 18,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182559596.0,
+        "event_seq": 19,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182575863.0,
+        "event_seq": 20,
+        "event_type": "inactivity",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|INACTIVE|GAP_MEDIUM"
+      },
+      {
+        "timestamp": 1777182575863.0,
+        "event_seq": 21,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|ADD_CART|HOVER_LONG"
+      },
+      {
+        "timestamp": 1777182577864.0,
+        "event_seq": 22,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182587532.0,
+        "event_seq": 23,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777188073268.0,
+        "event_seq": 24,
+        "event_type": "inactivity",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|INACTIVE|GAP_LONG"
+      },
+      {
+        "timestamp": 1777188073268.0,
+        "event_seq": 25,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1777188074205.0,
+        "event_seq": 26,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": "nav",
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      }
+    ]
+  },
+  {
+    "session_id": "0b19519f-bb1a-4c59-91cb-2394cf0551e3",
+    "debug_events": [
+      {
+        "timestamp": 1777182638275.0,
+        "event_seq": 1,
+        "event_type": "session_start",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|START_SESSION|NONE"
+      },
+      {
+        "timestamp": 1777182640845.0,
+        "event_seq": 2,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182642990.0,
+        "event_seq": 3,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182643390.0,
+        "event_seq": 4,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_SHORT"
+      },
+      {
+        "timestamp": 1777182644991.0,
+        "event_seq": 5,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      },
+      {
+        "timestamp": 1777182649632.0,
+        "event_seq": 6,
+        "event_type": "hover_dwell",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|HOVER_ELEMENT|HOVER_LONG"
+      },
+      {
+        "timestamp": 1777182650866.0,
+        "event_seq": 7,
+        "event_type": "tab_exit",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|TAB_OUT|NONE"
+      },
+      {
+        "timestamp": 1777182651632.0,
+        "event_seq": 8,
+        "event_type": "mouse_move",
+        "page": "HOME",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "HOME|UNKNOWN_EVENT|mouse_move"
+      }
+    ]
+  },
+  {
+    "session_id": "3a0e5f88-8e9b-4f9f-9a8e-1a6d4ccc4db9",
+    "debug_events": [
+      {
+        "timestamp": 1777300555736.0,
+        "event_seq": 12,
+        "event_type": "tab_exit",
+        "page": "PRODUCT",
+        "section": null,
+        "subsection": null,
+        "semantic_token": "PRODUCT|TAB_OUT|NONE"
+      }
+    ]
+  }
+]

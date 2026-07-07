@@ -1,8 +1,7 @@
 /**
- * timeTracker.js  —  A 담당
+ * timeTracker.js — GhostTracker SDK 시간 기반 지표 계산
  *
- * 역할: 시간 기반 지표 계산
- *   page_dwell_time, time_to_first_click, inactivity_duration, last_event_time
+ * 역할: page_dwell_time, time_to_first_click, inactivity_duration, last_event_time 계산
  *
  * ── inactivity 처리 방식 ─────────────────────────────────────
  *  [비활성 시작] 10초 타이머 발화 → _inactivityStartTime 기록 (emit 안 함)
@@ -117,6 +116,7 @@ function onInactive(callback) {
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────
 
+// 10초간 활동이 없으면 비활성 시작 시각만 찍어둔다 (emit은 다음 활동 때)
 function _resetInactivityTimer() {
   clearTimeout(_inactivityTimer);
   _inactivityTimer = setTimeout(() => {

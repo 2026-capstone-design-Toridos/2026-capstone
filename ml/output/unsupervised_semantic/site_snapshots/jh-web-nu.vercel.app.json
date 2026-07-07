@@ -1,0 +1,122 @@
+{
+  "total_sessions": 32,
+  "n_clusters": 2,
+  "noise_count": 0,
+  "clusters": [
+    {
+      "cluster": 2,
+      "label": "페이지를 훑어보는 고객",
+      "summary": "홈 화면 스크롤 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "count": 29,
+      "top_actions": [
+        {
+          "action": "SCROLL_HOME",
+          "count": 4
+        }
+      ],
+      "page_dist": {
+        "HOME": 4
+      },
+      "validation": {
+        "status": "verified",
+        "label": "검증 통과",
+        "reasons": [],
+        "session_count": 29,
+        "session_share": 90.6,
+        "has_top_actions": true,
+        "has_page_distribution": true,
+        "stability": null
+      }
+    },
+    {
+      "cluster": 4,
+      "label": "상품을 찾고 비교하는 고객",
+      "summary": "홈 화면 스크롤, 상품 페이지 스크롤, 카테고리 진입 중심으로 묶인 고객 유형입니다.",
+      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
+      "count": 3,
+      "top_actions": [
+        {
+          "action": "SCROLL_HOME",
+          "count": 93
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 69
+        },
+        {
+          "action": "ENTER_CATEGORY",
+          "count": 62
+        },
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 55
+        },
+        {
+          "action": "ZOOM_IMAGE",
+          "count": 41
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 38
+        },
+        {
+          "action": "START_INPUT",
+          "count": 19
+        },
+        {
+          "action": "CHECK_SHIPPING",
+          "count": 17
+        },
+        {
+          "action": "SEARCH_USE",
+          "count": 10
+        },
+        {
+          "action": "CHECK_SIZE",
+          "count": 10
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 176,
+        "HOME": 93,
+        "CATEGORY": 72,
+        "CHECKOUT": 64,
+        "CART": 17
+      },
+      "validation": {
+        "status": "weak",
+        "label": "검증 필요",
+        "reasons": [
+          "세션 수가 적어 안정성이 낮을 수 있습니다."
+        ],
+        "session_count": 3,
+        "session_share": 9.4,
+        "has_top_actions": true,
+        "has_page_distribution": true,
+        "stability": null
+      }
+    }
+  ],
+  "quality": {
+    "sample_count": 32,
+    "clustered_session_count": null,
+    "noise_count": 0,
+    "noise_rate": 0,
+    "silhouette": null,
+    "davies_bouldin": null,
+    "stability": null,
+    "verified_clusters": 1,
+    "weak_clusters": 1,
+    "insufficient_clusters": 0,
+    "visible_clusters": 2,
+    "note": ""
+  },
+  "source": "site_snapshot",
+  "origin": "https://jh-web-nu.vercel.app",
+  "sampled_sessions": 32,
+  "snapshot_basis": "classified_from_latest_cluster_model",
+  "last_retrain": "2026-06-16T22:11:11.172553",
+  "snapshot_origin": "https://jh-web-nu.vercel.app",
+  "snapshot_saved_at": "2026-06-16T13:11:19.325Z"
+}

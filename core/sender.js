@@ -1,18 +1,17 @@
 /**
- * sender.js  —  A 담당
+ * sender.js — GhostTracker SDK 이벤트 전송 모듈
  *
- * 역할: 가공된 이벤트를 서버로 전송
+ * 역할: eventProcessor가 만든 이벤트를 버퍼에 모아뒀다가 서버(/collect)로 보낸다
  *
- * ── 전송 전략 ─────────────────────────────────────────────────
- *  일반 flush (주기 / 버퍼 초과):
- *    fetch() — 응답 처리 가능, keepalive 불필요
+ * ── 언제 뭘로 보내나 ───────────────────────────────────────────
+ *  평소 (5초마다 자동 / 버퍼 30개 다 차면): fetch()로 전송
+ *    → 응답 확인도 되고 평소엔 이게 더 안정적
  *
- *  unload flush (beforeunload / pagehide):
- *    sendBeacon() 우선 → 실패(큐 포화) 시 fetch(keepalive: true) fallback
- *    이유: sendBeacon은 탭이 닫혀도 전송 보장되지만 일반 상황에서는
- *          응답 처리가 불가하고 Content-Type 제한이 있어 평상시엔 fetch가 낫다.
+ *  탭 닫힘·새로고침 (beforeunload, pagehide): sendBeacon() 먼저 시도
+ *    → 탭이 진짜 닫혀도 브라우저가 전송을 보장해주는 유일한 방법
+ *    → 브라우저 큐가 가득 차서 sendBeacon이 실패하면 fetch(keepalive: true)로 한 번 더 시도
  *
- * BE 연결점: POST /collect  —  body: { events: [...] }
+ * 받는 쪽: POST /collect, body는 { events: [...] } 형태로 보냄
  * ────────────────────────────────────────────────────────────────
  */
 
@@ -81,7 +80,7 @@ function flush(isUnload = false) {
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────
 
-/** 일반 전송 — 응답 추적 가능, 탭 닫힘 보장 불필요 */
+// 일반 전송 — 응답 추적 가능, 탭 닫힘 보장 불필요 
 function _sendFetch(payload) {
   fetch(COLLECT_URL, {
     method:  'POST',
@@ -92,7 +91,7 @@ function _sendFetch(payload) {
   });
 }
 
-/** unload 전송 — sendBeacon 우선, 실패 시 fetch keepalive */
+// unload 전송 — sendBeacon 우선, 실패 시 fetch keepalive 
 function _sendBeaconOrFetch(payload) {
   if (navigator.sendBeacon) {
     const blob = new Blob([payload], { type: 'application/json' });

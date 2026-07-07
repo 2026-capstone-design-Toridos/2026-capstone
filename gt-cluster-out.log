@@ -1,0 +1,6 @@
+[ClusterServer] vocab_size=88, n_clusters=4
+[ClusterServer] TransformerMLM 로드 완료 (d=64, layers=2, nhead=8, max_len=60)
+[ClusterServer] BERT 모드로 시작합니다.
+[GhostTracker] 클러스터 분류 서버 → http://127.0.0.1:5002
+ * Serving Flask app 'cluster_server'
+ * Debug mode: off
