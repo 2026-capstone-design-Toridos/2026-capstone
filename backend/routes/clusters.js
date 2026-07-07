@@ -67,16 +67,19 @@ function loadSiteSnapshot(origin) {
   return JSON.parse(fs.readFileSync(target, 'utf-8'));
 }
 
+// Gemini/NLP 라벨이 없을 때 top action 두 개로 최소한의 표시명을 만든다
 function buildLabel(clusterId, profile, labels = {}) {
   if (labels[String(clusterId)]) return labels[String(clusterId)];
   const top = (profile.top_actions || []).slice(0, 2).map(a => a.action).join(' + ');
   return top ? `Cluster ${clusterId}: ${top}` : `Cluster ${clusterId}`;
 }
 
+// 운영자 화면에서는 "이탈" 표현을 "탐색 중지"로 통일한다
 function normalizeText(text) {
   return String(text || '').replaceAll('\uC774\uD0C8', '탐색 중지');
 }
 
+// 내부 semantic action 코드를 대시보드/리포트용 한국어 라벨로 바꾼다
 function koAction(action) {
   const labels = {
     SCROLL_HOME: '홈 화면 스크롤',
@@ -214,6 +217,7 @@ function qualitySummary(clusters = [], meta = {}, totalSessions = 0) {
   };
 }
 
+// 같은 고객 유형명이 중복될 때 붙일 화면/행동 기반 보조 구분명을 고른다
 function clusterQualifier(profile = {}) {
   const pages = Object.keys(profile.page_dist || {});
   const topActions = (profile.top_actions || []).map((a) => a.action);
@@ -527,6 +531,9 @@ async function classifySiteSessions(origin, profiles, labels) {
 }
 
 // ── GET /api/clusters ──────────────────────────────────────────
+// 기본: 저장된 cluster_meta.json 기준 전체 클러스터 표시
+// origin + live mode: 해당 사이트 최근 세션을 Python 서버로 실시간 재분류
+// origin + mode=frozen: 마지막 /run 때 저장한 사이트 스냅샷을 고정 표시
 router.get('/', async (req, res) => {
   try {
     if (!fs.existsSync(META_PATH)) {
@@ -558,6 +565,7 @@ router.get('/', async (req, res) => {
 
     const frozenMode = String(req.query.mode || '').toLowerCase() === 'frozen';
 
+    // 운영자가 "고정" 모드를 선택하면 마지막 저장 스냅샷을 우선 사용한다
     if (req.query.origin && frozenMode) {
       const snapshot = loadSiteSnapshot(req.query.origin);
       if (snapshot) {
@@ -568,6 +576,7 @@ router.get('/', async (req, res) => {
       }
     }
 
+    // 기본 사이트 필터는 최신 이벤트를 다시 분류해 현재 사이트 기준 분포를 보여준다
     if (req.query.origin && !frozenMode) {
       try {
         const result = await classifySiteSessions(req.query.origin, profiles, labels);
@@ -609,6 +618,7 @@ router.get('/', async (req, res) => {
 });
 
 // ── POST /api/clusters/run — 클러스터링 재실행 ───────────────────
+// full=false면 EMA식 부분 갱신, origin을 넘기면 실행 직후 사이트별 스냅샷까지 저장한다
 router.post('/run', async (req, res) => {
   try {
     if (clusteringJob) {
@@ -648,6 +658,7 @@ router.post('/run', async (req, res) => {
 });
 
 // ── GET /api/clusters/sessions ────────────────────────────────────
+// 저장된 semantic_cluster_results.csv를 운영자 화면에서 볼 수 있게 JSON으로 변환한다
 router.get('/sessions', (req, res) => {
   try {
     if (!fs.existsSync(RESULTS_PATH)) {

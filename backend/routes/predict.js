@@ -9,6 +9,8 @@ const router = express.Router();
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 
+// ── Python 분류 서버 프록시 헬퍼 ───────────────────────────────
+
 // 분류 서버에 프록시 요청을 보내고 실패하면 그대로 에러를 던진다
 async function callCluster(path, body) {
   const res = await fetch(`${CLUSTER_SERVER}${path}`, {
@@ -26,6 +28,8 @@ async function callCluster(path, body) {
   return res.json();
 }
 
+// ── GET /api/predict/health ──────────────────────────────────
+// 옛 클라이언트가 predict 서버 상태를 확인할 때도 새 Python 서버 상태를 그대로 보여준다
 router.get('/health', async (req, res) => {
   try {
     const r = await fetch(`${CLUSTER_SERVER}/health`, {
@@ -38,6 +42,8 @@ router.get('/health', async (req, res) => {
   }
 });
 
+// ── POST /api/predict ────────────────────────────────────────
+// legacy 요청을 /classify로 넘겨 기존 프론트/테스트 코드와의 호환성을 유지한다
 router.post('/', async (req, res) => {
   try {
     const { session_id, tokens, events } = req.body || {};

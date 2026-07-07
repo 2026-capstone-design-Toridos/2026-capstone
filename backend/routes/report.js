@@ -342,7 +342,7 @@ router.get('/cluster/:clusterId', async (req, res) => {
     const labelInfo = (meta.nlp_labels || {})[clusterId] || {};
     const cacheKey = `${clusterId}:${meta.nlp_labels_updated_at || ''}`;
 
-    // 캐시 확인
+    // 같은 cluster_meta 버전에서는 Gemini 결과를 재사용해 비용과 지연을 줄인다
     if (reportCache.has(cacheKey)) {
       return res.json({ cluster_id: clusterId, report: normalizeReportText(reportCache.get(cacheKey)), cached: true });
     }
@@ -351,6 +351,7 @@ router.get('/cluster/:clusterId', async (req, res) => {
       return res.status(404).json({ error: `클러스터 ${clusterId} 프로파일 없음` });
     }
 
+    // 데모/장애 대응용: Gemini 호출 없이 로컬 preset/요약만으로 즉시 응답
     if (String(req.query.prefer_local || '') === '1') {
       const overrideLabel = req.query.completed === '1'
         ? { ...labelInfo, name: String(req.query.persona || '주문을 완료한 고객') }
@@ -415,7 +416,7 @@ router.get('/all', async (req, res) => {
           results.push({ cluster_id: clusterId, report: null, error: e.message });
         }
       }
-      // 호출 간 1.5초 간격 (rate limit 방지)
+      // 전체 생성은 Gemini rate limit에 걸리기 쉬워 호출 간격을 둔다
       await sleep(1500);
     }
 
@@ -441,6 +442,7 @@ router.post('/session', async (req, res) => {
     let report;
     let fallback = false;
     let warning;
+    // 프론트에서 빠른 응답을 원할 때는 외부 AI 호출 없이 로컬 문장 생성
     if (body.prefer_local) {
       report = buildLocalSessionReport(body, profile);
       return res.json({

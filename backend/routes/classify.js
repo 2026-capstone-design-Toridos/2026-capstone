@@ -32,10 +32,12 @@ function inferPage(doc = {}) {
   return 'home';
 }
 
+// 섹션 기반 클러스터링 보조 정보 — data 우선, 없으면 최상위 필드 fallback
 function inferSection(doc = {}) {
   return doc.data?.section || doc.section || '';
 }
 
+// 클릭/호버 대상이 속한 화면 영역을 분류 서버 입력 형식으로 보존한다
 function inferElementSection(doc = {}) {
   return doc.data?.element_section || doc.element_section || '';
 }

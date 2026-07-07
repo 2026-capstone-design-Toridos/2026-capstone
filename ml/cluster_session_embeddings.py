@@ -1,8 +1,9 @@
 """
-cluster_session_embeddings.py
+cluster_session_embeddings.py — 세션 임베딩 클러스터링
 
-Transformer로 생성한 session_embeddings.npy를 읽어서
-PCA/UMAP 시각화 + HDBSCAN 클러스터링을 수행한다.
+역할: train_transformer_encoder.py가 생성한 session_embeddings.npy를 읽어
+     L2 정규화, PCA 시각화, HDBSCAN 클러스터링을 수행하고
+     클러스터별 행동 요약을 사람이 읽을 수 있는 파일로 저장한다.
 
 입력:
   output/transformer/session_embeddings.npy
@@ -32,6 +33,8 @@ try:
 except ImportError:
     hdbscan = None
 
+
+# ── 파일/토큰 헬퍼 ────────────────────────────────────────────
 
 # 출력 디렉토리가 없으면 생성한다
 def ensure_dir(path: str) -> None:
@@ -69,6 +72,8 @@ def get_tokens(row):
     return seq.split()
 
 
+# ── 차원 축소 / 클러스터링 ────────────────────────────────────
+
 # 임베딩을 PCA로 2차원으로 축소해 시각화용 좌표를 반환한다
 def run_pca(embeddings: np.ndarray, n_components: int = 2):
     pca = PCA(n_components=n_components, random_state=42)
@@ -95,6 +100,8 @@ def run_hdbscan(embeddings: np.ndarray, min_cluster_size: int, min_samples: int)
 
     return labels, probs, clusterer
 
+
+# ── 결과 저장 / 리포트 ───────────────────────────────────────
 
 # 클러스터 레이블·확률·PCA 좌표를 CSV로 저장한다
 def save_cluster_results(meta_rows, labels, probs, pca_points, output_path):
@@ -310,6 +317,7 @@ def main():
 
     pca_points, pca = run_pca(x, n_components=2)
 
+    # HDBSCAN은 노이즈를 -1로 표시하므로 이후 요약에서도 별도 클러스터처럼 다룬다
     labels, probs, clusterer = run_hdbscan(
         x,
         min_cluster_size=args.min_cluster_size,

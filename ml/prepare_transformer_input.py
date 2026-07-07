@@ -1,8 +1,8 @@
 """
-prepare_transformer_input.py
+prepare_transformer_input.py — Transformer 학습 입력 생성
 
-session_semantic_sequences_*.csv 파일을 읽어서
-Transformer 학습용 입력 텐서로 변환한다.
+역할: session_semantic_sequences_*.csv의 PAGE|SEMANTIC|CONTEXTUAL 토큰 시퀀스를 읽어
+     Transformer Encoder 학습에 바로 넣을 수 있는 고정 길이 tensor로 변환한다.
 
 입력:
   output/session_semantic_sequences_*.csv
@@ -15,10 +15,10 @@ Transformer 학습용 입력 텐서로 변환한다.
 역할:
   1. sequence 문자열 읽기
   2. 너무 짧은 세션 제거
-  3. vocab 생성
-  4. token -> id 변환
+  3. special token 포함 vocab 생성
+  4. token → id 변환
   5. max_len 기준 truncate / padding
-  6. attention_mask 생성
+  6. attention_mask와 session_meta 생성
 """
 
 from __future__ import annotations
@@ -40,6 +40,8 @@ SPECIAL_TOKENS = {
     "CLS": "[CLS]",
 }
 
+
+# ── 파일/데이터 로드 헬퍼 ─────────────────────────────────────
 
 # 출력 디렉토리가 없으면 생성한다
 def ensure_dir(path: str) -> None:
@@ -85,6 +87,8 @@ def filter_sequences(rows: List[Dict], min_len: int) -> List[Dict]:
     """
     return [row for row in rows if len(row["tokens"]) >= min_len]
 
+
+# ── Vocab / Encoding ─────────────────────────────────────────
 
 # 토큰 빈도를 집계해 special token 포함 vocab 사전을 생성한다
 def build_vocab(rows: List[Dict], min_freq: int = 1) -> Dict[str, int]:
@@ -162,6 +166,8 @@ def encode_sequence(
 
     return input_ids, attention_mask, processed
 
+
+# ── 저장 헬퍼 ─────────────────────────────────────────────────
 
 # vocab 사전을 JSON으로 저장한다
 def save_vocab(vocab: Dict[str, int], output_path: str) -> None:
@@ -267,6 +273,7 @@ def main() -> None:
 
     vocab = build_vocab(rows, min_freq=args.min_freq)
 
+    # 학습 텐서와 사람이 확인할 수 있는 메타 CSV를 같은 순서로 쌓는다
     input_ids = []
     attention_masks = []
     meta_rows = []
@@ -297,6 +304,7 @@ def main() -> None:
     input_ids_tensor = torch.tensor(input_ids, dtype=torch.long)
     attention_mask_tensor = torch.tensor(attention_masks, dtype=torch.long)
 
+    # torch.save 한 번으로 학습에 필요한 tensor, vocab, config를 함께 보관한다
     data = {
         "input_ids": input_ids_tensor,
         "attention_mask": attention_mask_tensor,

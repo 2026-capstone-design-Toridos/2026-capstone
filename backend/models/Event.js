@@ -1,9 +1,13 @@
-const mongoose = require('mongoose');   // MongoDB ODM 라이브러리 불러오기
-
-/*
- * SDK가 보내는 이벤트 스키마
- * _dispatch()가 만드는 공통 필드 + data 서브필드에 이벤트별 페이로드를 담음
+/**
+ * Event.js — SDK 수집 이벤트 MongoDB 모델
+ *
+ * 역할: eventProcessor._dispatch()가 만든 공통 필드와
+ *      sdk-B/C가 채운 이벤트별 data 페이로드를 MongoDB에 저장한다.
  */
+
+const mongoose = require('mongoose');
+
+// ── 이벤트 스키마 ─────────────────────────────────────────────
 const EventSchema = new mongoose.Schema(
   {
     // ── 공통 필드 (sdk-A _dispatch 자동 부여) ─────────────────
@@ -37,9 +41,10 @@ const EventSchema = new mongoose.Schema(
   }
 );
 
-// 복합 인덱스: 세션별 이벤트 순서 조회
+// 세션 타임라인 복원용 — event_seq 기준으로 사용자 행동 흐름을 조회한다
 EventSchema.index({ session_id: 1, event_seq: 1 });
-// 시간 범위 조회
+
+// 운영자 대시보드 집계용 — 이벤트 타입별 최근 구간 조회를 빠르게 한다
 EventSchema.index({ event_type: 1, received_at: -1 });
 
 module.exports = mongoose.model('Event', EventSchema);

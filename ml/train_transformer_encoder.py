@@ -1,9 +1,9 @@
 """
-train_transformer_encoder.py
+train_transformer_encoder.py — 세션 Transformer Encoder 학습
 
-prepare_transformer_input.py가 만든 transformer_input.pt를 읽어서
-Transformer Encoder를 Masked Token Prediction 방식으로 학습하고,
-세션 임베딩을 생성한다.
+역할: prepare_transformer_input.py가 만든 transformer_input.pt를 읽어
+     BERT식 Masked Token Prediction으로 Transformer Encoder를 학습하고,
+     이후 클러스터링에 사용할 세션 임베딩을 생성한다.
 
 입력:
   output/transformer/transformer_input.pt
@@ -28,7 +28,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
+# ── 모델 정의 ─────────────────────────────────────────────────
+
 class SessionTransformerEncoder(nn.Module):
+    """토큰/위치 임베딩 + TransformerEncoder + MLM output head."""
+
     def __init__(
         self,
         vocab_size: int,
@@ -119,6 +123,8 @@ class SessionTransformerEncoder(nn.Module):
         return summed / denom
 
 
+# ── 학습 유틸 ─────────────────────────────────────────────────
+
 # 재현성 보장을 위해 Python·numpy·torch 난수 시드를 동일하게 고정한다
 def set_seed(seed: int):
     random.seed(seed)
@@ -156,6 +162,8 @@ def create_masked_inputs(
 
     return masked_input_ids, labels
 
+
+# ── 메타 저장 헬퍼 ────────────────────────────────────────────
 
 # session_meta.csv를 읽어 행 목록으로 반환한다
 def load_meta(meta_path: str):
@@ -258,6 +266,7 @@ def train(args):
 
     model.train()
 
+    # 매 epoch마다 입력 일부를 [MASK]로 바꾼 뒤 원래 토큰을 맞히도록 학습한다
     for epoch in range(1, args.epochs + 1):
         total_loss = 0.0
         total_batches = 0
@@ -322,6 +331,7 @@ def train(args):
 
     np.save(embedding_path, embeddings)
 
+    # 추론/재학습 시 같은 구조로 복원할 수 있게 모델 설정과 vocab을 함께 저장한다
     torch.save(
         {
             "model_state_dict": model.state_dict(),

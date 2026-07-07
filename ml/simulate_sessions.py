@@ -1,8 +1,8 @@
 """
-GhostTracker 세션 시뮬레이터
-============================
-Playwright로 JH_Web 쇼핑몰에서 다양한 행동 패턴을 자동 시뮬레이션.
-GhostTracker SDK가 삽입된 페이지에서 실제 이벤트가 MongoDB에 수집됨.
+simulate_sessions.py — GhostTracker 세션 시뮬레이터
+
+역할: Playwright로 팀원 쇼핑몰에서 여러 고객 행동 패턴을 자동 실행해
+     SDK 이벤트가 실제 MongoDB에 쌓이도록 테스트 세션을 만든다.
 
 사용법:
   python ml/simulate_sessions.py              # 전체 패턴 각 3회씩
@@ -22,6 +22,9 @@ import asyncio, random, argparse, time
 from datetime import datetime
 from playwright.async_api import async_playwright
 
+
+# ── 대상 사이트 설정 ──────────────────────────────────────────
+# 사이트마다 URL과 DOM selector가 달라서 패턴 로직은 공통으로 두고 selector만 분리한다
 SITES = {
     'JH': {
         'base':    'https://jh-web-nu.vercel.app',
@@ -263,6 +266,7 @@ async def pattern_indecisive(page, site):
     await page.wait_for_timeout(2000)
 
 
+# 패턴 이름 → 실행 함수 매핑. CLI --pattern 검증에도 그대로 사용한다
 PATTERNS = {
     'explorer':   pattern_explorer,
     'bouncer':    pattern_bouncer,
@@ -306,13 +310,14 @@ async def run_session(playwright, pattern_name: str, site_name: str, idx: int, h
 # (사이트, 패턴) 조합을 랜덤 셔플해 순서대로 시뮬레이션 세션을 실행한다
 async def main(args):
     site_names = args.site.split(',') if args.site else list(SITES.keys())
+
     # 유효성 검사
     for s in site_names:
         if s not in SITES:
             print(f'[오류] 알 수 없는 사이트: {s}  (가능: {list(SITES.keys())})')
             return
 
-    # (site, pattern) 조합 생성
+    # (site, pattern) 조합 생성 후 섞어서 특정 사이트/패턴 순서 편향을 줄인다
     combos = [
         (site, pattern)
         for site in site_names

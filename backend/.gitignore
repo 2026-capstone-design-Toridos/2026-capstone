@@ -1,2 +1,7 @@
 node_modules/
 .env
+__pycache__/
+*.pyc
+ml/output/
+ml/ml/output/
+ml/ml/analysis/

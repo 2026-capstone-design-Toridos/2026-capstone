@@ -1,18 +1,26 @@
-const mongoose = require('mongoose');    // mongoose 라이브러리를 가져옴
+/**
+ * db.js — GhostTracker MongoDB 연결 관리
+ *
+ * 역할: 서버 시작 시 MONGODB_URI로 MongoDB에 한 번만 연결하고,
+ *      이미 연결된 상태에서는 중복 연결을 막는다.
+ */
 
-let isConnected = false;                // MongoDB 연결 상태를 추적하기 위한 변수
+const mongoose = require('mongoose');
 
-async function connectDB() {            // MongoDB 연결 함수로 이미 연결되어 있는 경우에는 연결을 시도하지 않음
+let isConnected = false;
+
+// 서버 부팅 시 호출 — 연결 성공 후에만 Express listen을 시작한다
+async function connectDB() {
   if (isConnected) return;
 
-  const uri = process.env.MONGODB_URI;  // 환경변수에서 MongoDB URI를 가져옴
+  const uri = process.env.MONGODB_URI;
   if (!uri) {
-    throw new Error('MONGODB_URI 환경변수가 설정되지 않았습니다.'); 
+    throw new Error('MONGODB_URI 환경변수가 설정되지 않았습니다.');
   }
 
-  await mongoose.connect(uri);          // MongoDB에 연결
-  isConnected = true;                   // 연결이 완료 되었으니 변수를 true로 설정
-  console.log('[GhostTracker] MongoDB 연결 성공');  // 연결 성공 로그 출력
+  await mongoose.connect(uri);
+  isConnected = true;
+  console.log('[GhostTracker] MongoDB 연결 성공');
 }
 
-module.exports = { connectDB };         // connectDB 함수를 모듈로 내보냄
+module.exports = { connectDB };
