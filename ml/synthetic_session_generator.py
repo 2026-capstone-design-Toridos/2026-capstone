@@ -205,6 +205,7 @@ NOISE_TOKENS = [
 # 헬퍼
 # ═══════════════════════════════════════════════════════════════════
 
+# 각 토큰 뒤에 prob 확률로 노이즈 토큰을 삽입해 실제 데이터의 불규칙성을 흉내낸다
 def _noise(rng: random.Random, tokens: List[str], prob: float = 0.1) -> List[str]:
     result = []
     for t in tokens:
@@ -545,6 +546,7 @@ PERSONAS = {
 # 생성 로직
 # ═══════════════════════════════════════════════════════════════════
 
+# 페르소나 비율대로 n개의 합성 세션을 생성하고 session_id·타임스탬프·시퀀스를 반환한다
 def generate_sessions(n: int, seed: int = 42) -> List[dict]:
     rng = random.Random(seed)
     persona_names   = list(PERSONAS.keys())
@@ -574,6 +576,7 @@ def generate_sessions(n: int, seed: int = 42) -> List[dict]:
     return sessions
 
 
+# 세션 목록을 CSV로 저장한다 — include_persona=True이면 페르소나 컬럼도 포함
 def save_sessions(sessions: List[dict], output_path: str, include_persona: bool = False):
     fields = ["session_id", "start_timestamp", "end_timestamp", "length", "sequence"]
     if include_persona:
@@ -587,6 +590,7 @@ def save_sessions(sessions: List[dict], output_path: str, include_persona: bool 
     print(f"[synthetic] 저장 완료 → {output_path}  ({len(sessions):,} 세션)")
 
 
+# 실데이터 CSV와 합성 데이터 CSV를 합쳐 하나의 파일로 저장한다
 def merge_with_real(real_csv: str, synthetic_csv: str, output_path: str):
     rows = []
     for path in [real_csv, synthetic_csv]:
@@ -607,6 +611,7 @@ def merge_with_real(real_csv: str, synthetic_csv: str, output_path: str):
 # CLI
 # ═══════════════════════════════════════════════════════════════════
 
+# CLI 진입점 — 합성 세션 생성 → 저장 → 실데이터와 병합까지 순서대로 실행한다
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--n",             type=int, default=2400)

@@ -9,6 +9,7 @@
  *   integration.test.js → B/C 이벤트 리스너가 DOM 이벤트를 받아
  *                          A core를 통해 올바른 이벤트를 서버로 내보내는지 검증
  */
+// 데스트 용이라 꼭 필요하진 않고 추후에 삭제하는게 좋을듯
 
 import { strict as assert } from 'node:assert';
 import { spawnSync }        from 'node:child_process';

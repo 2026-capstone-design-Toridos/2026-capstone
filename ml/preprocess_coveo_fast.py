@@ -50,12 +50,14 @@ LABEL_MAP: Dict[str, int] = {"conversion": 0, "cart_abandon": 1, "browse_only": 
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
+# Coveo 이벤트 한 행을 GhostTracker 토큰 문자열로 변환한다
 def map_token(event_type: str, product_action) -> str:
     if pd.notna(product_action) and product_action in ACTION_MAP:
         return ACTION_MAP[product_action]
     return PAGEVIEW_TOKEN
 
 
+# 리스트를 왼쪽 패딩 / 오른쪽 자르기로 max_len 길이에 맞춘다
 def pad_left(lst: List[int], max_len: int, pad_val: int = 0) -> List[int]:
     if len(lst) >= max_len:
         return lst[-max_len:]
@@ -64,6 +66,7 @@ def pad_left(lst: List[int], max_len: int, pad_val: int = 0) -> List[int]:
 
 # ── main ───────────────────────────────────────────────────────────────────
 
+# CLI 인자를 파싱해 Namespace로 반환한다
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--input",       default="../SIGIR-ecom-data-challenge/train/browsing_train.csv")
@@ -76,6 +79,7 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+# pandas 벡터화 방식으로 로드 → 정렬 → 그룹핑 → 라벨 → 패딩 → .pt·vocab 저장
 def main() -> None:
     args = parse_args()
     np.random.seed(args.seed)

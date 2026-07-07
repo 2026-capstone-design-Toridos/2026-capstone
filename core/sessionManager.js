@@ -1,5 +1,5 @@
 /**
- * sessionManager.js  —  A 담당
+ * sessionManager.js — GhostTracker SDK 세션 관리
  *
  * 역할:
  *   1. TTL 기반 세션 관리 (30분 이내 재방문 = 동일 세션 재사용)
@@ -123,6 +123,7 @@ function getSessionId() {
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
+// URL 쿼리에서 utm_source/utm_campaign만 뽑아온다
 function _parseUTM() {
   const params = new URLSearchParams(window.location.search);
   return {

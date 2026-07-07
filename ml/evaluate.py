@@ -33,6 +33,7 @@ MONGO_URI    = "mongodb+srv://Toridos:1234@capstone.dsph0ff.mongodb.net/ghosttra
 
 # ── 유틸 ─────────────────────────────────────────────────────────────
 
+# 구분선과 섹션 제목을 콘솔에 출력한다
 def divider(title: str):
     print(f'\n{"─"*60}')
     print(f'  {title}')
@@ -61,6 +62,7 @@ def fetch_churn_labels(mongo_uri: str, session_ids: list[str]) -> dict[str, int]
 
 # ── 클러스터링 평가 ───────────────────────────────────────────────────
 
+# Silhouette·Davies-Bouldin·Calinski-Harabasz 세 가지 클러스터링 지표를 출력한다
 def evaluate_clustering(embeddings: np.ndarray, cluster_df: pd.DataFrame):
     from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
     from sklearn.preprocessing import normalize
@@ -92,6 +94,7 @@ def evaluate_clustering(embeddings: np.ndarray, cluster_df: pd.DataFrame):
 
 # ── 해석 가능성 평가 ──────────────────────────────────────────────────
 
+# 클러스터별 세션 수·이탈율·상위 토큰을 출력해 해석 가능성을 평가한다
 def evaluate_interpretability(cluster_df: pd.DataFrame, churn_map: dict):
     divider('📖 해석 가능성 (Interpretability)')
 
@@ -123,6 +126,7 @@ def evaluate_interpretability(cluster_df: pd.DataFrame, churn_map: dict):
 
 # ── 분류 지표 평가 ────────────────────────────────────────────────────
 
+# 클러스터 다수결로 이탈을 예측하고 Accuracy·F1·ROC-AUC 등 분류 지표를 출력한다
 def evaluate_classification(cluster_df: pd.DataFrame, churn_map: dict):
     from sklearn.metrics import (
         accuracy_score, precision_score, recall_score, f1_score,
@@ -199,6 +203,7 @@ def evaluate_classification(cluster_df: pd.DataFrame, churn_map: dict):
 
 # ── 메인 ─────────────────────────────────────────────────────────────
 
+# CLI 진입점 — 클러스터 결과·임베딩·MongoDB 라벨을 로드해 세 가지 평가를 순차 실행한다
 def main():
     parser = argparse.ArgumentParser(description='GhostTracker 클러스터링 평가')
     parser.add_argument('--cluster',    default=DEFAULT_CL,   help='cluster_results.csv 경로')

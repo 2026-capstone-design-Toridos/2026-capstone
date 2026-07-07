@@ -1,5 +1,5 @@
 /**
- * sdk-A.js  —  A 담당 (조현)
+ * sdk-A.js — GhostTracker SDK 진입점
  *
  * 역할: Core Engine 초기화 + 세션/환경/페이지이동 수집
  *
@@ -40,6 +40,7 @@ let _sessionTTLTimer = null;
 
 // ── 초기화 ────────────────────────────────────────────────────
 
+// SDK 전체를 초기화하는 진입점 — 중복 호출 방지 후 세션·환경·각종 트래커를 셋업한다
 function initA(options = {}) {
   if (_initialized) return;
   _initialized = true;
@@ -89,6 +90,7 @@ function initA(options = {}) {
 
 // ── 환경 정보 수집 ────────────────────────────────────────────
 
+// UA와 화면 너비로 기기·OS·브라우저 정보를 한번에 뽑아온다
 function _collectEnv() {
   const ua = navigator.userAgent;
   return {
@@ -99,12 +101,14 @@ function _collectEnv() {
   };
 }
 
+// UA로 tablet/mobile/desktop 중 하나를 반환
 function _getDeviceType(ua) {
   if (/Tablet|iPad/i.test(ua)) return 'tablet';
   if (/Mobi|Android|iPhone|iPod/i.test(ua)) return 'mobile';
   return 'desktop';
 }
 
+// UA로 운영체제를 추론한다
 function _getOS(ua) {
   if (/Windows/i.test(ua))          return 'windows';
   if (/Mac OS X/i.test(ua))         return 'macos';
@@ -114,6 +118,7 @@ function _getOS(ua) {
   return 'unknown';
 }
 
+// UA로 브라우저를 판별한다 — Edge를 Chrome보다 먼저 검사해야 오탐을 막는다
 function _getBrowser(ua) {
   if (/Edg\//i.test(ua))     return 'edge';
   if (/OPR\//i.test(ua))     return 'opera';
@@ -125,6 +130,7 @@ function _getBrowser(ua) {
 
 // ── SPA 내비게이션 추적 ───────────────────────────────────────
 
+// pushState/replaceState/popstate를 모두 가로채서 SPA 이동을 감지한다
 function _setupNavigationTracking() {
   const origPush    = history.pushState.bind(history);
   const origReplace = history.replaceState.bind(history);
@@ -144,6 +150,7 @@ function _setupNavigationTracking() {
   window.addEventListener('popstate', () => _onNavigation('pop', null));
 }
 
+// 페이지 이동 시 navigation 이벤트를 emit하고 경로·bounce·subsection 상태를 리셋한다
 function _onNavigation(trigger, prevPathname = null) {
   const pathname = window.location.pathname;
   const now      = Date.now();
@@ -178,6 +185,7 @@ function _onNavigation(trigger, prevPathname = null) {
 // 보완: visibilitychange → hidden 시 즉시 flush (탭 전환/닫기 모두 커버).
 //       beforeunload/pagehide는 fallback으로 유지.
 
+// beforeunload·pagehide·visibilitychange 세 가지로 세션 종료를 커버한다
 function _setupSessionEnd() {
   const _buildExitPayload = () => ({
     exit_page:             window.location.pathname,
@@ -212,6 +220,7 @@ function _setupSessionEnd() {
 
 // ── 비활성 감지 ───────────────────────────────────────────────
 
+// 비활성이 끝나는 시점(다음 활동)에 duration 확정 후 emit
 function _setupInactivityTracking() {
   // 비활성이 끝나는 시점(다음 활동)에 호출됨 → duration 값 확정 후 emit
   onInactive(({ inactivity_start_time, inactivity_duration }) => {
@@ -227,6 +236,7 @@ function _setupInactivityTracking() {
 // 단순 스크롤도 "상호작용"으로 간주하지 않음.
 // click / touchstart 기준으로 실제 의도적 상호작용만 추적.
 
+// 클릭/터치를 한 번만 잡아서 실제 상호작용 여부를 표시한다 (bounce 판정용)
 function _setupInteractionTracking() {
   const markInteracted = () => { _hasInteracted = true; };
   document.addEventListener('click',      markInteracted, { once: true, passive: true });
@@ -237,6 +247,7 @@ function _setupInteractionTracking() {
 //
 // 리사이즈는 연속으로 발생하므로 500ms debounce.
 
+// 화면 크기 변화를 500ms debounce 후 emit한다
 function _setupScreenResize() {
   window.addEventListener('resize', () => {
     clearTimeout(_resizeTimer);
@@ -258,6 +269,7 @@ function _setupScreenResize() {
 //   window.__GT?.subsectionEnter('review')
 //   window.__GT?.subsectionExit('review')
 
+// window.__GT를 통해 C(IIFE)가 A의 emit 함수를 쓸 수 있게 연결한다
 function _setupGTBridge() {
   if (!window.__GT) window.__GT = {};
 
@@ -302,11 +314,13 @@ function _setupGTBridge() {
 //   30분 경과 → _onSessionTTLExpired() → session_end emit + localStorage 클리어
 //   다음 활동 → _onUserActivity() → _sessionEnded 감지 → _restartSession() → 새 세션 시작
 
+// 30분 타이머를 새로 시작한다 — 활동 때마다 호출해서 카운트를 리셋
 function _resetSessionTTLTimer() {
   clearTimeout(_sessionTTLTimer);
   _sessionTTLTimer = setTimeout(_onSessionTTLExpired, SESSION_TTL_MS);
 }
 
+// 사용자 활동 발생 시 호출 — TTL 만료로 끊긴 세션이면 새 세션 시작
 function _onUserActivity() {
   // 이전 세션이 TTL 만료로 종료됐으면 새 세션 시작
   if (_sessionEnded) {
@@ -315,6 +329,7 @@ function _onUserActivity() {
   _resetSessionTTLTimer();
 }
 
+// 30분 비활성 만료 시 session_end를 emit하고 localStorage 세션 키를 지운다
 function _onSessionTTLExpired() {
   if (_sessionEnded) return;
   _sessionEnded = true;
@@ -336,6 +351,7 @@ function _onSessionTTLExpired() {
   localStorage.removeItem('gt_sid_ts');
 }
 
+// TTL 만료 후 다음 활동이 오면 상태를 초기화하고 새 세션을 발급한다
 function _restartSession() {
   // 먼저 플래그 리셋 (emit 내부에서 재진입 방지)
   _sessionEnded = false;

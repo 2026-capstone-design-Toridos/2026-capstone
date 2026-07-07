@@ -1,3 +1,16 @@
+"""
+analyze_semantic_debug.py — GhostTracker 시맨틱 디버그 분석 스크립트
+
+역할: build_session_sequences.py --debug 모드로 생성한 session_semantic_debug_*.json을 읽어
+     세션 길이 분포, 토큰 빈도, 이벤트 유형별 분포를 요약하고 시각화한다.
+
+주요 흐름:
+  load_debug      — JSON 파일 로드
+  analyze_sessions — 세션별 토큰·페이지·섹션 집계
+  print_report    — 콘솔 요약 출력
+  save_bar_chart  — 상위 토큰/이벤트 막대 차트 저장
+"""
+
 import argparse
 import json
 import os
@@ -6,11 +19,13 @@ from collections import Counter, defaultdict
 import matplotlib.pyplot as plt
 
 
+# debug JSON 파일을 읽어 세션 목록으로 반환한다
 def load_debug(path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
+# 출력 디렉토리가 없으면 생성한다
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
 
@@ -29,6 +44,7 @@ def token_parts(token):
     return page, semantic, contextual
 
 
+# 세션 목록을 순회해 토큰·이벤트·페이지·섹션별 빈도를 집계하고 요약 dict를 반환한다
 def analyze_sessions(sessions):
     session_lengths = []
     token_counter = Counter()
@@ -93,6 +109,7 @@ def analyze_sessions(sessions):
     }
 
 
+# Counter를 top_n 개씩 콘솔에 출력한다
 def print_counter(title, counter, top_n=20):
     print(f"\n=== {title} ===")
     if not counter:
@@ -103,6 +120,7 @@ def print_counter(title, counter, top_n=20):
         print(f"{key}: {count}")
 
 
+# 세션 수·이벤트 수·길이 분포·상위 토큰 등 전체 분석 결과를 콘솔에 출력한다
 def print_report(sessions, result, top_n=20):
     total_sessions = len(sessions)
     total_events = sum(length for _, length in result["session_lengths"])
@@ -158,6 +176,7 @@ def print_report(sessions, result, top_n=20):
             print(f"  {token}: {count}")
 
 
+# Counter의 상위 top_n 항목을 가로 막대 차트로 저장한다
 def save_bar_chart(counter, title, output_path, top_n=15):
     if not counter:
         return
@@ -175,6 +194,7 @@ def save_bar_chart(counter, title, output_path, top_n=15):
     plt.close()
 
 
+# 세션 길이 분포를 히스토그램으로 저장한다
 def save_length_histogram(session_lengths, output_path):
     lengths = [length for _, length in session_lengths]
 
@@ -191,6 +211,7 @@ def save_length_histogram(session_lengths, output_path):
     plt.close()
 
 
+# 세션별 길이를 CSV로 저장한다
 def save_csv_summary(result, output_dir):
     path = os.path.join(output_dir, "session_length_summary.csv")
 
@@ -202,6 +223,7 @@ def save_csv_summary(result, output_dir):
     return path
 
 
+# CLI 진입점 — JSON 로드 → 분석 → 콘솔 출력 → 차트·CSV 저장
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", required=True, help="session_semantic_debug_*.json path")

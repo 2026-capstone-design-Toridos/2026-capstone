@@ -52,6 +52,7 @@ SPECIAL_TOKENS = {
 # IO Helpers
 # =========================================================
 
+# 출력 디렉토리가 없으면 생성한다
 def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
@@ -73,6 +74,7 @@ def load_semantic_sequences(path: str) -> List[Dict[str, Any]]:
     raise ValueError("지원하지 않는 입력 형식입니다. .csv 또는 .jsonl만 지원합니다.")
 
 
+# CSV 파일에서 session_id·sequence 컬럼을 읽어온다 — sequence는 공백 구분 토큰 문자열
 def load_sequences_from_csv(path: str) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
 
@@ -99,6 +101,7 @@ def load_sequences_from_csv(path: str) -> List[Dict[str, Any]]:
     return rows
 
 
+# JSONL 파일에서 시퀀스를 읽어온다 — sequence는 list[str] 또는 공백 구분 문자열
 def load_sequences_from_jsonl(path: str) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
 
@@ -137,6 +140,7 @@ def load_sequences_from_jsonl(path: str) -> List[Dict[str, Any]]:
 # Vocab Build
 # =========================================================
 
+# 전체 세션의 토큰 빈도를 Counter로 집계한다
 def count_tokens(rows: List[Dict[str, Any]]) -> Counter:
     counter: Counter = Counter()
 
@@ -185,6 +189,7 @@ def build_vocab(
     return vocab
 
 
+# vocab과 토큰 빈도를 vocab.json 형태로 저장한다
 def save_vocab(
     vocab: Dict[str, int],
     rows: List[Dict[str, Any]],
@@ -222,6 +227,7 @@ def save_vocab(
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
+# vocab.json 파일을 읽어 token → id 사전으로 반환한다
 def load_vocab(path: str) -> Dict[str, int]:
     with open(path, "r", encoding="utf-8") as f:
         payload = json.load(f)
@@ -281,6 +287,7 @@ def encode_sequence(
     return ids
 
 
+# 전체 세션 rows를 token_id sequence로 일괄 인코딩한다
 def encode_rows(
     rows: List[Dict[str, Any]],
     vocab: Dict[str, int],
@@ -314,6 +321,7 @@ def encode_rows(
     return encoded
 
 
+# 인코딩된 시퀀스를 CSV로 저장한다
 def save_encoded_csv(rows: List[Dict[str, Any]], output_path: str) -> None:
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -345,6 +353,7 @@ def save_encoded_csv(rows: List[Dict[str, Any]], output_path: str) -> None:
             })
 
 
+# 인코딩된 시퀀스를 JSONL로 저장한다
 def save_encoded_jsonl(rows: List[Dict[str, Any]], output_path: str) -> None:
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -357,6 +366,7 @@ def save_encoded_jsonl(rows: List[Dict[str, Any]], output_path: str) -> None:
 # Reporting
 # =========================================================
 
+# vocab 크기·상위 토큰 빈도 등 빌드 결과를 콘솔에 요약 출력한다
 def print_summary(
     rows: List[Dict[str, Any]],
     vocab: Dict[str, int],
@@ -388,6 +398,7 @@ def print_summary(
 # CLI
 # =========================================================
 
+# CLI 인자 파서를 빌드한다
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Build semantic token vocabulary and encode session sequences."
@@ -450,6 +461,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# CLI 진입점 — 시퀀스 로드 → vocab 빌드 → 인코딩 → CSV·JSONL 저장
 def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()

@@ -1,3 +1,10 @@
+<!--
+  index.html — SDK 동작 눈으로 확인하는 로컬 테스트 페이지
+
+  체크해봄: package.json에 이 파일을 띄우는 스크립트가 없어서 build/배포 흐름에는 안 묶여 있음.
+  vite 같은 걸로 직접 띄워야 ES 모듈 import가 동작함 (file://로 그냥 열면 CORS로 막힘).
+  따라서 굳이 필요 없음. 상의 후 삭제해도 됨.
+-->
 <!DOCTYPE html>
 <html>
 <head>
@@ -9,6 +16,7 @@
 <button id="btn">클릭해봐</button>
 
 <script type="module">
+  // index.js(정식 진입점)를 거치지 않고 sdk-A/B/C를 각자 바로 불러와 테스트
   import './sdk-A.js';   // ← 네 core 엔진 파일
   import './sdk-B.js';   // ← 클릭 이벤트
   import './sdk-C.js';   // ← 스크롤 이벤트
@@ -19,6 +27,7 @@
     console.log("버튼 클릭됨");
   });
 </script>
+<!-- vite build로 만든 IIFE 번들인데 dist/ghosttracker.iife.js에만 있고 여긴 안 옮겨서 지금은 404남
 <script src="./ghosttracker.iife.js"></script>
 </body>
 </html>

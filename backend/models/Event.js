@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
+const mongoose = require('mongoose');   // MongoDB ODM 라이브러리 불러오기
 
-/**
+/*
  * SDK가 보내는 이벤트 스키마
- * _dispatch()가 만드는 공통 필드 + data 서브도큐먼트
+ * _dispatch()가 만드는 공통 필드 + data 서브필드에 이벤트별 페이로드를 담음
  */
 const EventSchema = new mongoose.Schema(
   {

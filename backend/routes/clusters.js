@@ -1,13 +1,12 @@
 /**
- * routes/clusters.js
- * ------------------
- * Cluster analysis result API.
+ * clusters.js — 고객 유형(클러스터) 결과를 운영자 화면에 내려주는 API
  *
- * GET /api/clusters
- *   Returns dashboard-ready cluster metadata from cluster_meta.json.
+ * ml이 만들어둔 클러스터링 결과(cluster_meta.json)를 읽어와서 Gemini로 유형 이름을 붙이고,
+ * 사이트별로 실시간 분류하거나 마지막 실행 시점 스냅샷으로 고정해서 보여준다.
  *
- * GET /api/clusters/sessions
- *   Returns semantic_cluster_results.csv as JSON when that optional file exists.
+ * GET  /api/clusters           — 클러스터 메타 + 품질 지표 (origin/mode 쿼리로 필터)
+ * POST /api/clusters/run       — retrain_centroids.py 돌려서 클러스터 다시 계산
+ * GET  /api/clusters/sessions  — semantic_cluster_results.csv를 JSON으로
  */
 
 const express = require('express');
@@ -34,6 +33,7 @@ const ML_DIR = path.resolve(__dirname, '../../ml');
 const RETRAIN_SCRIPT = path.join(ML_DIR, 'retrain_centroids.py');
 let clusteringJob = null;
 
+// origin URL을 파일명으로 쓸 수 있게 정리
 function snapshotKey(origin = '') {
   return String(origin || '')
     .trim()
@@ -46,6 +46,7 @@ function snapshotPath(origin = '') {
   return path.join(SNAPSHOT_DIR, `${snapshotKey(origin)}.json`);
 }
 
+// 사이트별 분류 결과를 마지막 실행 시점 스냅샷으로 저장
 function saveSiteSnapshot(origin, payload) {
   if (!origin) return;
   fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
@@ -58,6 +59,7 @@ function saveSiteSnapshot(origin, payload) {
   }, null, 2), 'utf-8');
 }
 
+// 저장된 사이트 스냅샷 불러오기 (없으면 null)
 function loadSiteSnapshot(origin) {
   if (!origin) return null;
   const target = snapshotPath(origin);
@@ -103,6 +105,7 @@ function koAction(action) {
   return labels[action] || String(action || '').replaceAll('_', ' ').toLowerCase();
 }
 
+// Gemini 응답이 없을 때 대표 행동만 보고 유형 이름을 추정
 function fallbackNlpLabel(clusterId, profile = {}) {
   const actions = (profile.top_actions || []).map((a) => a.action);
   const top3 = actions.slice(0, 3);
@@ -139,6 +142,7 @@ function fallbackNlpLabel(clusterId, profile = {}) {
   };
 }
 
+// 행동/페이지 근거, 세션 수, 비중, 안정성을 보고 클러스터를 믿을 만한지 판정
 function clusterValidation(clusterId, profile = {}, count = 0, total = 0, meta = {}) {
   const topActions = profile.top_actions || [];
   const pageDist = profile.page_dist || {};
@@ -183,6 +187,7 @@ function clusterValidation(clusterId, profile = {}, count = 0, total = 0, meta =
   };
 }
 
+// 클러스터 검증 결과를 모아 전체 품질 지표로 집계
 function qualitySummary(clusters = [], meta = {}, totalSessions = 0) {
   const validations = clusters.map((cluster) => cluster.validation).filter(Boolean);
   const verified = validations.filter((v) => v.status === 'verified').length;
@@ -228,6 +233,7 @@ function clusterQualifier(profile = {}) {
   return '행동 패턴형';
 }
 
+// 같은 이름의 클러스터가 여러 개면 구분 태그를 붙여 유니크하게 만든다
 function ensureUniqueClusterLabels(clusters = []) {
   const counts = new Map();
   for (const cluster of clusters) {
@@ -252,6 +258,7 @@ function ensureUniqueClusterLabels(clusters = []) {
   });
 }
 
+// Gemini에게 클러스터 이름/설명/액션 작명을 요청
 async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
   const res = await fetch(GEMINI_URL, {
@@ -273,6 +280,7 @@ async function callGemini(prompt) {
     .join('');
 }
 
+// 마크다운 코드블록이 섞인 응답에서 JSON 부분만 잘라낸다
 function parseJsonObject(text) {
   const cleaned = String(text || '').replace(/```json|```/g, '').trim();
   const start = cleaned.indexOf('{');
@@ -281,6 +289,7 @@ function parseJsonObject(text) {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
+// 클러스터별 이름을 Gemini로 받아와 메타파일에 캐싱, 실패하면 fallback으로 대체
 async function generateNlpLabels(meta, force = false) {
   const profiles = meta.cluster_profiles || {};
   if (!force && meta.nlp_labels && Object.keys(meta.nlp_labels).length) {
@@ -352,6 +361,7 @@ ${JSON.stringify(clusterPayload, null, 2)}
   }
 }
 
+// retrain_centroids.py를 별도 프로세스로 띄워 클러스터를 새로 계산
 function runPythonClustering({ full = true } = {}) {
   if (clusteringJob) return clusteringJob;
 
@@ -403,6 +413,7 @@ function runPythonClustering({ full = true } = {}) {
   return clusteringJob;
 }
 
+// pathname/page_url로 결제·장바구니·상품·검색 페이지를 구분한다
 function inferPage(doc) {
   const raw = `${doc.pathname || ''} ${doc.page_url || ''}`.toLowerCase();
   if (raw.includes('checkout') || raw.includes('payment') || raw.includes('order')) return 'checkout';
@@ -412,6 +423,7 @@ function inferPage(doc) {
   return 'home';
 }
 
+// 사이트 최근 세션을 모아 분류 서버에 한번에 보내고 결과를 클러스터별로 집계
 async function classifySiteSessions(origin, profiles, labels) {
   const docs = await Event.find({ origin })
     .sort({ received_at: -1 })
@@ -514,6 +526,7 @@ async function classifySiteSessions(origin, profiles, labels) {
   };
 }
 
+// ── GET /api/clusters ──────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
     if (!fs.existsSync(META_PATH)) {
@@ -595,6 +608,7 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ── POST /api/clusters/run — 클러스터링 재실행 ───────────────────
 router.post('/run', async (req, res) => {
   try {
     if (clusteringJob) {
@@ -633,6 +647,7 @@ router.post('/run', async (req, res) => {
   }
 });
 
+// ── GET /api/clusters/sessions ────────────────────────────────────
 router.get('/sessions', (req, res) => {
   try {
     if (!fs.existsSync(RESULTS_PATH)) {

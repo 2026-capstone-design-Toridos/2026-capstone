@@ -40,6 +40,7 @@ MANUAL_MAP = {
 }
 
 
+# 팀원 .pt 파일을 우리 vocab으로 재인코딩해 Colab 사전학습용 CSV로 저장한다
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--input',  default='transformer_input.pt',

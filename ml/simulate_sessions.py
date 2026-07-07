@@ -275,6 +275,7 @@ PATTERNS = {
 
 # ── 실행 엔진 ────────────────────────────────────────────────────────
 
+# 새 브라우저 컨텍스트를 열어 지정 패턴을 실행하고 종료한다
 async def run_session(playwright, pattern_name: str, site_name: str, idx: int, headless: bool):
     pattern_fn = PATTERNS[pattern_name]
     site = SITES[site_name]
@@ -302,6 +303,7 @@ async def run_session(playwright, pattern_name: str, site_name: str, idx: int, h
         await browser.close()
 
 
+# (사이트, 패턴) 조합을 랜덤 셔플해 순서대로 시뮬레이션 세션을 실행한다
 async def main(args):
     site_names = args.site.split(',') if args.site else list(SITES.keys())
     # 유효성 검사

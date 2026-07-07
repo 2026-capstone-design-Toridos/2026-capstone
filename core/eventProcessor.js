@@ -1,5 +1,5 @@
 /**
- * eventProcessor.js  —  A 담당
+ * eventProcessor.js  — GhostTracker SDK 이벤트 처리 모듈
  *
  * 역할: 모든 이벤트의 중앙 처리기 (Event Dispatcher)
  *   1. B·C에서 emit()으로 넘어온 raw 이벤트에 공통 필드 자동 부여
@@ -181,6 +181,7 @@ function emitSessionEnd(exitData = {}) {
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────
 
+// 공통 필드 붙여서 event 객체 완성하고 sender로 넘긴다
 function _dispatch(eventType, data, timestamp) {
   if (!(eventType in EVENT_VOCAB)) {
     console.warn(`[GhostTracker] Unknown event type: "${eventType}"`);

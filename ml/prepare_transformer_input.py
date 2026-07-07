@@ -41,6 +41,7 @@ SPECIAL_TOKENS = {
 }
 
 
+# 출력 디렉토리가 없으면 생성한다
 def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
@@ -85,6 +86,7 @@ def filter_sequences(rows: List[Dict], min_len: int) -> List[Dict]:
     return [row for row in rows if len(row["tokens"]) >= min_len]
 
 
+# 토큰 빈도를 집계해 special token 포함 vocab 사전을 생성한다
 def build_vocab(rows: List[Dict], min_freq: int = 1) -> Dict[str, int]:
     counter = Counter()
 
@@ -161,6 +163,7 @@ def encode_sequence(
     return input_ids, attention_mask, processed
 
 
+# vocab 사전을 JSON으로 저장한다
 def save_vocab(vocab: Dict[str, int], output_path: str) -> None:
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -168,6 +171,7 @@ def save_vocab(vocab: Dict[str, int], output_path: str) -> None:
         json.dump(vocab, f, ensure_ascii=False, indent=2)
 
 
+# 인코딩된 세션의 메타 정보(길이·사용 토큰)를 CSV로 저장한다
 def save_meta(rows: List[Dict], output_path: str) -> None:
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -196,6 +200,7 @@ def save_meta(rows: List[Dict], output_path: str) -> None:
             })
 
 
+# CSV 로드 → 필터 → vocab 빌드 → 인코딩 → .pt·vocab.json·meta.csv 저장
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Prepare Transformer input tensors from semantic session sequence CSV."

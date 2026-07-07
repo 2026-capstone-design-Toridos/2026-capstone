@@ -1,8 +1,12 @@
-// sdk-B.js
-// 역할:
-// - 클릭 / 마우스이동 / 입력 / 포커스 / 붙여넣기 / 탭 이탈·복귀 / hover dwell / 미디어 / 검색
-// - raw 이벤트만 감지해서 handleRawEvent(eventType, data)로 전달
-// - session_id, event_seq, timestamp, 파생 이벤트 생성은 A가 담당
+/**
+ * sdk-B.js — GhostTracker SDK 상호작용 이벤트 수집
+ *
+ * 역할: 클릭·마우스이동·입력·포커스·붙여넣기·탭이탈·hover·미디어·검색을 raw로 감지
+ *
+ * 감지만 하고 handleRawEvent(eventType, data)로 넘김.
+ * event_seq·timestamp·파생 이벤트 생성은 A(eventProcessor)가 담당.
+ * 이 파일에서 emit()을 직접 호출하지 않는다.
+ */
 
 let isInitialized = false;
 
@@ -25,6 +29,7 @@ const state = {
   videoWatchedPct: new WeakMap(),  // HTMLVideoElement → Set<number>
 };
 
+// 모든 B 트래커를 초기화한다 — 중복 init 방지 후 각 트래킹 함수를 순서대로 연결
 export function initB(handleRawEvent) {
   if (isInitialized) return;
   if (typeof handleRawEvent !== 'function') {
@@ -50,6 +55,7 @@ export function initB(handleRawEvent) {
    공통 유틸
 ========================= */
 
+// input/textarea/select 여부 확인
 function isFormElement(target) {
   return (
     target instanceof HTMLInputElement ||
@@ -58,6 +64,7 @@ function isFormElement(target) {
   );
 }
 
+// 클릭된 요소에서 추적 가능한 가장 가까운 조상 요소를 찾는다
 function getTrackableTarget(element) {
   if (!(element instanceof Element)) return null;
   return (
@@ -76,6 +83,7 @@ function getTrackableTarget(element) {
   );
 }
 
+// tag#id.class 형태의 짧은 레이블 문자열을 만든다
 function getElementLabel(element) {
   if (!(element instanceof Element)) return 'unknown';
   const tag = element.tagName ? element.tagName.toLowerCase() : 'unknown';
@@ -87,6 +95,7 @@ function getElementLabel(element) {
   return `${tag}${id}${className}`;
 }
 
+// 요소의 innerText나 value를 maxLength 글자로 잘라 반환
 function getElementText(element, maxLength = 80) {
   if (!element) return '';
   const raw =
@@ -98,12 +107,14 @@ function getElementText(element, maxLength = 80) {
   return raw.replace(/\s+/g, ' ').trim().slice(0, maxLength);
 }
 
+// 폼 요소의 현재 입력 길이를 반환
 function getFormValueLength(target) {
   if (!isFormElement(target)) return 0;
   if (typeof target.value !== 'string') return 0;
   return target.value.length;
 }
 
+// 폼 요소의 name·type·ghost_role 메타데이터를 묶어 반환
 function getFormMeta(target) {
   if (!isFormElement(target)) {
     return { input_target: 'unknown', input_name: null, input_type: null, ghost_role: null };
@@ -120,6 +131,7 @@ function getFormMeta(target) {
    클릭 + repeat_click
 ========================= */
 
+// 전역 클릭을 가로채서 click 이벤트를 emit한다
 function trackClicks(handleRawEvent) {
   document.addEventListener('click', (e) => {
     console.log("[B] 클릭 감지됨");
@@ -142,6 +154,7 @@ function trackClicks(handleRawEvent) {
    마우스 이동 (2초 주기)
 ========================= */
 
+// 2초마다 마우스 이동 거리와 방향 전환 횟수를 누적해서 전송
 function trackMouseMovement(handleRawEvent) {
   document.addEventListener('mousemove', (e) => {
     const x = e.clientX;
@@ -191,6 +204,7 @@ function trackMouseMovement(handleRawEvent) {
    입력
 ========================= */
 
+// 폼 요소 입력마다 input_change를 emit한다
 function trackInputs(handleRawEvent) {
   document.addEventListener('input', (e) => {
     const target = e.target;
@@ -206,6 +220,7 @@ function trackInputs(handleRawEvent) {
    포커스 / 블러
 ========================= */
 
+// 포커스·블러 시 field_focus/field_blur를, 빈 채로 blur하면 input_abandon도 emit
 function trackFocusAndBlur(handleRawEvent) {
   document.addEventListener(
     'focus',
@@ -245,6 +260,7 @@ function trackFocusAndBlur(handleRawEvent) {
    붙여넣기
 ========================= */
 
+// 폼 요소에 붙여넣기 하면 paste_event를 emit한다
 function trackPaste(handleRawEvent) {
   document.addEventListener('paste', (e) => {
     const target = e.target;
@@ -257,6 +273,7 @@ function trackPaste(handleRawEvent) {
    탭 이탈 / 복귀
 ========================= */
 
+// 탭 숨김/복귀를 감지해 tab_exit/tab_return을 emit한다
 function trackTabVisibility(handleRawEvent) {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
@@ -276,6 +293,7 @@ function trackTabVisibility(handleRawEvent) {
    Hover dwell (300ms 이상)
 ========================= */
 
+// 300ms 이상 머문 hover를 감지해서 hover_dwell을 emit한다
 function trackHoverDwell(handleRawEvent) {
   document.addEventListener(
     'mouseover',
@@ -312,6 +330,7 @@ function trackHoverDwell(handleRawEvent) {
    미디어 (이미지 슬라이드 / 줌 / 동영상)
 ========================= */
 
+// 이미지 슬라이드·줌, 동영상 재생·시청 진척을 감지한다
 function trackMedia(handleRawEvent) {
   // ── image_slide: data-ghost-role="slide-prev" 또는 "slide-next" 버튼 클릭 ──
   document.addEventListener('click', (e) => {
@@ -388,6 +407,7 @@ function trackMedia(handleRawEvent) {
    검색 입력 감지 (search_use)
 ========================= */
 
+// 검색창을 명시 셀렉터 + 휴리스틱으로 찾아서 search_use를 300ms debounce 후 emit한다
 function trackSearch(handleRawEvent) {
   const DEBOUNCE_MS = 300;
   const timers = new WeakMap();  // input element → timer id

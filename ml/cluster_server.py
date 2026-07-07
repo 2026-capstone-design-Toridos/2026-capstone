@@ -421,6 +421,7 @@ predictor: ClusterPredictor | None = None
 
 
 @app.route("/health", methods=["GET"])
+# 서버 상태와 모드(bert/tfidf), 클러스터 수를 반환한다
 def health():
     if predictor is None:
         return jsonify({"status": "initializing"}), 503
@@ -433,6 +434,7 @@ def health():
 
 
 @app.route("/classify", methods=["POST"])
+# tokens 또는 events를 받아 클러스터 분류 결과를 반환한다
 def classify():
     body = request.get_json(silent=True)
     if not body:
@@ -481,6 +483,7 @@ def classify_batch():
     return jsonify({"results": results, "count": len(results)})
 
 
+# CLI 인자(--model_dir, --port, --host, --device)를 파싱한다
 def parse_args():
     p = argparse.ArgumentParser(description="GhostTracker Cluster Inference Server")
     p.add_argument("--model_dir", default="output/unsupervised_semantic",

@@ -1,3 +1,8 @@
+/*
+ * 운영자 화면 전용 HTML 파일
+ * - SDK가 보내는 이벤트를 실시간으로 수집하고, 요약/분석하여 운영자에게 보여줌
+ * - 운영자가 쉽게 이해할 수 있는 언어로 번역된 인사이트와 액션을 제공
+ */
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -854,6 +859,11 @@
   </main>
 
   <script>
+    /*
+      운영자 대시보드 스크립트.
+      백엔드에서 로그, 세션, 클러스터링 결과를 가져와 운영자가 보기 쉬운 말로 바꿔서 보여준다.
+      2.5초마다 polling으로 갱신하고, 고객 유형(클러스터)은 버튼을 눌러야 다시 계산된다.
+    */
     const DEMO_ORIGIN = "https://toridos.vercel.app";
     const state = {
       origin: "",
@@ -867,14 +877,15 @@
 
     Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue("--font-body").trim();
 
-    const $ = (id) => document.getElementById(id);
-    const fmt = (n) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("ko-KR") : "-";
-    const shortId = (sid) => sid ? `${sid.slice(0, 8)}...${sid.slice(-4)}` : "-";
-    const customerNumber = (sessionId) => {
+    const $ = (id) => document.getElementById(id); // id로 엘리먼트 가져오기
+    const fmt = (n) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("ko-KR") : "-"; // 숫자를 천단위 콤마로
+    const shortId = (sid) => sid ? `${sid.slice(0, 8)}...${sid.slice(-4)}` : "-"; // 세션ID 앞뒤만 잘라서 표시
+    const customerNumber = (sessionId) => { // 세션ID를 "최근 고객 n번" 순번으로 변환
       const idx = state.sessions.findIndex((s) => s.session_id === sessionId);
       return idx >= 0 ? idx + 1 : "?";
     };
 
+    // 고객 유형 비중 도넛 차트
     const chart = new Chart($("type-chart"), {
       type: "doughnut",
       data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0 }] },
@@ -884,6 +895,7 @@
       },
     });
 
+    // fetch 감싸서 에러 응답이면 메시지 같이 던져줌
     async function api(path, options) {
       const res = await fetch(path, options);
       const body = await res.json().catch(() => ({}));
@@ -891,11 +903,13 @@
       return body;
     }
 
+    // 상단 연결 상태 표시(정상/오류) 갱신
     function setStatus(ok, text) {
       $("status").textContent = text;
       $("status").className = ok ? "live" : "live bad";
     }
 
+    // 클러스터 라벨/대표 행동을 보고 운영자가 알아볼 수 있는 이름으로 바꿔준다
     function friendlyClusterName(cluster) {
       const actions = (cluster.top_actions || []).map((a) => a.action);
       const label = cluster.label || "";
@@ -911,6 +925,7 @@
       return `고객 유형 ${cluster.cluster}`;
     }
 
+    // 유형 이름에 맞는 설명 문구
     function friendlyClusterDesc(cluster) {
       const name = friendlyClusterName(cluster);
       if (name.includes("꼼꼼히")) return "리뷰와 이미지를 많이 확인합니다. 상세 정보와 후기 노출이 중요합니다.";
@@ -920,6 +935,7 @@
       return "행동 패턴을 바탕으로 묶인 고객 유형입니다.";
     }
 
+    // 유형마다 카드 강조 색(class) 결정
     function typeTone(cluster) {
       const name = friendlyClusterName(cluster);
       if (name.includes("행동 데이터 부족")) return "exit";
@@ -933,6 +949,7 @@
       return "search";
     }
 
+    // cluster id로 라벨/설명/추천 액션 찾기
     function clusterDetails(clusterId) {
       const cluster = state.clusters.find((c) => String(c.cluster) === String(clusterId));
       if (!cluster) {
@@ -945,6 +962,7 @@
       };
     }
 
+    // 주문 완료한 세션은 AI 분류 결과 대신 이 설명으로 덮어씀
     function completedSessionInsight(baseDetails = {}) {
       return {
         label: "주문을 완료한 고객",
@@ -953,6 +971,7 @@
       };
     }
 
+    // 세부 클러스터 이름을 상위 카테고리(key)로 묶기 위한 설명/추천 액션 정의
     function operatorClusterMeta(name) {
       if (name.includes("행동 데이터 부족")) {
         return {
@@ -1002,6 +1021,7 @@
       };
     }
 
+    // 그룹에 속한 세부 클러스터들의 top_actions를 합쳐서 상위 3개만
     function aggregateTopActions(clusters) {
       const counts = new Map();
       clusters.forEach((cluster) => {
@@ -1015,6 +1035,7 @@
         .map(([action, count]) => ({ action, count }));
     }
 
+    // 그룹 안에서 가장 낮은 검증 상태를 대표값으로 사용
     function aggregateValidation(clusters) {
       const statuses = clusters.map((cluster) => cluster.validation?.status).filter(Boolean);
       if (!statuses.length) return { status: "weak" };
@@ -1023,6 +1044,7 @@
       return { status: "verified" };
     }
 
+    // 세부 클러스터를 같은 카테고리끼리 합쳐서 상위 4개만 화면에 노출
     function aggregateOperatorClusters(clusters) {
       const groups = new Map();
       clusters.forEach((cluster) => {
@@ -1060,6 +1082,7 @@
         .slice(0, 4);
     }
 
+    // 이벤트 액션 코드를 쉬운 말로 바꾸는 표
     function friendlyAction(action) {
       const labels = {
         START_SESSION: "쇼핑몰 방문",
@@ -1083,6 +1106,7 @@
       return labels[action] || action.replaceAll("_", " ").toLowerCase();
     }
 
+    // 활동 목록에 보여줄 한 줄 문구로 변환
     function eventText(e) {
       const d = e.data || {};
       if (isOrderSuccessEvent(e)) return "주문 성공 화면을 확인했습니다.";
@@ -1104,6 +1128,7 @@
       }
     }
 
+    // 별도 "주문 완료" 이벤트가 없어서 클릭/호버 텍스트로 주문 성공 여부를 추정
     function isOrderSuccessEvent(e) {
       const d = e.data || {};
       const text = `${d.hover_text || ""} ${d.click_text || ""}`;
@@ -1111,10 +1136,12 @@
       return text.includes("주문이 완료") || target.includes("complete");
     }
 
+    // 탐색 중지로 볼 만한 이벤트 타입인지 판단
     function isRiskEvent(e) {
       return ["tab_exit", "inactivity", "session_end", "cart_abandon_flag"].includes(e.event_type);
     }
 
+    // 행동 흐름(renderBehaviorFlow)에 넣을 짧은 라벨
     function shortEventText(e) {
       const d = e.data || {};
       const text = `${d.hover_text || ""} ${d.click_text || ""}`.trim();
@@ -1142,6 +1169,7 @@
       return labels[e.event_type] || e.event_type.replaceAll("_", " ");
     }
 
+    // 이벤트 목록을 화살표로 이어진 행동 흐름 HTML로 변환
     function renderBehaviorFlow(events, limit = 6) {
       if (!events.length) return `<div class="empty">아직 이 고객의 행동 흐름이 없습니다.</div>`;
       const usefulTypes = new Set([
@@ -1169,6 +1197,7 @@
       });
       const meaningful = compact.filter((label) => !["페이지 이동", "탭 떠남", "탭 돌아옴", "움직임 없음"].includes(label));
       const source = meaningful.length >= 3 ? meaningful : compact;
+      // 흐름이 너무 길면 앞뒤만 보여주고 중간은 생략
       const display = source.length > limit
         ? [...source.slice(0, Math.ceil(limit / 2)), `중간 ${source.length - limit}개 생략`, ...source.slice(-(Math.floor(limit / 2)))]
         : source;
@@ -1183,6 +1212,7 @@
       `;
     }
 
+    // URL로 어떤 페이지(홈/상품/장바구니/결제 등)였는지 분류
     function eventPage(e) {
       const path = `${e.pathname || ""} ${e.page_url || ""}`.toLowerCase();
       if (path.includes("checkout") || path.includes("payment")) return "checkout";
@@ -1192,6 +1222,7 @@
       return "home";
     }
 
+    // 세션별 로그를 한 행으로 합치고 마지막 활동 시간 기준으로 정렬 (세션 목록 API가 없을 때 fallback)
     function groupSessions(logs) {
       const map = new Map();
       logs.forEach((e) => {
@@ -1224,6 +1255,7 @@
         .sort((a, b) => new Date(b.last_at) - new Date(a.last_at));
     }
 
+    // referrer URL에서 도메인만 뽑기
     function hostFromUrl(raw) {
       if (!raw) return "";
       try {
@@ -1233,6 +1265,7 @@
       }
     }
 
+    // 세션 카드에 보여줄 유입 경로 태그들
     function sourceTags(session) {
       const tags = [];
       if (session?.utm_source) tags.push(`유입: ${prettySourceName(session.utm_source)}`);
@@ -1243,6 +1276,7 @@
       return tags;
     }
 
+    // 도메인/유입값을 알아보기 좋은 이름으로 (notion, instagram 등)
     function prettySourceName(raw) {
       const value = String(raw || "").trim().toLowerCase();
       if (!value) return "직접 방문";
@@ -1256,6 +1290,7 @@
       return String(raw).replace(/^www\./i, "");
     }
 
+    // 세션 하나의 대표 유입 경로 이름
     function sessionSourceName(session) {
       if (session?.utm_source) return prettySourceName(session.utm_source);
       const refHost = hostFromUrl(session?.referrer);
@@ -1263,6 +1298,7 @@
       return "직접 방문";
     }
 
+    // 유입 경로 TOP 목록 렌더링
     function renderTopSources(payload = {}) {
       const rows = Array.isArray(payload.sources)
         ? payload.sources.map((item) => [item.name, item.count])
@@ -1277,6 +1313,7 @@
         : `<div class="source-top-title">유입 경로 TOP</div><div class="source-row"><div class="source-name">유입 경로 없음</div><div class="source-count">0명</div></div>`;
     }
 
+    // 인사이트 카드 4종이 공통으로 쓰는 리스트 렌더러
     function renderInsightList(targetId, items, renderItem, emptyText) {
       const target = $(targetId);
       if (!items?.length) {
@@ -1286,6 +1323,7 @@
       target.innerHTML = items.map(renderItem).join("");
     }
 
+    // 막히는 화면 / 문제 원인 / 우선순위 / 유입 경로 성과 4개 카드 채우기
     function renderOperatorSummary(summary = {}) {
       renderInsightList(
         "blocked-pages",
@@ -1343,11 +1381,13 @@
       );
     }
 
+    // 값이 없으면 "-"로 표시
     function qualityValue(value, suffix = "") {
       if (value === undefined || value === null || Number.isNaN(Number(value))) return "-";
       return `${Number(value).toLocaleString("ko-KR")}${suffix}`;
     }
 
+    // 검증 통과/필요, 분리도, 미분류 비율 카드 채우기
     function renderQualitySummary(quality = {}) {
       const verified = quality.verified_clusters ?? 0;
       const needsReview = (quality.weak_clusters ?? 0) + (quality.insufficient_clusters ?? 0);
@@ -1365,6 +1405,7 @@
       `;
     }
 
+    // 클러스터 결과는 실시간이 아니라 마지막 "고객 유형 다시 찾기" 실행 시점 스냅샷이라는 걸 안내
     function renderClusterSnapshotInfo(data = {}) {
       const meta = data.meta || {};
       const stamp = meta.last_retrain
@@ -1378,13 +1419,16 @@
       $("cluster-snapshot-note").textContent = note;
     }
 
+    // 검증 상태를 뱃지 HTML로
     function validationBadge(validation = {}) {
       if (validation.status === "verified") return `<span class="badge good">검증 통과</span>`;
       if (validation.status === "insufficient") return `<span class="badge risk">데이터 부족</span>`;
       return `<span class="badge weak">검증 필요</span>`;
     }
 
+    // 클러스터 차트/카드 전체 그리기
     function renderClusters(data) {
+      // cluster -1은 노이즈(미분류) 묶음이라 화면에는 제외
       const rawClusters = (data.clusters || []).filter((c) => c.cluster >= 0);
       state.clusters = rawClusters;
       const clusters = aggregateOperatorClusters(rawClusters);
@@ -1423,6 +1467,7 @@
       });
     }
 
+    // 최근 고객 목록 렌더링
     function renderSessions() {
       if (!state.sessions.length) {
         $("session-list").innerHTML = `<div class="empty">아직 최근 고객이 없습니다.</div>`;
@@ -1443,6 +1488,7 @@
       });
     }
 
+    // 방금 들어온 행동 목록 렌더링
     function renderActivities() {
       if (!state.logs.length) {
         $("activity-list").innerHTML = `<div class="empty">행동 데이터를 기다리는 중입니다.</div>`;
@@ -1456,6 +1502,7 @@
       `).join("");
     }
 
+    // 고객 선택 시 분석 결과 초기화하고 행동 흐름부터 보여주기
     function selectSession(sessionId) {
       state.selectedSessionId = sessionId;
       $("session-input").dataset.sessionId = sessionId;
@@ -1476,6 +1523,7 @@
       renderSessions();
     }
 
+    // 선택한 세션을 분류 API로 분석
     async function analyzeSession() {
       const sessionId = $("session-input").dataset.sessionId || $("session-input").value.trim();
       if (!sessionId) return;
@@ -1487,6 +1535,7 @@
         const result = await api(`/api/classify/session/${encodeURIComponent(sessionId)}`, { method: "POST" });
         const details = clusterDetails(result.cluster_id);
         const completed = result.completed || state.selectedEvents.some((event) => isOrderSuccessEvent(event));
+        // 실제로 주문까지 완료한 세션은 AI가 분류한 유형 대신 "주문 완료" 설명으로 덮어씀
         const displayDetails = completed ? completedSessionInsight(details) : details;
         state.analysis = {
           ...result,
@@ -1513,6 +1562,7 @@
       }
     }
 
+    // 세션 리포트 요청용 데이터 묶기
     function sessionPayload() {
       return {
         session_id: state.analysis?.session_id || state.selectedSessionId,
@@ -1530,6 +1580,7 @@
       };
     }
 
+    // 고객 리포트 받아와서 표시
     async function loadSessionReport() {
       if (!state.analysis) return;
       $("report-box").textContent = "고객 리포트를 만드는 중입니다.";
@@ -1545,6 +1596,7 @@
       }
     }
 
+    // 유형 리포트 받아와서 표시
     async function loadClusterReport(clusterId = state.analysis?.cluster_id) {
       if (clusterId === undefined || clusterId === null || clusterId === "") return;
       $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
@@ -1559,6 +1611,7 @@
       }
     }
 
+    // 완료/위험 세션 수에 따라 헤드라인과 추천 문구를 다르게 보여줌
     function updateAdvice(stats) {
       const byType = stats.by_type || {};
       const riskCount = state.sessions.filter((s) => s.risky).length;
@@ -1583,6 +1636,7 @@
       }
     }
 
+    // 사이트 필터 옵션 채우기
     async function loadSites() {
       try {
         const sites = await api("/api/logs/sites");
@@ -1600,10 +1654,12 @@
       }
     }
 
+    // 2.5초마다 호출되는 메인 갱신 함수 - 통계/로그/세션/클러스터를 받아서 화면 전체를 다시 그림
     async function refresh() {
       const origin = state.origin ? `&origin=${encodeURIComponent(state.origin)}` : "";
       const clusterOrigin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
       try {
+        // 화면에 필요한 데이터를 한 번에 병렬로 가져옴 (2.5초마다 호출됨)
         const [stats, logs, sessions, sources, operatorSummary, clusters] = await Promise.all([
           api(`/api/logs/stats?${origin}`),
           api(`/api/logs?limit=200${origin}`),
@@ -1631,6 +1687,7 @@
       }
     }
 
+    // "고객 유형 다시 찾기" 버튼 핸들러 - 클러스터링을 새로 돌리고 스냅샷으로 저장
     async function rediscoverCustomerTypes() {
       const btn = $("rediscover-types");
       btn.disabled = true;
@@ -1675,6 +1732,7 @@
       e.currentTarget.dataset.sessionId = "";
     });
 
+    // 사이트 목록 로드 -> 첫 데이터 갱신 -> 최근 세션 자동 선택 -> 2.5초마다 polling
     (async function init() {
       await loadSites();
       await refresh();

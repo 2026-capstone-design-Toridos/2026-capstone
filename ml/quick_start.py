@@ -1,4 +1,10 @@
-# quick_start.py
+"""
+quick_start.py — MongoDB 이벤트 기반 초기 클러스터링 실험 스크립트
+
+역할: MongoDB에서 이벤트를 읽어 시간 기반 세션을 재구성하고,
+     Word2Vec 임베딩 + HDBSCAN으로 클러스터링한 뒤 PCA 시각화로 확인한다.
+     초기 프로토타입용 실험 코드로, 현재 운영 파이프라인과는 분리되어 있다.
+"""
 
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -81,6 +87,7 @@ model = Word2Vec(
     min_count=1
 )
 
+# 시퀀스의 Word2Vec 벡터 평균을 세션 임베딩으로 반환한다
 def embed(seq):
     vecs = [model.wv[w] for w in seq if w in model.wv]
     if not vecs:
@@ -129,6 +136,7 @@ for k, v in cluster_map.items():
 # ===============================
 # cluster 이름 자동 부여
 
+# 이벤트 빈도를 기반으로 클러스터에 사람이 읽을 수 있는 이름을 붙인다
 def name_cluster(event_counts):
     events = dict(event_counts)
 

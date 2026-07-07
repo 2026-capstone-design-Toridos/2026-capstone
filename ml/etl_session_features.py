@@ -249,6 +249,7 @@ def build_session_features(events):
     return df
 
 # ── 저장 ─────────────────────────────────────────────────────────
+# feature DataFrame을 타임스탬프 파일명으로 CSV에 저장한다
 def save(df, output_dir='ml/output'):
     os.makedirs(output_dir, exist_ok=True)
     today = datetime.now().strftime('%Y%m%d_%H%M')

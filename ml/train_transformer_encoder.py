@@ -119,6 +119,7 @@ class SessionTransformerEncoder(nn.Module):
         return summed / denom
 
 
+# 재현성 보장을 위해 Python·numpy·torch 난수 시드를 동일하게 고정한다
 def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
@@ -156,6 +157,7 @@ def create_masked_inputs(
     return masked_input_ids, labels
 
 
+# session_meta.csv를 읽어 행 목록으로 반환한다
 def load_meta(meta_path: str):
     rows = []
 
@@ -167,6 +169,7 @@ def load_meta(meta_path: str):
     return rows
 
 
+# 세션 메타 정보를 cluster_ready CSV로 저장한다
 def save_embedding_meta(meta_rows, cluster_ready_path):
     with open(cluster_ready_path, "w", encoding="utf-8-sig", newline="") as f:
         fieldnames = [
@@ -192,6 +195,7 @@ def save_embedding_meta(meta_rows, cluster_ready_path):
             })
 
 
+# TransformerMLM 학습 → 세션 임베딩 생성 → 모델·임베딩·메타 저장까지 전체 흐름을 실행한다
 def train(args):
     set_seed(args.seed)
 
@@ -348,6 +352,7 @@ def train(args):
     print(f"Embedding shape: {embeddings.shape}")
 
 
+# CLI 인자를 파싱하고 train()을 호출한다
 def main():
     parser = argparse.ArgumentParser(
         description="Train Transformer Encoder for GhostTracker session modeling."

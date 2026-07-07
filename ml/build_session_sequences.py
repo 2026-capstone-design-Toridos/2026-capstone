@@ -303,6 +303,7 @@ def load_events_from_json(path: str) -> List[Event]:
     return events
 
 
+# CSV 파일에서 이벤트를 읽어온다 — data 필드는 dict로 복원한다
 def load_events_from_csv(path: str) -> List[Event]:
     events: List[Event] = []
 
@@ -326,6 +327,7 @@ def load_events_from_csv(path: str) -> List[Event]:
     return events
 
 
+# MongoDB 컬렉션에서 이벤트를 세션 순서대로 읽어온다
 def load_events_from_mongo(
     mongo_uri: str,
     db_name: str,
@@ -346,6 +348,7 @@ def load_events_from_mongo(
     return list(cursor)
 
 
+# --input 또는 --mongo-uri 인자에 따라 적절한 로드 함수를 선택한다
 def load_events(args: argparse.Namespace) -> List[Event]:
     if args.mongo_uri:
         return load_events_from_mongo(
@@ -391,6 +394,7 @@ def event_sort_key(event: Event) -> tuple:
     return timestamp, event_seq
 
 
+# 이벤트를 session_id 기준으로 묶고 각 세션 내부를 timestamp·event_seq 기준으로 정렬한다
 def group_by_session(events: Iterable[Event]) -> Dict[str, List[Event]]:
     sessions: Dict[str, List[Event]] = defaultdict(list)
 
@@ -408,6 +412,7 @@ def group_by_session(events: Iterable[Event]) -> Dict[str, List[Event]]:
     return sessions
 
 
+# 이벤트 doc에서 data 필드를 dict로 안전하게 꺼낸다
 def get_data(event: Event) -> Dict[str, Any]:
     data = event.get("data", {})
     return data if isinstance(data, dict) else {}
@@ -547,6 +552,7 @@ def build_semantic_sequence_for_session(
     }
 
 
+# 전체 이벤트를 세션별로 묶어 semantic sequence를 생성하고 UNKNOWN 비율이 높은 세션을 걸러낸다
 def build_all_session_sequences(
     events: List[Event],
     *,
@@ -592,10 +598,12 @@ def build_all_session_sequences(
 # Output
 # =========================================================
 
+# 출력 디렉토리가 없으면 생성한다
 def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
+# 세션 시퀀스를 CSV로 저장한다 — sequence 컬럼은 공백 구분 문자열
 def save_sequences_csv(results: List[Dict[str, Any]], output_path: str) -> None:
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -622,6 +630,7 @@ def save_sequences_csv(results: List[Dict[str, Any]], output_path: str) -> None:
             })
 
 
+# 세션 시퀀스를 JSONL로 저장한다 — debug_events 포함
 def save_sequences_jsonl(results: List[Dict[str, Any]], output_path: str) -> None:
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -630,6 +639,7 @@ def save_sequences_jsonl(results: List[Dict[str, Any]], output_path: str) -> Non
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+# 세션별 debug_events(이벤트 → 토큰 매핑 내역)를 JSON으로 저장한다
 def save_debug_json(results: List[Dict[str, Any]], output_path: str) -> None:
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -645,6 +655,7 @@ def save_debug_json(results: List[Dict[str, Any]], output_path: str) -> None:
         json.dump(debug_rows, f, ensure_ascii=False, indent=2)
 
 
+# 세션 수·토큰 수·상위 토큰 빈도를 콘솔에 출력한다
 def print_summary(results: List[Dict[str, Any]]) -> None:
     total_sessions = len(results)
     total_tokens = sum(row.get("length", 0) for row in results)
@@ -671,6 +682,7 @@ def print_summary(results: List[Dict[str, Any]]) -> None:
 # CLI
 # =========================================================
 
+# CLI 인자 파서를 빌드한다
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Build PAGE|SEMANTIC|CONTEXTUAL session sequences from raw GhostTracker events."
@@ -759,6 +771,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# CLI 진입점 — 이벤트 로드 → 시퀀스 생성 → CSV·JSONL·DEBUG 저장
 def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()

@@ -33,10 +33,12 @@ except ImportError:
     hdbscan = None
 
 
+# 출력 디렉토리가 없으면 생성한다
 def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
+# session_embedding_meta.csv를 읽어 행 목록으로 반환한다
 def load_meta(path: str):
     rows = []
 
@@ -48,6 +50,7 @@ def load_meta(path: str):
     return rows
 
 
+# PAGE|SEMANTIC|CONTEXTUAL 형태의 토큰을 세 파트로 분리한다
 def token_parts(token: str):
     if not token or "|" not in token:
         return "UNKNOWN", "UNKNOWN", "UNKNOWN"
@@ -60,17 +63,20 @@ def token_parts(token: str):
     return page, semantic, contextual
 
 
+# 세션 row에서 sequence를 공백 구분 토큰 리스트로 추출한다
 def get_tokens(row):
     seq = row.get("sequence", "") or ""
     return seq.split()
 
 
+# 임베딩을 PCA로 2차원으로 축소해 시각화용 좌표를 반환한다
 def run_pca(embeddings: np.ndarray, n_components: int = 2):
     pca = PCA(n_components=n_components, random_state=42)
     points = pca.fit_transform(embeddings)
     return points, pca
 
 
+# HDBSCAN으로 임베딩을 클러스터링하고 레이블·확률을 반환한다
 def run_hdbscan(embeddings: np.ndarray, min_cluster_size: int, min_samples: int):
     if hdbscan is None:
         raise ImportError(
@@ -90,6 +96,7 @@ def run_hdbscan(embeddings: np.ndarray, min_cluster_size: int, min_samples: int)
     return labels, probs, clusterer
 
 
+# 클러스터 레이블·확률·PCA 좌표를 CSV로 저장한다
 def save_cluster_results(meta_rows, labels, probs, pca_points, output_path):
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -121,6 +128,7 @@ def save_cluster_results(meta_rows, labels, probs, pca_points, output_path):
             })
 
 
+# PCA 2D 좌표에 클러스터별 색상을 입혀 PNG로 저장한다
 def plot_clusters(pca_points, labels, output_path):
     plt.figure(figsize=(10, 7))
 
@@ -151,6 +159,7 @@ def plot_clusters(pca_points, labels, output_path):
     plt.close()
 
 
+# 클러스터별 세션 수·상위 토큰·페이지 분포를 텍스트 파일로 요약한다
 def summarize_clusters(meta_rows, labels, output_path, top_n: int = 10):
     ensure_dir(os.path.dirname(output_path) or ".")
 
@@ -235,6 +244,7 @@ def summarize_clusters(meta_rows, labels, output_path, top_n: int = 10):
     return report
 
 
+# CLI 진입점 — 임베딩 로드 → L2 정규화 → PCA → HDBSCAN → CSV·차트·요약 저장
 def main():
     parser = argparse.ArgumentParser(
         description="Cluster GhostTracker session embeddings."

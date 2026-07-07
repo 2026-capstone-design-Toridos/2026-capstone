@@ -60,6 +60,7 @@ class TransformerMLM(nn.Module):
 
 
 # ── 모델 로드 ──────────────────────────────────────────────────────────────────
+# cluster_meta.json 하이퍼파라미터로 TransformerMLM을 복원하고 학습된 가중치를 로드한다
 def load_model(meta: dict, device: str = 'cpu') -> TransformerMLM:
     state = torch.load(MODEL_PATH, map_location=device, weights_only=True)
     if 'model_state_dict' in state:
@@ -84,6 +85,7 @@ def load_model(meta: dict, device: str = 'cpu') -> TransformerMLM:
 
 
 # ── 세션 임베딩 ────────────────────────────────────────────────────────────────
+# 토큰 ID 시퀀스 하나를 BERT 모델로 임베딩해 numpy 벡터로 반환한다
 def embed_session(model: TransformerMLM, token_ids: list,
                   meta: dict, device: str = 'cpu') -> np.ndarray:
     PAD = meta['special_tokens']['PAD_ID']
@@ -108,6 +110,7 @@ def embed_session(model: TransformerMLM, token_ids: list,
 
 
 # ── MongoDB에서 세션 토큰 시퀀스 불러오기 ─────────────────────────────────────
+# MongoDB events 컬렉션에서 세션별 토큰 ID 시퀀스를 읽어온다
 def load_sessions_from_mongo() -> dict:
     try:
         from pymongo import MongoClient
@@ -176,6 +179,7 @@ def compute_profiles(sessions: dict, assignments: dict, meta: dict) -> dict:
     return result
 
 
+# 실루엣 점수·Davies-Bouldin 지수 등 클러스터링 품질 지표를 계산한다
 def compute_quality_metrics(emb_norm: np.ndarray, labels: np.ndarray) -> dict:
     valid = labels >= 0
     n_total = int(len(labels))
@@ -203,12 +207,14 @@ def compute_quality_metrics(emb_norm: np.ndarray, labels: np.ndarray) -> dict:
     return metrics
 
 
+# 클러스터 프로파일에서 상위 액션·페이지 집합을 뽑아 비교용 시그니처로 만든다
 def profile_signature(profile: dict) -> set:
     actions = [f"A:{a.get('action')}" for a in profile.get('top_actions', [])[:5]]
     pages = [f"P:{p}" for p in list((profile.get('page_dist') or {}).keys())[:5]]
     return set(actions + pages)
 
 
+# 이전 run과 이번 run의 클러스터 프로파일을 Jaccard 유사도로 비교해 안정성을 평가한다
 def compute_profile_stability(old_profiles: dict, new_profiles: dict) -> dict:
     old_signatures = {
         cid: profile_signature(profile)
@@ -256,6 +262,7 @@ def ema_update(old_centroids: np.ndarray, new_embeddings: list,
 
 
 # ── 메인 ──────────────────────────────────────────────────────────────────────
+# 전체 retrain 파이프라인 실행 — 로드 → 임베딩 → EMA 또는 HDBSCAN 업데이트 → 저장
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--full',    action='store_true', help='HDBSCAN 전체 재클러스터링')

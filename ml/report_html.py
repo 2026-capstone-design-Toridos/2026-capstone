@@ -115,9 +115,11 @@ PAGE_KO = {
     'MYPAGE'  : '마이페이지',
 }
 
+# 영어 action 코드를 한국어 표현으로 변환한다 — 매핑 없으면 Title Case로 폴백
 def ko_action(raw: str) -> str:
     return ACTION_KO.get(raw, raw.replace('_', ' ').title())
 
+# 영어 page 코드를 한국어 표현으로 변환한다
 def ko_page(raw: str) -> str:
     return PAGE_KO.get(raw, raw)
 
@@ -161,6 +163,7 @@ def merge_profiles(raw: dict) -> dict:
     return out
 
 # ── 데이터 기반 인사이트 템플릿 (유형마다 다르게, Gemini 미사용/실패 시) ──────────
+# 유형명에 따라 데이터 기반 인사이트 문단을 반환한다 — Gemini 실패 시 폴백으로 사용
 def template_insight(name: str, profile: dict, intent: str, share_pct: int) -> str:
     acts = meaningful_actions(profile, 3)
     top_txt = ', '.join(ko_action(a['action']) for a in acts) or '여러 탐색 행동'
@@ -205,6 +208,7 @@ def template_insight(name: str, profile: dict, intent: str, share_pct: int) -> s
         f"구매 가능성은 {intent} 수준이며, 해당 행동에 맞춘 안내·혜택을 제공하면 전환을 높일 수 있습니다.")
 
 # ── 폰트 설정 ──────────────────────────────────────────────────────────────────
+# NanumGothic 폰트를 /tmp/fonts에 다운로드하고 matplotlib에 등록한다
 def setup_fonts():
     os.makedirs(FONT_DIR, exist_ok=True)
     reg  = os.path.join(FONT_DIR, 'NanumGothic-Regular.ttf')
@@ -231,6 +235,7 @@ DUMMY_INSIGHT = (
     "구매 전환율을 효과적으로 높일 수 있습니다."
 )
 
+# Gemini API를 호출해 인사이트 텍스트를 받아온다 — 실패 시 DUMMY_INSIGHT 반환
 def call_gemini(prompt: str) -> str:
     if not GEMINI_KEY:
         return DUMMY_INSIGHT
@@ -257,6 +262,7 @@ def call_gemini(prompt: str) -> str:
             return f'(오류: {ex})'
     return DUMMY_INSIGHT
 
+# 클러스터 프로파일을 바탕으로 Gemini에게 보낼 분석 프롬프트를 만든다
 def build_gemini_prompt(cid: str, profile: dict) -> str:
     top  = ', '.join(f"{ko_action(a['action'])}({a['count']}회)"
                      for a in meaningful_actions(profile, 7))
@@ -283,6 +289,7 @@ def build_gemini_prompt(cid: str, profile: dict) -> str:
 기술적 용어 없이, 쇼핑몰 비전공자도 이해할 수 있는 쉬운 표현으로 써주세요."""
 
 # ── 구매 의향 추론 ────────────────────────────────────────────────────────────
+# 행동 비율 기반으로 구매 의향(높음/중간/낮음)을 추론한다
 def infer_intent(profile: dict) -> str:
     acts  = {a['action']: a['count'] for a in profile.get('top_actions', [])}
     # generic 인터랙션을 뺀 "의미 있는 행동" 기준으로 비율 계산 (변별력 확보)
@@ -296,6 +303,7 @@ def infer_intent(profile: dict) -> str:
     return '중간'
 
 # ── 고객 유형 이름 자동 생성 ───────────────────────────────────────────────────
+# 행동 패턴 비율로 고객 유형 이름을 자동 분류한다 — 이미 통합된 유형은 그대로 반환
 def type_name(cid: str, profile: dict) -> str:
     if profile.get('name'):          # 이미 통합된 유형이면 그대로 사용
         return profile['name']
@@ -328,6 +336,7 @@ def type_name(cid: str, profile: dict) -> str:
         return '일반 탐색형'
 
 # ── 차트 → base64 PNG ─────────────────────────────────────────────────────────
+# BytesIO 버퍼를 base64 문자열로 변환해 HTML img src에 직접 삽입할 수 있게 한다
 def b64(buf: BytesIO) -> str:
     buf.seek(0)
     return base64.b64encode(buf.read()).decode()
@@ -402,6 +411,7 @@ def chart_pages(cid: str, profile: dict) -> str:
 # ── 전환 퍼널 계산 ─────────────────────────────────────────────────────────────
 FUNNEL_STAGES = ['방문', '상품 조회', '장바구니', '결제 도달', '구매 클릭']
 
+# 세션 시퀀스에서 도달한 가장 깊은 퍼널 단계(0~4)를 반환한다
 def _furthest_stage(seq: str) -> int:
     pages, sems = set(), set()
     for tok in seq.split():
@@ -470,6 +480,7 @@ def compute_funnel(session_path: str, cluster_path: str, cid_to_name: dict):
             'by_type': by_type, 'avg_buy': avg_buy}
 
 # 퍼널 구매클릭 도달율 → 구매 가능성 상대 등급
+# 구매클릭 도달율을 전체 평균과 비교해 구매 가능성 등급을 반환한다
 def intent_from_funnel(buy_rate: float, avg_buy: float) -> str:
     hi = max(avg_buy * 1.2, 15)
     lo = avg_buy * 0.6
@@ -484,6 +495,7 @@ def type_intent(name: str, profile: dict, funnel: dict) -> str:
         return intent_from_funnel(funnel['by_type'][name]['buy_rate'], funnel['avg_buy'])
     return infer_intent(profile)
 
+# 퍼널 단계별 도달율을 가로 막대 차트로 그려 base64 PNG를 반환한다
 def chart_funnel(funnel: dict) -> str:
     stages, reach, total = FUNNEL_STAGES, funnel['reach'], funnel['total']
     fig, ax = plt.subplots(figsize=(8, 3.6), facecolor='white')
@@ -503,6 +515,7 @@ def chart_funnel(funnel: dict) -> str:
     return b64(buf)
 
 # ── HTML 빌드 ─────────────────────────────────────────────────────────────────
+# 표지·요약·퍼널·클러스터·제안·방법론 페이지를 조합해 완성된 HTML 문자열을 반환한다
 def build_html(start: str, end: str, profiles: dict,
                ai_reports: dict, font_reg: str, font_bold: str,
                funnel: dict = None, exit_captures: list = None) -> str:
@@ -1359,6 +1372,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 
 
 # ── 리포트 생성 메인 ──────────────────────────────────────────────────────────
+# 폰트 설정 → 데이터 로드 → AI 인사이트 → 퍼널 → 이탈캡처 → HTML·PDF 저장 순서로 실행한다
 def generate_report(start_date: str, end_date: str, output_path: str):
     print("=" * 55)
     print("  GhostTracker 고객 분석 리포트 생성기 (HTML → PDF)")
@@ -1452,6 +1466,7 @@ def generate_report(start_date: str, end_date: str, output_path: str):
     print(f"   파일 크기: {size_kb} KB  |  총 페이지: ~{total_p}p")
 
 
+# CLI 인자(--start, --end, --output)를 파싱하고 generate_report를 호출한다
 def main():
     p = argparse.ArgumentParser(description='GhostTracker 리포트 생성')
     p.add_argument('--start',  default=datetime.now().strftime('%Y-%m-01'))

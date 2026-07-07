@@ -1,15 +1,15 @@
 /**
- * Compatibility route for older /api/predict clients.
+ * predict.js — 옛 /api/predict 클라이언트용 호환 라우트
  *
- * The current classifier is implemented by /api/classify and the Python
- * cluster server. This route keeps server startup working and forwards simple
- * prediction requests to that classifier.
+ * 지금은 분류 로직을 /api/classify와 Python 클러스터 서버가 맡고 있어서,
+ * 이 라우트는 서버가 안 죽게 살려두면서 들어오는 요청을 그쪽으로 그대로 넘겨준다.
  */
 const express = require('express');
 const router = express.Router();
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 
+// 분류 서버에 프록시 요청을 보내고 실패하면 그대로 에러를 던진다
 async function callCluster(path, body) {
   const res = await fetch(`${CLUSTER_SERVER}${path}`, {
     method: 'POST',

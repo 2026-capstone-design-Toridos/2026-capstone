@@ -1,3 +1,17 @@
+"""
+exit_capture.py — GhostTracker 이탈 핫스팟 캡처 모듈
+
+역할: MongoDB에서 이탈 이벤트(session_end / tab_exit / inactivity)를 집계해
+      상위 이탈 지점을 찾고, Headless Chrome(CDP)으로 해당 URL을 열어
+      스크린샷을 찍은 뒤 붉은 하이라이트를 덧입힌다.
+
+주요 흐름:
+  find_exit_hotspots    — DB 이탈 이벤트 → URL·섹션·스크롤 기준 집계
+  capture_hotspot       — Headless Chrome + CDP 로 스크린샷 저장
+  annotate_capture      — 캡처 이미지에 이탈 위치 하이라이트 표시
+  capture_exit_hotspots — 세 단계를 묶어 report_html.py에서 호출하는 진입점
+"""
+
 from __future__ import annotations
 
 import base64
@@ -33,6 +47,7 @@ CONTEXT_EVENT_TYPES = {
 }
 
 
+# 환경변수 또는 backend/.env 파일에서 값을 읽어온다
 def load_env_value(key: str, base_dir: str) -> str:
     if os.environ.get(key):
         return os.environ[key]
@@ -50,6 +65,7 @@ def load_env_value(key: str, base_dir: str) -> str:
     return ""
 
 
+# 쿼리는 남기고 fragment만 제거해 URL을 정규화한다
 def clean_url(url: str) -> str:
     if not url:
         return ""
@@ -60,11 +76,13 @@ def clean_url(url: str) -> str:
         return url
 
 
+# 이벤트 doc에서 data 필드를 dict로 안전하게 꺼낸다
 def event_data(doc: dict) -> dict:
     data = doc.get("data")
     return data if isinstance(data, dict) else {}
 
 
+# data 필드에서 스크롤 Y 위치를 추출한다 — 여러 키를 순서대로 시도
 def scroll_from_data(data: dict, fallback: int = 0) -> int:
     for key in ("last_viewport_scrollY", "scrollY", "position", "y"):
         val = data.get(key)
@@ -73,6 +91,7 @@ def scroll_from_data(data: dict, fallback: int = 0) -> int:
     return max(0, int(fallback or 0))
 
 
+# doc에서 page_url을 추론하고, exit_page가 있으면 pathname을 교체한다
 def infer_url(doc: dict, data: dict, last_url: str) -> str:
     url = doc.get("page_url") or data.get("page_url") or last_url or ""
     exit_page = data.get("exit_page")
@@ -86,6 +105,7 @@ def infer_url(doc: dict, data: dict, last_url: str) -> str:
     return clean_url(url)
 
 
+# MongoDB에서 이탈 이벤트를 읽어 URL·섹션·스크롤 기준으로 집계한다
 def find_exit_hotspots(base_dir: str, start: str, end: str, limit: int = 3) -> list[dict]:
     uri = load_env_value("MONGODB_URI", base_dir)
     if not uri:
@@ -182,6 +202,7 @@ def find_exit_hotspots(base_dir: str, start: str, end: str, limit: int = 3) -> l
         return []
 
 
+# Chrome/Edge 실행 파일 경로를 찾는다 — 없으면 빈 문자열 반환
 def browser_executable() -> str:
     candidates = [
         os.environ.get("GT_BROWSER_PATH"),
@@ -195,12 +216,14 @@ def browser_executable() -> str:
     return next((p for p in candidates if p and os.path.exists(p)), "")
 
 
+# 사용 가능한 무작위 로컬 포트를 반환한다
 def free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
+# WebSocket 핸드셰이크를 직접 구현해 소켓 연결을 맺는다
 def ws_connect(ws_url: str) -> socket.socket:
     p = urlparse(ws_url)
     host, port = p.hostname, p.port or 80
@@ -222,6 +245,7 @@ def ws_connect(ws_url: str) -> socket.socket:
     return sock
 
 
+# WebSocket 프레임을 마스킹해서 소켓으로 전송한다
 def ws_send(sock: socket.socket, payload: dict) -> None:
     raw = json.dumps(payload).encode("utf-8")
     header = bytearray([0x81])
@@ -240,6 +264,7 @@ def ws_send(sock: socket.socket, payload: dict) -> None:
     sock.sendall(header + masked)
 
 
+# 소켓에서 정확히 n바이트를 읽는다
 def read_exact(sock: socket.socket, n: int) -> bytes:
     out = b""
     while len(out) < n:
@@ -250,6 +275,7 @@ def read_exact(sock: socket.socket, n: int) -> bytes:
     return out
 
 
+# WebSocket 프레임을 수신해 JSON dict로 반환한다
 def ws_recv(sock: socket.socket) -> dict:
     h = read_exact(sock, 2)
     opcode = h[0] & 0x0F
@@ -270,6 +296,7 @@ def ws_recv(sock: socket.socket) -> dict:
     return json.loads(data.decode("utf-8"))
 
 
+# CDP(Chrome DevTools Protocol) 메서드를 호출하고 응답을 받는다 — 일부 메서드는 재시도
 def cdp_call(sock: socket.socket, seq: int, method: str, params: dict | None = None) -> dict:
     retries = 3 if method == "Runtime.evaluate" else 1
     last_error = None
@@ -290,10 +317,12 @@ def cdp_call(sock: socket.socket, seq: int, method: str, params: dict | None = N
     raise RuntimeError(f"CDP {method} failed: {last_error}")
 
 
+# 문자열을 JSON-safe 자바스크립트 리터럴로 이스케이프한다
 def js_quote(value: str) -> str:
     return json.dumps(str(value or ""), ensure_ascii=False)
 
 
+# 페이지 본문이 로드되고 로딩 스피너가 사라질 때까지 JS로 대기한다
 def wait_for_meaningful_page(sock: socket.socket, seq: int) -> int:
     expr = """
         new Promise((resolve) => {
@@ -329,6 +358,7 @@ def wait_for_meaningful_page(sock: socket.socket, seq: int) -> int:
     return seq + 1
 
 
+# 이탈 섹션으로 스크롤 이동 후 하이라이트 Y 좌표와 뷰포트 정보를 반환한다
 def focus_hotspot_area(sock: socket.socket, seq: int, hotspot: dict) -> tuple[int, dict]:
     section = js_quote(hotspot.get("section", ""))
     scroll_y = int(hotspot.get("scroll_y", 0))
@@ -391,6 +421,7 @@ def focus_hotspot_area(sock: socket.socket, seq: int, hotspot: dict) -> tuple[in
     return seq + 1, res.get("result", {}).get("value", {}) or {}
 
 
+# 캡처 이미지가 거의 흰 화면인지 PIL로 판별한다 — 빈 캡처 재시도 여부 결정에 사용
 def capture_looks_blank(path: str) -> bool:
     if not path or not os.path.exists(path):
         return True
@@ -424,6 +455,7 @@ def capture_looks_blank(path: str) -> bool:
         return False
 
 
+# Headless Chrome을 띄워 이탈 핫스팟 URL을 열고 스크린샷을 저장한다
 def capture_hotspot(hotspot: dict, out_dir: str, index: int) -> str:
     browser = browser_executable()
     if not browser:
@@ -514,6 +546,7 @@ def capture_hotspot(hotspot: dict, out_dir: str, index: int) -> str:
         shutil.rmtree(profile, ignore_errors=True)
 
 
+# 캡처 이미지에 이탈 위치를 붉은 하이라이트 선으로 표시한다
 def annotate_capture(path: str, hotspot: dict) -> str:
     if not path or not os.path.exists(path):
         return ""
@@ -547,6 +580,7 @@ def annotate_capture(path: str, hotspot: dict) -> str:
         return path
 
 
+# 핫스팟 분석 → 캡처 → 어노테이션을 순서대로 실행하는 메인 진입점
 def capture_exit_hotspots(base_dir: str, out_dir: str, start: str, end: str, limit: int = 3) -> list[dict]:
     hotspots = find_exit_hotspots(base_dir, start, end, limit=limit)
     if not hotspots:

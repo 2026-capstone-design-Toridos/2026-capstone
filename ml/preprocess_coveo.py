@@ -110,6 +110,7 @@ def derive_label(actions: List[str]) -> str:
     return "bounce"   # will be upgraded to browse_only below if session is long enough
 
 
+# id 리스트를 왼쪽 패딩 / 오른쪽 잘라내기로 max_len에 맞춘다
 def pad_or_truncate(ids: List[int], max_len: int, pad_id: int = 0) -> List[int]:
     """Left-pad / right-truncate to max_len."""
     if len(ids) >= max_len:
@@ -117,6 +118,7 @@ def pad_or_truncate(ids: List[int], max_len: int, pad_id: int = 0) -> List[int]:
     return [pad_id] * (max_len - len(ids)) + ids
 
 
+# PAD 위치는 0, 실제 토큰 위치는 1인 attention mask를 생성한다
 def build_attention_mask(ids: List[int], pad_id: int = 0) -> List[int]:
     return [0 if i == pad_id else 1 for i in ids]
 
@@ -220,6 +222,7 @@ def process_sessions(
     return records, dict(label_counts)
 
 
+# browse_only 클래스를 소수 클래스의 factor배로 다운샘플해 불균형을 완화한다
 def undersample(records: List[dict], factor: int = 3) -> List[dict]:
     """
     Keep all minority classes; downsample browse_only to factor × max(minority).
@@ -232,6 +235,7 @@ def undersample(records: List[dict], factor: int = 3) -> List[dict]:
     return minority + majority[:target]
 
 
+# 클래스별 샘플 수와 역빈도 기반 class weight를 콘솔에 출력한다
 def print_class_distribution(label_counts: Dict[str, int]) -> None:
     total = sum(label_counts.values())
     print("\n── Class distribution ──────────────────")
@@ -249,6 +253,7 @@ def print_class_distribution(label_counts: Dict[str, int]) -> None:
     print(f"\n  torch.tensor({[round(w,3) for w in ordered_norm]})")
 
 
+# 전처리 결과를 CSV·PyTorch .pt·vocab JSON 세 가지 형식으로 저장한다
 def save_outputs(
     records: List[dict],
     outdir: str,
@@ -318,6 +323,7 @@ def save_outputs(
 
 # ── entry point ─────────────────────────────────────────────────────────────
 
+# CLI 인자를 파싱해 Namespace로 반환한다
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Preprocess Coveo SIGIR 2021 for GhostTracker")
     p.add_argument("--input",       default="../SIGIR-ecom-data-challenge/train/browsing_train.csv")
@@ -334,6 +340,7 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+# 로드 → 세션 처리 → (선택)언더샘플 → 저장 순서로 전처리 파이프라인을 실행한다
 def main() -> None:
     args = parse_args()
     random.seed(args.seed)

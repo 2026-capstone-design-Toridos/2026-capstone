@@ -1,8 +1,6 @@
-/**
- * routes/classify.js
- * ------------------
- * GhostTracker 실시간 세션 → 페르소나(클러스터) 분류 API
- * Python 추론 서버(cluster_server.py, port 5002)로 프록시한다.
+/*
+ * classify.js — GhostTracker 세션 분류 API
+ * 역할: 실시간 세션을 페르소나(클러스터)로 분류, Python 추론 서버(cluster_server.py, 5002번 포트)로 그대로 넘겨줌
  *
  * POST /api/classify
  *   Body: { session_id?, tokens?: string[] } | { session_id?, events?: object[] }
@@ -24,6 +22,7 @@ const router  = express.Router();
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 
+// pathname/page_url로 결제·장바구니·상품·검색 페이지를 구분한다
 function inferPage(doc = {}) {
   const raw = `${doc.pathname || ''} ${doc.page_url || ''}`.toLowerCase();
   if (raw.includes('checkout') || raw.includes('payment') || raw.includes('order')) return 'checkout';
@@ -41,12 +40,14 @@ function inferElementSection(doc = {}) {
   return doc.data?.element_section || doc.element_section || '';
 }
 
+// 주문완료 이벤트가 따로 없어 클릭/호버 문구로 주문 성공 여부를 판별
 function isOrderSuccessDoc(doc = {}) {
   const text = `${doc.data?.hover_text || ''} ${doc.data?.click_text || ''}`;
   const target = `${doc.data?.hover_target || ''} ${doc.data?.click_target || ''}`.toLowerCase();
   return text.includes('주문이 완료') || target.includes('complete');
 }
 
+// DB에 쌓인 raw 이벤트를 클러스터 서버가 아는 액션 토큰으로 매핑
 function normalizeEventType(doc = {}) {
   const eventType = String(doc.event_type || '');
   const page = inferPage(doc);

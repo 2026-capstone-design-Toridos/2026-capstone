@@ -1,3 +1,11 @@
+"""
+train_model.py — XGBoost 이탈 예측 모델 학습 스크립트
+
+역할: etl_session_features.py로 추출한 session_features CSV를 읽어
+     XGBClassifier로 is_churned 이진 분류 모델을 학습하고 model.pkl로 저장한다.
+     초기 실험용으로, 현재 운영 분류는 cluster_server.py가 담당한다.
+"""
+
 import pandas as pd
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split

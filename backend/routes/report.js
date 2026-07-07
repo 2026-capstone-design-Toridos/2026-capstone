@@ -32,6 +32,7 @@ const REPLACEMENT_TERM = '탐색 중지';
 const reportCache = new Map();
 
 // ── 클러스터 메타 로드 ────────────────────────────────────────────────────────
+// cluster_meta.json을 읽어온다, 없으면 에러
 function loadClusterMeta() {
   if (!fs.existsSync(META_PATH)) {
     throw new Error(`cluster_meta.json 없음: ${META_PATH}`);
@@ -39,6 +40,7 @@ function loadClusterMeta() {
   return JSON.parse(fs.readFileSync(META_PATH, 'utf8'));
 }
 
+// reports 폴더에서 가장 최근 생성된 PDF를 찾는다
 function findLatestPdfReport() {
   if (!fs.existsSync(REPORTS_DIR)) return null;
 
@@ -57,10 +59,12 @@ function findLatestPdfReport() {
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+// "이탈"은 운영자에게 부정적으로 읽혀서 "탐색 중지"로 통일
 function normalizeReportText(text) {
   return String(text || '').replaceAll(BLOCKED_TERM, REPLACEMENT_TERM);
 }
 
+// Gemini 응답이 문장 중간에 끊겼는지 확인
 function looksCompleteReport(text) {
   const value = String(text || '').trim();
   if (!value) return false;
@@ -71,6 +75,7 @@ function looksCompleteReport(text) {
   return false;
 }
 
+// 재시도해볼 만한 Gemini 쪽 오류인지 판단
 function isGeminiUnavailable(err) {
   const message = String(err?.message || '');
   return message.includes('503')
@@ -103,6 +108,7 @@ function actionLabel(action) {
   return labels[action] || String(action || '').replaceAll('_', ' ').toLowerCase();
 }
 
+// 자주 나오는 유형은 Gemini 호출 전에 미리 써둔 문장으로 대체
 function mockReportPreset(persona = '') {
   const name = String(persona || '').trim();
   if (!name) return null;
@@ -152,6 +158,7 @@ function mockReportPreset(persona = '') {
   return null;
 }
 
+// Gemini 없이도 보여줄 클러스터 리포트를 직접 조립
 function buildLocalClusterReport(clusterId, profile = {}, labelInfo = {}) {
   const typeName = labelInfo.name || labelInfo.label || `고객 유형 ${clusterId}`;
   const preset = mockReportPreset(typeName);
@@ -179,6 +186,7 @@ function buildLocalClusterReport(clusterId, profile = {}, labelInfo = {}) {
   return normalizeReportText(`${typeName} 유형은 ${summary} ${evidence} 지금은 AI 리포트 생성 서버가 혼잡해 자동 요약으로 보여드리고 있습니다. 운영자님은 우선 ${action}`);
 }
 
+// Gemini 없이도 보여줄 세션 리포트를 직접 조립
 function buildLocalSessionReport(body, profile = {}) {
   const persona = body.persona || `고객 유형 ${body.cluster_id}`;
   const preset = mockReportPreset(persona);
@@ -195,6 +203,7 @@ function buildLocalSessionReport(body, profile = {}) {
   return normalizeReportText(`${persona} 고객은 ${summary} ${flow} ${average} 지금은 AI 리포트 생성 서버가 혼잡해 자동 요약으로 보여드리고 있습니다. 운영자님은 우선 ${action}`);
 }
 
+// Gemini 호출, 503/429면 잠깐 쉬었다가 재시도
 async function callGemini(prompt, retries = 3) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
 

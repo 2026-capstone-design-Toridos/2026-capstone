@@ -54,6 +54,7 @@ def map_event(event_type: str, product_action: str, is_first: bool) -> Tuple[str
     return None  # 알 수 없는 이벤트 스킵
 
 
+# 세 파트를 합쳐 PAGE|SEMANTIC|CONTEXTUAL 형태의 토큰 문자열을 반환한다
 def token_str(page: str, semantic: str, contextual: str) -> str:
     return f"{page}|{semantic}|{contextual}"
 
@@ -145,6 +146,7 @@ def build_sessions(
     return sessions
 
 
+# CLI 진입점 — CSV 변환 → 유효 세션 필터 → 결과 저장
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input",        default="../SIGIR-ecom-data-challenge/train/browsing_train.csv")

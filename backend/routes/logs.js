@@ -1,9 +1,14 @@
+/**
+ * logs.js — 운영자 화면 실시간 집계 API
+ * 역할: Mongo events를 집계해 KPI·최근고객·문제원인을 내려줌
+ */
 const express = require('express');
 const router  = express.Router();
 const Event   = require('../models/Event');
 
 const RISK_EVENTS = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag'];
 
+// 유입값을 운영자가 알아보기 쉬운 채널명으로 바꿔준다
 function prettySourceName(raw) {
   const value = String(raw || '').trim().toLowerCase();
   if (!value) return '직접 방문';
@@ -17,6 +22,7 @@ function prettySourceName(raw) {
   return String(raw).replace(/^www\./i, '');
 }
 
+// referrer에서 도메인만 추출
 function hostFromUrl(raw) {
   if (!raw) return '';
   try {
@@ -26,6 +32,7 @@ function hostFromUrl(raw) {
   }
 }
 
+// 세션 단위로 묶어 이탈 위험 여부를 판정한다
 function buildSessionPipeline(filter = {}) {
   return [
     { $match: filter },
@@ -251,6 +258,7 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// pathname을 운영자가 보는 화면 이름으로 단순화
 function screenLabel(pathname = '') {
   const path = String(pathname || '').toLowerCase();
   if (path.includes('checkout') || path.includes('payment') || path.includes('order')) return '결제 화면';
@@ -260,12 +268,14 @@ function screenLabel(pathname = '') {
   return '홈 화면';
 }
 
+// 세션 하나의 대표 유입 채널 이름 뽑기
 function deriveSourceName(session = {}) {
   return session.utm_source
     ? prettySourceName(session.utm_source)
     : prettySourceName(hostFromUrl(session.referrer));
 }
 
+// 멈춘 흔적 우선순위대로 훑어서 가장 그럴듯한 이탈 원인 하나를 고른다
 function causeLabel(session = {}) {
   if (session.completed) return '주문 성공';
   if (session.checkout_hits > 0 && session.input_hits > 0) return '입력 도중 멈춤';
@@ -276,6 +286,10 @@ function causeLabel(session = {}) {
   return '마지막 화면에서 멈춤';
 }
 
+/**
+ * GET /api/logs/sessions
+ * 쿼리: limit, origin — 최근 세션을 한 행씩 묶어서 반환
+ */
 router.get('/sessions', async (req, res) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 50);
@@ -295,6 +309,10 @@ router.get('/sessions', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/logs/operator-summary
+ * 위험 세션을 모아 막히는 화면 · 원인 · 우선순위 · 채널 성과로 정리
+ */
 router.get('/operator-summary', async (req, res) => {
   try {
     const filter = {};
@@ -403,6 +421,10 @@ router.get('/operator-summary', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/logs/sources
+ * 쿼리: limit, origin — 유입 채널별 세션 수 TOP N
+ */
 router.get('/sources', async (req, res) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 3, 1), 10);

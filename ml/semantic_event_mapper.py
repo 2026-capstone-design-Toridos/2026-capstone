@@ -111,17 +111,20 @@ def revisit_bucket(count: Optional[int]) -> str:
 # Basic Helpers
 # =========================================================
 
+# 값을 소문자 문자열로 정규화한다 — None이면 빈 문자열 반환
 def normalize_text(value: Any) -> str:
     if value is None:
         return ""
     return str(value).strip().lower()
 
 
+# 이벤트 doc에서 data 필드를 dict로 안전하게 꺼낸다
 def get_data(event: Event) -> Dict[str, Any]:
     data = event.get("data", {})
     return data if isinstance(data, dict) else {}
 
 
+# 값을 float으로 안전하게 변환한다 — 실패하면 default 반환
 def safe_number(value: Any, default: Optional[float] = None) -> Optional[float]:
     try:
         if value is None or value == "":
