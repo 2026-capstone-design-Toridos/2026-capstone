@@ -865,6 +865,29 @@
       2.5초마다 polling으로 갱신하고, 고객 유형(클러스터)은 버튼을 눌러야 다시 계산된다.
     */
     const DEMO_ORIGIN = "https://toridos.vercel.app";
+
+    /* ── 사이트 접근 키 ──────────────────────────────────────────────
+       ?key=... 로 한 번 들어오면 localStorage에 저장하고 주소창에서 즉시 지운다.
+       주소창에 키가 남아 있으면 화면 공유·발표자료 스크린샷에 그대로 노출된다.
+       이후 요청은 X-GT-Key 헤더로 보낸다.                              */
+    const SITE_KEY_STORAGE = "gt_site_key";
+
+    const siteKey = (() => {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = (params.get("key") || "").trim();
+
+      if (fromUrl) {
+        try { localStorage.setItem(SITE_KEY_STORAGE, fromUrl); } catch {}
+        // 주소창에서 키 제거 (히스토리에도 안 남게 replaceState)
+        params.delete("key");
+        const rest = params.toString();
+        window.history.replaceState({}, "", window.location.pathname + (rest ? `?${rest}` : ""));
+        return fromUrl;
+      }
+
+      try { return localStorage.getItem(SITE_KEY_STORAGE) || ""; } catch { return ""; }
+    })();
+
     const state = {
       origin: "",
       logs: [],
@@ -895,12 +918,21 @@
       },
     });
 
-    // fetch 감싸서 에러 응답이면 메시지 같이 던져줌
-    async function api(path, options) {
-      const res = await fetch(path, options);
+    // fetch 감싸서 에러 응답이면 메시지 같이 던져줌 (모든 요청에 사이트 키를 붙임)
+    async function api(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (siteKey) headers["X-GT-Key"] = siteKey;
+
+      const res = await fetch(path, { ...options, headers });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       return body;
+    }
+
+    // 파일 다운로드처럼 헤더를 못 붙이는 경우에만 쿼리로 키를 붙인다
+    function withKey(path) {
+      if (!siteKey) return path;
+      return path + (path.includes("?") ? "&" : "?") + `key=${encodeURIComponent(siteKey)}`;
     }
 
     // 상단 연결 상태 표시(정상/오류) 갱신
@@ -1640,7 +1672,10 @@
     async function loadSites() {
       try {
         const sites = await api("/api/logs/sites");
-        $("site-filter").innerHTML = `<option value="">전체 사이트</option>`;
+
+        // 키가 있으면 볼 수 있는 사이트가 하나뿐이라 "전체 사이트" 선택지를 주지 않는다
+        $("site-filter").innerHTML = siteKey ? "" : `<option value="">전체 사이트</option>`;
+
         sites.forEach((site) => {
           const option = document.createElement("option");
           option.value = site;
@@ -1648,9 +1683,18 @@
           if (site === DEMO_ORIGIN) option.selected = true;
           $("site-filter").appendChild(option);
         });
+
+        // 키 모드에서는 사이트가 고정이므로 드롭다운을 잠근다
+        $("site-filter").disabled = Boolean(siteKey);
         state.origin = $("site-filter").value;
-      } catch {
+      } catch (err) {
         state.origin = "";
+        // 401/403이면 키 문제 — 조용히 넘어가면 원인을 못 찾는다
+        if (/키/.test(err.message)) {
+          setStatus(false, err.message);
+          $("site-filter").innerHTML = `<option value="">접근 불가</option>`;
+          $("site-filter").disabled = true;
+        }
       }
     }
 
@@ -1719,9 +1763,13 @@
       state.origin = e.target.value;
       refresh();
     });
-    $("expert-view").addEventListener("click", () => { window.location.href = "/dashboard.html"; });
+    // 전문가 화면도 같은 키를 써야 데이터가 보인다 (localStorage 공유라 최초 1회만 필요)
+    $("expert-view").addEventListener("click", () => { window.location.href = withKey("/dashboard.html"); });
     $("rediscover-types").addEventListener("click", rediscoverCustomerTypes);
-    $("download-report").addEventListener("click", () => { window.location.href = "/api/report/weekly/download"; });
+    // 다운로드는 헤더를 못 붙이므로 키를 쿼리로 넘긴다
+    $("download-report").addEventListener("click", () => {
+      window.location.href = withKey("/api/report/weekly/download");
+    });
     $("analyze-session").addEventListener("click", analyzeSession);
     $("cluster-report").addEventListener("click", () => loadClusterReport());
     $("session-report").addEventListener("click", loadSessionReport);

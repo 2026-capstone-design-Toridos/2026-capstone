@@ -25,11 +25,22 @@ const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/
 // cluster_meta.json 경로 (ml/output/unsupervised_semantic/)
 const META_PATH = path.join(__dirname, '../../ml/output/unsupervised_semantic/cluster_meta.json');
 const REPORTS_DIR = path.join(__dirname, '../../ml/output/reports');
+const SNAPSHOT_DIR = path.join(__dirname, '../../ml/output/unsupervised_semantic/site_snapshots');
 const BLOCKED_TERM = '\uC774\uD0C8';
 const REPLACEMENT_TERM = '탐색 중지';
 
 // 인메모리 캐시 (서버 재시작 시 초기화)
 const reportCache = new Map();
+
+// ── 사이트 식별 ───────────────────────────────────────────────────────────────
+// origin을 파일명에 쓸 수 있는 형태로 바꾼다 (clusters.js의 snapshotKey와 같은 규칙)
+function siteKey(origin = '') {
+  return String(origin || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/[^a-z0-9._-]+/g, '_');
+}
 
 // ── 클러스터 메타 로드 ────────────────────────────────────────────────────────
 // cluster_meta.json을 읽어온다, 없으면 에러
@@ -40,12 +51,87 @@ function loadClusterMeta() {
   return JSON.parse(fs.readFileSync(META_PATH, 'utf8'));
 }
 
-// reports 폴더에서 가장 최근 생성된 PDF를 찾는다
-function findLatestPdfReport() {
+/**
+ * 사이트별 클러스터 프로파일을 가져온다.
+ *
+ * 예전에는 어느 사이트를 보고 있든 cluster_meta.json(모든 사이트를 합쳐 학습한
+ * 전역 결과)만 읽었다. 그래서 A몰 운영자가 B몰 고객까지 섞인 리포트를 봤다.
+ * clusters.js가 저장해 둔 사이트 스냅샷이 있으면 그것을 우선 사용한다.
+ *
+ * @returns {{ profiles, labels, source, version, meta }}
+ */
+function loadSiteProfiles(origin) {
+  const meta   = loadClusterMeta();
+  const labels = meta.nlp_labels || {};
+
+  if (origin) {
+    const snapPath = path.join(SNAPSHOT_DIR, `${siteKey(origin)}.json`);
+
+    if (fs.existsSync(snapPath)) {
+      try {
+        const snapshot   = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
+        const profiles   = {};
+        const snapLabels = {};
+
+        // 스냅샷의 clusters 배열을 cluster_profiles 형태로 변환
+        for (const c of snapshot.clusters || []) {
+          const id = String(c.cluster);
+          profiles[id] = {
+            count:       c.count || 0,
+            top_actions: c.top_actions || [],
+            page_dist:   c.page_dist || {},
+          };
+          snapLabels[id] = {
+            name:    c.label   || labels[id]?.name    || '',
+            summary: c.summary || labels[id]?.summary || '',
+            action:  c.action  || labels[id]?.action  || '',
+          };
+        }
+
+        if (Object.keys(profiles).length > 0) {
+          return {
+            profiles,
+            labels:  snapLabels,
+            source:  'site_snapshot',
+            version: snapshot.snapshot_saved_at || '',
+            meta,
+          };
+        }
+      } catch (err) {
+        console.warn('[report] 사이트 스냅샷 로드 실패, 전체 메타로 대체:', err.message);
+      }
+    }
+  }
+
+  // 스냅샷이 없으면 전역 메타로 떨어진다 — 응답의 profile_source로 구분 가능
+  return {
+    profiles: meta.cluster_profiles || {},
+    labels,
+    source:   origin ? 'global_meta_fallback' : 'global_meta',
+    version:  meta.nlp_labels_updated_at || '',
+    meta,
+  };
+}
+
+/**
+ * 해당 사이트의 최신 PDF 리포트를 찾는다.
+ *
+ * 예전에는 reports 폴더에서 mtime이 가장 최근인 PDF 하나를 무조건 돌려줬다.
+ * 누가 어떤 사이트를 보고 있든 같은 파일이 내려가서, 다른 쇼핑몰의
+ * 주간 리포트가 그대로 다운로드됐다.
+ *
+ * 파일명 규칙: ghosttracker_report_{siteKey}_{YYYYMMDD}.pdf
+ * (ml/report_html.py --origin 옵션이 이 규칙으로 저장한다)
+ */
+function findLatestPdfReport(origin) {
   if (!fs.existsSync(REPORTS_DIR)) return null;
+
+  const key = origin ? siteKey(origin) : '';
 
   const files = fs.readdirSync(REPORTS_DIR)
     .filter((name) => name.toLowerCase().endsWith('.pdf'))
+    // 사이트가 지정되면 그 사이트 파일만 후보로 둔다 (없으면 404가 맞다)
+    .filter((name) => (key ? name.toLowerCase().includes(key) : true))
     .map((name) => {
       const fullPath = path.join(REPORTS_DIR, name);
       const stat = fs.statSync(fullPath);
@@ -334,17 +420,26 @@ function buildSessionPrompt(body, profile) {
 // ── GET /api/report/cluster/:clusterId ───────────────────────────────────────
 router.get('/cluster/:clusterId', async (req, res) => {
   const clusterId = req.params.clusterId;
+  const origin    = req.siteOrigin || null;
 
   try {
-    const meta     = loadClusterMeta();
-    const profiles = meta.cluster_profiles || {};
-    const profile  = profiles[clusterId];
-    const labelInfo = (meta.nlp_labels || {})[clusterId] || {};
-    const cacheKey = `${clusterId}:${meta.nlp_labels_updated_at || ''}`;
+    const { profiles, labels, source, version } = loadSiteProfiles(origin);
+    const profile   = profiles[clusterId];
+    const labelInfo = labels[clusterId] || {};
 
-    // 같은 cluster_meta 버전에서는 Gemini 결과를 재사용해 비용과 지연을 줄인다
+    // 캐시 키에 사이트를 포함한다. 넣지 않으면 A몰에서 만든 리포트가
+    // B몰 운영자에게 그대로 재사용된다.
+    const cacheKey = `${siteKey(origin)}:${clusterId}:${version}`;
+
+    // 같은 사이트·같은 버전에서는 Gemini 결과를 재사용해 비용과 지연을 줄인다
     if (reportCache.has(cacheKey)) {
-      return res.json({ cluster_id: clusterId, report: normalizeReportText(reportCache.get(cacheKey)), cached: true });
+      return res.json({
+        cluster_id: clusterId,
+        report: normalizeReportText(reportCache.get(cacheKey)),
+        cached: true,
+        origin,
+        profile_source: source,
+      });
     }
 
     if (!profile) {
@@ -357,7 +452,10 @@ router.get('/cluster/:clusterId', async (req, res) => {
         ? { ...labelInfo, name: String(req.query.persona || '주문을 완료한 고객') }
         : (req.query.persona ? { ...labelInfo, name: String(req.query.persona) } : labelInfo);
       const report = buildLocalClusterReport(clusterId, profile, overrideLabel);
-      return res.json({ cluster_id: clusterId, report, cached: false, fallback: true, local_preferred: true });
+      return res.json({
+        cluster_id: clusterId, report, cached: false, fallback: true,
+        local_preferred: true, origin, profile_source: source,
+      });
     }
 
     try {
@@ -369,11 +467,15 @@ router.get('/cluster/:clusterId', async (req, res) => {
 
       reportCache.set(cacheKey, report);
 
-      res.json({ cluster_id: clusterId, report, cached: false });
+      res.json({ cluster_id: clusterId, report, cached: false, origin, profile_source: source });
     } catch (err) {
       if (!isGeminiUnavailable(err)) throw err;
       const report = buildLocalClusterReport(clusterId, profile, labelInfo);
-      res.json({ cluster_id: clusterId, report, cached: false, fallback: true, warning: 'AI 리포트 서버가 혼잡해 자동 요약을 표시했습니다.' });
+      res.json({
+        cluster_id: clusterId, report, cached: false, fallback: true,
+        origin, profile_source: source,
+        warning: 'AI 리포트 서버가 혼잡해 자동 요약을 표시했습니다.',
+      });
     }
   } catch (err) {
     console.error('[report/cluster] 오류:', err.message);
@@ -383,14 +485,14 @@ router.get('/cluster/:clusterId', async (req, res) => {
 
 // ── GET /api/report/all ───────────────────────────────────────────────────────
 router.get('/all', async (req, res) => {
+  const origin = req.siteOrigin || null;
+
   try {
-    const meta     = loadClusterMeta();
-    const profiles = meta.cluster_profiles || {};
-    const labels   = meta.nlp_labels || {};
-    const results  = [];
+    const { profiles, labels, source, version } = loadSiteProfiles(origin);
+    const results = [];
 
     for (const [clusterId, profile] of Object.entries(profiles)) {
-      const cacheKey = `${clusterId}:${meta.nlp_labels_updated_at || ''}`;
+      const cacheKey = `${siteKey(origin)}:${clusterId}:${version}`;
       if (reportCache.has(cacheKey)) {
         results.push({ cluster_id: clusterId, report: normalizeReportText(reportCache.get(cacheKey)), cached: true });
         continue;
@@ -420,7 +522,7 @@ router.get('/all', async (req, res) => {
       await sleep(1500);
     }
 
-    res.json({ total: results.length, clusters: results });
+    res.json({ total: results.length, clusters: results, origin, profile_source: source });
   } catch (err) {
     console.error('[report/all] 오류:', err.message);
     res.status(500).json({ error: err.message });
@@ -435,9 +537,9 @@ router.post('/session', async (req, res) => {
       return res.status(400).json({ error: 'cluster_id 필요' });
     }
 
-    const meta     = loadClusterMeta();
-    const profiles = meta.cluster_profiles || {};
-    const profile  = profiles[String(body.cluster_id)];
+    // 세션 리포트도 이 사이트 기준 프로파일로 설명한다
+    const { profiles } = loadSiteProfiles(req.siteOrigin || null);
+    const profile = profiles[String(body.cluster_id)];
 
     let report;
     let fallback = false;
@@ -492,14 +594,23 @@ router.get('/cache/clear', (req, res) => {
 // ── GET /api/report/weekly/download ───────────────────────────────────────────
 router.get('/weekly/download', (req, res) => {
   try {
-    const report = findLatestPdfReport();
+    const origin = req.siteOrigin || null;
+    const report = findLatestPdfReport(origin);
+
     if (!report) {
+      // 사이트 전용 리포트가 없으면 404로 끝낸다.
+      // 예전처럼 "아무 PDF나" 내려주면 남의 쇼핑몰 리포트가 나간다.
       return res.status(404).json({
-        error: '다운로드할 PDF 리포트가 없습니다. ml/report_html.py로 리포트를 먼저 생성하세요.',
+        error: origin
+          ? `${origin} 사이트의 PDF 리포트가 없습니다. ml/report_html.py --origin ${origin} 으로 먼저 생성하세요.`
+          : '다운로드할 PDF 리포트가 없습니다. ml/report_html.py로 리포트를 먼저 생성하세요.',
       });
     }
 
-    const filename = `ghosttracker_weekly_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const datePart = new Date().toISOString().slice(0, 10);
+    const filename = origin
+      ? `ghosttracker_weekly_report_${siteKey(origin)}_${datePart}.pdf`
+      : `ghosttracker_weekly_report_${datePart}.pdf`;
     res.download(report.fullPath, filename);
   } catch (err) {
     console.error('[report/weekly/download] 오류:', err.message);

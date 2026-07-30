@@ -8,6 +8,7 @@ const express     = require('express');
 const cors        = require('cors');
 const path        = require('path');
 const { connectDB } = require('./db');
+const { requireSite, logAccessMode } = require('./middleware/siteAccess');
 
 const collectRouter  = require('./routes/collect');
 const logsRouter     = require('./routes/logs');
@@ -30,7 +31,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
 app.use(cors({
   origin: true,   // 모든 출처 허용 (팀원 사이트 연동용)
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
+  allowedHeaders: ['Content-Type', 'X-GT-Key'],   // 대시보드가 접근 키를 헤더로 보냄
 }));
 
 // ── Static (Dashboard) ────────────────────────────────────────
@@ -43,12 +44,16 @@ app.use(express.json({ limit: '1mb' }));
 
 // ── 라우터 ────────────────────────────────────────────────────
 // 경로별로 역할 나눠서 각 routes/ 파일에 위임 (수집 / 로그조회 / 옛 predict 호환 / 클러스터 / 분류 / 리포트)
+//
+// /collect은 SDK가 호출하는 수집 입구라 접근 키를 붙이지 않는다.
+// 나머지 조회 API는 requireSite를 통과해야 하며, 통과 후 req.siteOrigin으로
+// "이 요청이 볼 수 있는 쇼핑몰"이 고정된다. 클라이언트가 origin을 못 바꾼다.
 app.use('/collect', collectRouter);
-app.use('/api/logs', logsRouter);
-app.use('/api/predict', predictRouter);
-app.use('/api/clusters', clustersRouter);
-app.use('/api/classify', classifyRouter);
-app.use('/api/report',  reportRouter);
+app.use('/api/logs',     requireSite, logsRouter);
+app.use('/api/predict',  predictRouter);
+app.use('/api/clusters', requireSite, clustersRouter);
+app.use('/api/classify', requireSite, classifyRouter);
+app.use('/api/report',   requireSite, reportRouter);
 
 // ── 헬스체크 ──────────────────────────────────────────────────
 // 서버 살아있는지만 확인하는 용도, 배포 후 모니터링이나 uptime 체크할 때 씀
@@ -68,6 +73,7 @@ connectDB()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`[GhostTracker] 서버 실행 중 → http://localhost:${PORT}`);
+      logAccessMode();   // 사이트 접근 키 설정 여부를 알림
     });
   })
   .catch((err) => {
