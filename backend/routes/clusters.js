@@ -15,6 +15,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const Event = require('../models/Event');
+const { originCondition, normalizeOrigin } = require('../middleware/siteAccess');
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -35,9 +36,9 @@ let clusteringJob = null;
 
 // origin URL을 파일명으로 쓸 수 있게 정리
 function snapshotKey(origin = '') {
-  return String(origin || '')
-    .trim()
-    .toLowerCase()
+  // normalizeOrigin으로 끝 슬래시를 먼저 없앤다.
+  // 안 그러면 "site.com"과 "site.com/"이 서로 다른 스냅샷 파일로 갈린다.
+  return normalizeOrigin(origin)
     .replace(/^https?:\/\//, '')
     .replace(/[^a-z0-9._-]+/g, '_');
 }
@@ -429,7 +430,8 @@ function inferPage(doc) {
 
 // 사이트 최근 세션을 모아 분류 서버에 한번에 보내고 결과를 클러스터별로 집계
 async function classifySiteSessions(origin, profiles, labels) {
-  const docs = await Event.find({ origin })
+  // 끝 슬래시가 붙은 origin도 같이 매칭한다
+  const docs = await Event.find(originCondition(origin))
     .sort({ received_at: -1 })
     .limit(2500)
     .lean();

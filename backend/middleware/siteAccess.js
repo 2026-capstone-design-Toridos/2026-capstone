@@ -35,6 +35,22 @@ function normalizeOrigin(value) {
     .replace(/\/+$/, '');
 }
 
+/**
+ * DB에 저장된 origin의 표기 흔들림을 흡수하는 값 목록을 만든다.
+ *
+ * 실제 수집 데이터를 보면 끝 슬래시가 붙은 것과 안 붙은 것이 섞여 있다.
+ *   "https://toridos.cafe24.com"        (슬래시 없음)
+ *   "https://sy-mkct7xjeg-....app/"     (슬래시 있음)
+ *
+ * 정규화된 값 하나로만 exact match하면 슬래시가 붙은 쪽이 0건으로 나온다.
+ * $in으로 두 형태를 모두 매칭한다. 정규식이 아니라 $in을 쓰는 이유는
+ * origin 인덱스를 그대로 탈 수 있어서다.
+ */
+function originVariants(origin) {
+  const base = normalizeOrigin(origin);
+  return base ? [base, `${base}/`] : [];
+}
+
 // SITE_KEYS 환경변수를 { 키: origin } 형태로 파싱한다
 // 형식: "키1:https://사이트1,키2:https://사이트2"
 function parseSiteKeys(raw) {
@@ -121,11 +137,21 @@ function requireSite(req, res, next) {
 }
 
 /**
- * Mongo 쿼리에 붙일 origin 필터를 만든다.
+ * Mongo 쿼리에 붙일 origin 조건을 만든다.
  * siteOrigin이 없으면(개방 모드) 빈 객체를 반환해 기존 동작을 유지한다.
+ *
+ * @example
+ *   const filter = { ...originFilter(req), event_type: 'click' };
  */
 function originFilter(req) {
-  return req.siteOrigin ? { origin: req.siteOrigin } : {};
+  const variants = originVariants(req.siteOrigin);
+  return variants.length ? { origin: { $in: variants } } : {};
+}
+
+/** origin 문자열만 있을 때 쓰는 버전 (req가 없는 내부 함수용) */
+function originCondition(origin) {
+  const variants = originVariants(origin);
+  return variants.length ? { origin: { $in: variants } } : {};
 }
 
 /** 서버 시작 시 현재 보호 상태를 알린다 */
@@ -146,6 +172,8 @@ module.exports = {
   requireSite,
   resolveOrigin,
   originFilter,
+  originCondition,
+  originVariants,
   normalizeOrigin,
   isOpenMode,
   logAccessMode,

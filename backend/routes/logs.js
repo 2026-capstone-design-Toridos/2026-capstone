@@ -5,6 +5,7 @@
 const express = require('express');
 const router  = express.Router();
 const Event   = require('../models/Event');
+const { originFilter } = require('../middleware/siteAccess');
 
 const RISK_EVENTS = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag'];
 
@@ -237,7 +238,7 @@ router.get('/sites', async (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     const filter = {};
-    if (req.siteOrigin) filter.origin = req.siteOrigin;
+    Object.assign(filter, originFilter(req));   // 끝 슬래시 변형까지 매칭
 
     const now           = new Date();
     const oneHourAgo    = new Date(now - 60 * 60 * 1000);
@@ -304,7 +305,7 @@ router.get('/sessions', async (req, res) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 50);
     const filter = {};
-    if (req.siteOrigin) filter.origin = req.siteOrigin;
+    Object.assign(filter, originFilter(req));   // 끝 슬래시 변형까지 매칭
 
     const sessions = await Event.aggregate([
       ...buildSessionPipeline(filter),
@@ -326,7 +327,7 @@ router.get('/sessions', async (req, res) => {
 router.get('/operator-summary', async (req, res) => {
   try {
     const filter = {};
-    if (req.siteOrigin) filter.origin = req.siteOrigin;
+    Object.assign(filter, originFilter(req));   // 끝 슬래시 변형까지 매칭
 
     const sessions = await Event.aggregate(buildSessionPipeline(filter));
     const riskySessions = sessions.filter((session) => session.risky && !session.completed);
@@ -439,7 +440,7 @@ router.get('/sources', async (req, res) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 3, 1), 10);
     const filter = {};
-    if (req.siteOrigin) filter.origin = req.siteOrigin;
+    Object.assign(filter, originFilter(req));   // 끝 슬래시 변형까지 매칭
 
     const sessions = await Event.aggregate(buildSessionPipeline(filter));
     const counts = new Map();
@@ -474,7 +475,7 @@ router.get('/', async (req, res) => {
     const limit  = Math.min(Number(req.query.limit) || 100, 1000);
     const filter = {};
 
-    if (req.siteOrigin)       filter.origin     = req.siteOrigin;
+    Object.assign(filter, originFilter(req));
     if (req.query.event_type) filter.event_type = req.query.event_type;
     if (req.query.session_id) filter.session_id = req.query.session_id;
     if (req.query.since)      filter.received_at = { $gt: new Date(Number(req.query.since)) };

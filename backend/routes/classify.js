@@ -20,6 +20,8 @@
 const express = require('express');
 const router  = express.Router();
 
+const { originCondition } = require('../middleware/siteAccess');
+
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 
 // pathname/page_url로 결제·장바구니·상품·검색 페이지를 구분한다
@@ -145,8 +147,7 @@ router.post('/session/:sessionId', async (req, res) => {
 
     // 다른 쇼핑몰의 세션 ID를 알아내면 그 세션까지 분석할 수 있었다.
     // 조회 범위를 이 요청이 접근 가능한 사이트로 제한한다.
-    const scope = { session_id: sessionId };
-    if (req.siteOrigin) scope.origin = req.siteOrigin;
+    const scope = { session_id: sessionId, ...originCondition(req.siteOrigin) };
 
     // DB에서 해당 세션 이벤트 조회 (최대 256개, 시간순)
     const docs = await Event.find(scope)

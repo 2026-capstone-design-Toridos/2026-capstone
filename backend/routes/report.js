@@ -18,6 +18,7 @@ const express = require('express');
 const fs      = require('fs');
 const path    = require('path');
 const router  = express.Router();
+const { normalizeOrigin } = require('../middleware/siteAccess');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -35,9 +36,9 @@ const reportCache = new Map();
 // ── 사이트 식별 ───────────────────────────────────────────────────────────────
 // origin을 파일명에 쓸 수 있는 형태로 바꾼다 (clusters.js의 snapshotKey와 같은 규칙)
 function siteKey(origin = '') {
-  return String(origin || '')
-    .trim()
-    .toLowerCase()
+  // 끝 슬래시를 먼저 없앤다. 안 그러면 "site.com"과 "site.com/"이
+  // 서로 다른 PDF 파일명으로 갈려서 리포트를 못 찾는다.
+  return normalizeOrigin(origin)
     .replace(/^https?:\/\//, '')
     .replace(/[^a-z0-9._-]+/g, '_');
 }
