@@ -209,10 +209,20 @@ function buildSessionPipeline(filter = {}) {
 
 /**
  * GET /api/logs/sites
- * 이벤트가 수집된 사이트(origin) 목록 반환
+ * 조회 가능한 사이트(origin) 목록 반환
+ *
+ * 접근 키가 설정된 경우 자기 사이트 하나만 돌려준다.
+ * 예전에는 Event.distinct('origin')으로 수집된 모든 쇼핑몰 도메인을
+ * 그대로 노출했고, 대시보드에서 남의 사이트를 골라볼 수 있었다.
  */
 router.get('/sites', async (req, res) => {
   try {
+    // 키 모드: 이 요청이 볼 수 있는 사이트는 하나뿐이다
+    if (req.siteOrigin) {
+      return res.json([req.siteOrigin]);
+    }
+
+    // 개방 모드(SITE_KEYS 미설정, 로컬 개발): 기존처럼 전체 목록
     const sites = await Event.distinct('origin');
     res.json(sites.filter(Boolean).sort());
   } catch (err) {
@@ -227,7 +237,7 @@ router.get('/sites', async (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     const filter = {};
-    if (req.query.origin) filter.origin = req.query.origin;
+    if (req.siteOrigin) filter.origin = req.siteOrigin;
 
     const now           = new Date();
     const oneHourAgo    = new Date(now - 60 * 60 * 1000);
@@ -294,7 +304,7 @@ router.get('/sessions', async (req, res) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 50);
     const filter = {};
-    if (req.query.origin) filter.origin = req.query.origin;
+    if (req.siteOrigin) filter.origin = req.siteOrigin;
 
     const sessions = await Event.aggregate([
       ...buildSessionPipeline(filter),
@@ -316,7 +326,7 @@ router.get('/sessions', async (req, res) => {
 router.get('/operator-summary', async (req, res) => {
   try {
     const filter = {};
-    if (req.query.origin) filter.origin = req.query.origin;
+    if (req.siteOrigin) filter.origin = req.siteOrigin;
 
     const sessions = await Event.aggregate(buildSessionPipeline(filter));
     const riskySessions = sessions.filter((session) => session.risky && !session.completed);
@@ -429,7 +439,7 @@ router.get('/sources', async (req, res) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 3, 1), 10);
     const filter = {};
-    if (req.query.origin) filter.origin = req.query.origin;
+    if (req.siteOrigin) filter.origin = req.siteOrigin;
 
     const sessions = await Event.aggregate(buildSessionPipeline(filter));
     const counts = new Map();
@@ -464,7 +474,7 @@ router.get('/', async (req, res) => {
     const limit  = Math.min(Number(req.query.limit) || 100, 1000);
     const filter = {};
 
-    if (req.query.origin)     filter.origin     = req.query.origin;
+    if (req.siteOrigin)       filter.origin     = req.siteOrigin;
     if (req.query.event_type) filter.event_type = req.query.event_type;
     if (req.query.session_id) filter.session_id = req.query.session_id;
     if (req.query.since)      filter.received_at = { $gt: new Date(Number(req.query.since)) };

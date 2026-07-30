@@ -143,8 +143,13 @@ router.post('/session/:sessionId', async (req, res) => {
     const Event     = require('../models/Event');
     const { sessionId } = req.params;
 
+    // 다른 쇼핑몰의 세션 ID를 알아내면 그 세션까지 분석할 수 있었다.
+    // 조회 범위를 이 요청이 접근 가능한 사이트로 제한한다.
+    const scope = { session_id: sessionId };
+    if (req.siteOrigin) scope.origin = req.siteOrigin;
+
     // DB에서 해당 세션 이벤트 조회 (최대 256개, 시간순)
-    const docs = await Event.find({ session_id: sessionId })
+    const docs = await Event.find(scope)
       .sort({ event_seq: 1, timestamp: 1 })
       .limit(256)
       .lean();

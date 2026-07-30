@@ -18,6 +18,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import struct
@@ -106,7 +107,21 @@ def infer_url(doc: dict, data: dict, last_url: str) -> str:
 
 
 # MongoDB에서 이탈 이벤트를 읽어 URL·섹션·스크롤 기준으로 집계한다
-def find_exit_hotspots(base_dir: str, start: str, end: str, limit: int = 3) -> list[dict]:
+def normalize_origin(value: str) -> str:
+    """origin 문자열을 비교 가능한 형태로 정리한다 (대소문자, 끝 슬래시)."""
+    return str(value or "").strip().lower().rstrip("/")
+
+
+def find_exit_hotspots(base_dir: str, start: str, end: str, limit: int = 3,
+                       origin: str = "") -> list[dict]:
+    """
+    이탈이 많이 일어난 화면을 찾는다.
+
+    origin을 주면 그 쇼핑몰의 이벤트만 본다.
+    예전에는 origin 필터가 없어서, A몰에서 이탈이 많았으면
+    B몰 운영자의 리포트에 A몰 화면 스크린샷이 그대로 박혔다.
+    (projection에는 origin이 들어 있었는데 정작 query에는 빠져 있었다)
+    """
     uri = load_env_value("MONGODB_URI", base_dir)
     if not uri:
         print("  -> MONGODB_URI missing; exit capture skipped")
@@ -122,6 +137,13 @@ def find_exit_hotspots(base_dir: str, start: str, end: str, limit: int = 3) -> l
         client = MongoClient(uri, serverSelectionTimeoutMS=8000)
         db = client.get_default_database()
         query = {"event_type": {"$in": sorted(EXIT_EVENT_TYPES | CONTEXT_EVENT_TYPES)}}
+
+        # 사이트 격리 — 지정된 쇼핑몰의 이벤트만 집계한다
+        site = normalize_origin(origin)
+        if site:
+            # DB에 저장된 origin의 대소문자/끝슬래시가 섞여 있을 수 있어 정규식으로 맞춘다
+            query["origin"] = {"$regex": f"^{re.escape(site)}/?$", "$options": "i"}
+
         try:
             start_dt = datetime.fromisoformat(start)
             end_dt = datetime.fromisoformat(end).replace(hour=23, minute=59, second=59)
@@ -581,8 +603,9 @@ def annotate_capture(path: str, hotspot: dict) -> str:
 
 
 # 핫스팟 분석 → 캡처 → 어노테이션을 순서대로 실행하는 메인 진입점
-def capture_exit_hotspots(base_dir: str, out_dir: str, start: str, end: str, limit: int = 3) -> list[dict]:
-    hotspots = find_exit_hotspots(base_dir, start, end, limit=limit)
+def capture_exit_hotspots(base_dir: str, out_dir: str, start: str, end: str, limit: int = 3,
+                          origin: str = "") -> list[dict]:
+    hotspots = find_exit_hotspots(base_dir, start, end, limit=limit, origin=origin)
     if not hotspots:
         return []
 

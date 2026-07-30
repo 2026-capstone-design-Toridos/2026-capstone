@@ -10,7 +10,7 @@ GhostTracker B2B 고객 행동 분석 리포트 (HTML → PDF)
 """
 
 import argparse, base64, json, os, time, urllib.request, urllib.error
-import csv, hashlib, shutil, socket, struct, subprocess, tempfile
+import csv, hashlib, re, shutil, socket, struct, subprocess, tempfile
 from datetime import datetime
 from io import BytesIO
 from urllib.parse import urlparse, urlunparse
@@ -1373,10 +1373,22 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 
 # ── 리포트 생성 메인 ──────────────────────────────────────────────────────────
 # 폰트 설정 → 데이터 로드 → AI 인사이트 → 퍼널 → 이탈캡처 → HTML·PDF 저장 순서로 실행한다
-def generate_report(start_date: str, end_date: str, output_path: str):
+def site_key(origin: str) -> str:
+    """origin을 파일명에 쓸 수 있는 형태로 바꾼다 (backend/routes/report.js의 siteKey와 동일 규칙)."""
+    value = str(origin or '').strip().lower()
+    value = re.sub(r'^https?://', '', value)
+    return re.sub(r'[^a-z0-9._-]+', '_', value)
+
+
+def generate_report(start_date: str, end_date: str, output_path: str, origin: str = ''):
     print("=" * 55)
     print("  GhostTracker 고객 분석 리포트 생성기 (HTML → PDF)")
     print("=" * 55)
+    if origin:
+        print(f"  대상 사이트: {origin}")
+    else:
+        print("  ⚠️  대상 사이트 미지정 — 전체 사이트 데이터가 섞입니다.")
+        print("      특정 쇼핑몰 리포트를 만들려면 --origin 을 지정하세요.")
 
     # 1. 폰트
     font_reg, font_bold = setup_fonts()
@@ -1422,7 +1434,9 @@ def generate_report(start_date: str, end_date: str, output_path: str):
         print("  → 세션 데이터 없음 → 퍼널 페이지 생략")
 
     print("\n[2.5/4] 탐색 중지 집중 화면 캡처 중...")
-    exit_captures = capture_exit_hotspots(BASE_DIR, EXIT_CAPTURE_DIR, start_date, end_date, limit=3)
+    # origin을 넘겨야 이 쇼핑몰 화면만 캡처된다 (안 넘기면 남의 사이트 화면이 섞임)
+    exit_captures = capture_exit_hotspots(BASE_DIR, EXIT_CAPTURE_DIR, start_date, end_date,
+                                          limit=3, origin=origin)
     if exit_captures:
         captured = sum(1 for x in exit_captures if x.get('capture_b64'))
         print(f"  → 탐색 중지 집중 구역 {len(exit_captures)}개 분석, 캡처 {captured}개 생성")
@@ -1472,11 +1486,22 @@ def main():
     p.add_argument('--start',  default=datetime.now().strftime('%Y-%m-01'))
     p.add_argument('--end',    default=datetime.now().strftime('%Y-%m-%d'))
     p.add_argument('--output', default='')
+    p.add_argument('--origin', default='',
+                   help='대상 쇼핑몰 origin (예: https://toridos.cafe24.com). '
+                        '지정하지 않으면 전체 사이트가 섞인다.')
     args = p.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
-    out = args.output or os.path.join(OUT_DIR, f"ghosttracker_report_{datetime.now().strftime('%Y%m%d')}.pdf")
-    generate_report(args.start, args.end, out)
+
+    # 파일명에 사이트를 넣는다.
+    # backend의 /api/report/weekly/download가 이 규칙으로 사이트별 파일을 찾는다.
+    # 넣지 않으면 어느 쇼핑몰 운영자가 눌러도 같은 PDF가 내려간다.
+    stamp = datetime.now().strftime('%Y%m%d')
+    default_name = (f"ghosttracker_report_{site_key(args.origin)}_{stamp}.pdf"
+                    if args.origin else f"ghosttracker_report_{stamp}.pdf")
+
+    out = args.output or os.path.join(OUT_DIR, default_name)
+    generate_report(args.start, args.end, out, origin=args.origin)
 
 if __name__ == '__main__':
     main()

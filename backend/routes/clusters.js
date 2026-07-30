@@ -566,8 +566,8 @@ router.get('/', async (req, res) => {
     const frozenMode = String(req.query.mode || '').toLowerCase() === 'frozen';
 
     // 운영자가 "고정" 모드를 선택하면 마지막 저장 스냅샷을 우선 사용한다
-    if (req.query.origin && frozenMode) {
-      const snapshot = loadSiteSnapshot(req.query.origin);
+    if (req.siteOrigin && frozenMode) {
+      const snapshot = loadSiteSnapshot(req.siteOrigin);
       if (snapshot) {
         return res.json({
           ...snapshot,
@@ -577,9 +577,9 @@ router.get('/', async (req, res) => {
     }
 
     // 기본 사이트 필터는 최신 이벤트를 다시 분류해 현재 사이트 기준 분포를 보여준다
-    if (req.query.origin && !frozenMode) {
+    if (req.siteOrigin && !frozenMode) {
       try {
-        const result = await classifySiteSessions(req.query.origin, profiles, labels);
+        const result = await classifySiteSessions(req.siteOrigin, profiles, labels);
         return res.json({ ...result, meta });
       } catch (siteErr) {
         console.warn('[clusters] site live fallback:', siteErr.message);
@@ -592,7 +592,7 @@ router.get('/', async (req, res) => {
           quality,
           clusters,
           source: 'artifact_fallback',
-          origin: req.query.origin,
+          origin: req.siteOrigin,
           warning: '사이트별 실시간 분류를 불러오지 못해 저장된 전체 클러스터 품질을 표시했습니다.',
           meta,
         });
@@ -608,7 +608,7 @@ router.get('/', async (req, res) => {
       quality,
       clusters,
       source: frozenMode ? 'artifact_snapshot' : 'artifact',
-      origin: req.query.origin || null,
+      origin: req.siteOrigin || null,
       meta,
     });
   } catch (err) {
@@ -627,7 +627,8 @@ router.post('/run', async (req, res) => {
       });
     }
 
-    const requestedOrigin = String(req.body?.origin || '').trim();
+    // 키 모드에서는 키가 정한 사이트로 고정한다. body의 origin은 신뢰하지 않는다.
+    const requestedOrigin = req.siteOrigin || String(req.body?.origin || '').trim();
     const result = await runPythonClustering({ full: req.body?.full !== false });
     if (requestedOrigin) {
       const meta = fs.existsSync(META_PATH)
