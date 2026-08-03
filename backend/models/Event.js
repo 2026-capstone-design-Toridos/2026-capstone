@@ -11,6 +11,19 @@ const mongoose = require('mongoose');
 const EventSchema = new mongoose.Schema(
   {
     // ── 공통 필드 (sdk-A _dispatch 자동 부여) ─────────────────
+    //
+    // event_id: SDK가 이벤트마다 발급하는 UUID. 재전송 중복 판정 키.
+    //
+    // (session_id, event_seq) 조합을 키로 쓸 수 없는 이유:
+    //   Cafe24 같은 다중 페이지 쇼핑몰은 페이지 이동마다 전체 새로고침이 일어나
+    //   SDK가 재초기화된다. 세션은 TTL 안에서 유지되지만 event_seq는 페이지마다
+    //   1부터 다시 시작하므로, 같은 세션 안에서 (session_id, event_seq)가 중복된다.
+    //   그 조합에 unique를 걸면 2번째 페이지 이후의 이벤트가 전부 거부된다.
+    //
+    // sparse: 예전 SDK가 보낸 event_id 없는 기존 문서들과 공존하기 위함.
+    //         (null이 여러 개여도 인덱스 생성이 실패하지 않는다)
+    event_id:        { type: String, unique: true, sparse: true },
+
     session_id:      { type: String, required: true, index: true },
     event_type:      { type: String, required: true, index: true },
     event_token:     { type: Number },

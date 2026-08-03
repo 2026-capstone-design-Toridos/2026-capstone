@@ -7,7 +7,14 @@
  *   3. sender.js로 전달
  */
 
-import { getSessionId, getPageContext, touchSessionTimestamp } from './sessionManager.js';
+import {
+  getSessionId,
+  getPageContext,
+  touchSessionTimestamp,
+  nextEventSeq,
+  getLastEventTimestamp,
+  setLastEventTimestamp,
+} from './sessionManager.js';
 import { recordActivity, recordFirstClick, getPendingInactivity } from './timeTracker.js';
 import { send } from './sender.js';
 
@@ -85,15 +92,89 @@ const EVENT_VOCAB = Object.freeze({
   time_to_first_click:     91,  // A 파생
   subsection_dwell:        92,  // C 계산 후 emit
   screen_resize:           93,  // A 전용
+
+  // SDK 자체 진단 — 리스너에서 예외가 나면 조용히 삼키고 이 이벤트로 기록한다.
+  // 분석 대상이 아니므로 토큰은 0(패딩)으로 두어 학습 시퀀스에 섞이지 않게 한다.
+  sdk_error:                0,
 });
 
 // ── 내부 상태 ─────────────────────────────────────────────────
-
-let _seq = 0;
-let _lastTimestamp = null;
+//
+// event_seq와 직전 이벤트 시각은 모듈 변수가 아니라 sessionManager(localStorage)가
+// 들고 있다. Cafe24처럼 페이지를 넘길 때마다 전체 새로고침이 일어나는 쇼핑몰에서는
+// 모듈 변수가 매번 0으로 리셋되어
+//   - event_seq가 페이지마다 1부터 다시 시작 → 세션 타임라인 정렬이 뒤섞이고
+//     (classify.js, clusters.js, exit_capture.py가 event_seq로 정렬한다)
+//   - inter_event_gap이 페이지 첫 이벤트마다 0으로 기록되며
+//   - event_seq를 중복 판정 키로 쓸 수 없게 된다
+// 세션 단위로 이어져야 "행동 순서" 분석이 성립한다.
 
 // 세션 TTL 만료 / 활동 콜백 (sdk-A.js가 주입)
 let _activityCallback = null;
+
+/**
+ * 예외 격리 래퍼.
+ *
+ * SDK는 남의 쇼핑몰에 삽입되므로, 예상 못 한 DOM을 만나 예외가 나더라도
+ * 호스트 페이지에 영향을 주면 안 된다. 예전에는 SDK 전체에 try/catch가
+ * 하나도 없어서 리스너 하나가 죽으면 그 유형의 이벤트가 세션 내내
+ * 수집되지 않았고, 그 사실을 알 방법조차 없었다.
+ *
+ * 여기서 삼킨 예외는 _reportSdkError로 별도 기록해 원인을 추적할 수 있게 한다.
+ * 호스트 페이지 콘솔에는 아무것도 출력하지 않는다.
+ *
+ * @param {Function} fn     감쌀 함수
+ * @param {string} context  실패 지점 식별자 (에러 이벤트에 기록)
+ * @returns {Function}
+ */
+function safe(fn, context = 'unknown') {
+  return function wrapped(...args) {
+    try {
+      return fn.apply(this, args);
+    } catch (err) {
+      _reportSdkError(context, err);
+      return undefined;
+    }
+  };
+}
+
+// 같은 지점에서 반복 실패할 때 에러 이벤트가 폭주하지 않도록 지점당 1회만 보고
+const _reportedErrors = new Set();
+
+function _reportSdkError(context, err) {
+  if (_reportedErrors.has(context)) return;
+  _reportedErrors.add(context);
+
+  try {
+    send({
+      event_id:   _newEventId(),
+      session_id: getSessionId(),
+      event_type: 'sdk_error',
+      timestamp:  Date.now(),
+      event_token: 0,
+      data: {
+        sdk_error: true,
+        context,
+        message: String(err && err.message ? err.message : err).slice(0, 200),
+      },
+    });
+  } catch {
+    // 에러 보고가 또 실패하면 조용히 포기한다
+  }
+}
+
+/** 이벤트마다 붙는 고유 ID — 서버가 이걸로 재전송 중복을 걸러낸다 */
+function _newEventId() {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+  } catch {
+    /* fallthrough */
+  }
+  // randomUUID를 못 쓰는 환경(구형 브라우저·비보안 컨텍스트) fallback
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
 
 /**
  * sdk-A.js가 initA() 시점에 등록
@@ -122,7 +203,6 @@ let _cartItemCount = 0;
  * @param {object} data       raw 이벤트별 데이터 (session_id, event_seq 등은 여기 넣지 않는다)
  */
 function emit(eventType, data = {}) {
-  console.log("[EMIT]", eventType, data);
   const now = Date.now();
 
   // inactivity는 활동 이벤트가 아니므로 타이머/TTL 갱신 제외
@@ -184,18 +264,24 @@ function emitSessionEnd(exitData = {}) {
 // 공통 필드 붙여서 event 객체 완성하고 sender로 넘긴다
 function _dispatch(eventType, data, timestamp) {
   if (!(eventType in EVENT_VOCAB)) {
-    console.warn(`[GhostTracker] Unknown event type: "${eventType}"`);
+    // 호스트 페이지 콘솔을 더럽히지 않는다 (개발 중에는 debugEmit으로 확인)
   }
 
-  const inter_event_gap = _lastTimestamp !== null ? timestamp - _lastTimestamp : 0;
-  _lastTimestamp = timestamp;
-  _seq += 1;
+  // 직전 이벤트 시각은 세션 단위로 유지된다 → 페이지를 넘어가도 gap이 이어진다
+  const lastTimestamp = getLastEventTimestamp();
+  const inter_event_gap = lastTimestamp !== null ? timestamp - lastTimestamp : 0;
+  setLastEventTimestamp(timestamp);
+
+  const event_seq = nextEventSeq();
 
   const event = {
+    // event_id: 재전송 중복 판정 키.
+    // (session_id, event_seq)는 쓸 수 없다 — 아래 주석 참고.
+    event_id:        _newEventId(),
     session_id:      getSessionId(),
     event_type:      eventType,
     timestamp,
-    event_seq:       _seq,
+    event_seq,
     event_token:     EVENT_VOCAB[eventType] ?? 0,
     inter_event_gap,
     ...getPageContext(),  // page_url, pathname, referrer, utm_*, device_type 등 자동 부여
@@ -203,7 +289,7 @@ function _dispatch(eventType, data, timestamp) {
   };
 
   send(event);
-  return _seq;
+  return event_seq;
 }
 
 /**
@@ -240,4 +326,14 @@ function _checkRageClick(data, now) {
   }
 }
 
-export { emit, emitSessionEnd, EVENT_VOCAB };
+// 외부로 나가는 진입점은 전부 예외 격리 래퍼를 씌운다.
+// B·C의 리스너가 던진 예외가 호스트 쇼핑몰 스크립트로 전파되지 않게 하는 마지막 방어선.
+const safeEmit           = safe(emit, 'eventProcessor.emit');
+const safeEmitSessionEnd = safe(emitSessionEnd, 'eventProcessor.emitSessionEnd');
+
+export {
+  safeEmit as emit,
+  safeEmitSessionEnd as emitSessionEnd,
+  EVENT_VOCAB,
+  safe,
+};
