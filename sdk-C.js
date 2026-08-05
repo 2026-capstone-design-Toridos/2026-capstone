@@ -71,16 +71,43 @@ function _initScrollTracking(handleRawEvent) {
     lastY         = currentY;
   }
 
+  // ── scroll_speed 억제 ──────────────────────────────────────
+  //
+  // 예전에는 스크롤 프레임마다 무조건 발생시켰다. 실측 결과 전체 수집
+  // 이벤트의 59%(1553/2651)가 scroll_speed였다. scroll_depth가 153건인 것과
+  // 비교하면 10배다.
+  //
+  // 이게 분석을 망가뜨린다. 세션 시퀀스를 만들면 토큰의 절반 이상이
+  // 스크롤 노이즈라 모든 세션이 비슷해 보이고, 클러스터가 안 갈린다.
+  // "클러스터링이 잘 안 된다"의 원인 중 하나다.
+  //
+  // 이제 일정 간격마다, 의미 있는 거리를 움직였을 때만 한 번 보낸다.
+  // 구간 평균 속도라 개별 프레임 값보다 오히려 노이즈가 적다.
+  const SPEED_EMIT_INTERVAL_MS = 1_000;  // 최소 1초 간격
+  const SPEED_MIN_DISTANCE_PX  = 50;     // 이 정도는 움직여야 의미가 있다
+  let speedWindowStart = Date.now();
+  let speedWindowY     = 0;
+
   function detectSpeed() {
     const now = Date.now();
-    const dy  = Math.abs(window.scrollY - lastY);
-    const dt  = now - lastTime;
+    const dt  = now - speedWindowStart;
 
-    if (dt > 0) {
-      const speed = dy / dt;
-      handleRawEvent('scroll_speed', { speed: Number(speed.toFixed(3)) });
-    }
-    lastTime = now;
+    if (dt < SPEED_EMIT_INTERVAL_MS) return;
+
+    const dy = Math.abs(window.scrollY - speedWindowY);
+
+    // 다음 구간 기준점은 조건 충족 여부와 무관하게 갱신한다
+    speedWindowStart = now;
+    speedWindowY     = window.scrollY;
+    lastTime         = now;
+
+    if (dy < SPEED_MIN_DISTANCE_PX) return;   // 거의 안 움직였으면 기록할 게 없다
+
+    handleRawEvent('scroll_speed', {
+      speed:       Number((dy / dt).toFixed(3)),  // px/ms, 구간 평균
+      distance_px: dy,
+      duration_ms: dt,
+    });
   }
 
   function handleScroll() {
