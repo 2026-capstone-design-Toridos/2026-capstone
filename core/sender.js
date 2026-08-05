@@ -130,6 +130,27 @@ function getPendingCount() {
   return _retryQueue.reduce((sum, batch) => sum + batch.events.length, 0);
 }
 
+/**
+ * 수집 서버를 미리 깨운다 (warm-up).
+ *
+ * Render 무료 플랜은 유휴 상태에서 첫 요청에 30~50초가 걸린다.
+ * 재시도 백오프(1s→2s→4s = 합 7초)로는 이 구간을 버티지 못한다.
+ *
+ * 그래서 SDK 초기화 직후 가벼운 GET을 한 번 던져 서버를 깨워둔다.
+ * 첫 이벤트가 실제로 전송될 때쯤이면(최소 5초 뒤) 서버가 준비돼 있다.
+ * 방문자 입장에서도 "첫 접속이 느린" 현상이 함께 사라진다.
+ *
+ * 실패해도 아무것도 하지 않는다. 어차피 재시도 큐가 받아준다.
+ */
+function warmUp() {
+  try {
+    const url = new URL(COLLECT_URL);
+    fetch(`${url.origin}/health`, { method: 'GET', mode: 'cors' }).catch(() => {});
+  } catch {
+    // COLLECT_URL이 상대경로 등으로 설정된 경우 — 깨울 대상이 없다
+  }
+}
+
 // ── 내부 헬퍼 ────────────────────────────────────────────────
 
 /**
@@ -260,4 +281,4 @@ function _sendBeaconOrFetch(payload) {
   });
 }
 
-export { send, flush, configureSender, getPendingCount };
+export { send, flush, configureSender, getPendingCount, warmUp };

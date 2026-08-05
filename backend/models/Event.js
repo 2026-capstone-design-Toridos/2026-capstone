@@ -37,10 +37,40 @@ const EventSchema = new mongoose.Schema(
     referrer:    { type: String },
     device_type: { type: String },  // desktop | mobile | tablet
 
-    // ── UTM ───────────────────────────────────────────────────
+    // ── Layer 0: 플랫폼 확정값 ─────────────────────────────────
+    //
+    // 쇼핑몰 솔루션이 표준 meta로 노출하는 값을 SDK가 그대로 실어 보낸다.
+    // URL 정규식 추론과 달리 스킨이 바뀌어도 깨지지 않는다.
+    //
+    // 예: Cafe24 상품 상세
+    //   <meta name="path_role" content="PRODUCT_DETAIL">
+    //   <meta property="product:productId" content="45">
+    //
+    // 이 필드가 있으면 페이지 타입 추론(ml/semantic_event_mapper.py)이
+    // URL을 볼 필요가 없다. 없으면(비-Cafe24) 기존 URL 추론으로 떨어진다.
+    platform:      { type: String },  // cafe24 | ...
+    page_type:     { type: String },  // HOME | PRODUCT | CART | CHECKOUT | ORDER_SUCCESS | ...
+    platform_role: { type: String },  // 플랫폼 원본 값 (매핑 누락 추적용)
+
+    // ── 유입 경로 (세션 최초 진입 시점 값으로 고정) ───────────
+    //
+    // SDK가 세션 시작 시 한 번 계산해 localStorage에 저장하고, 그 뒤 모든
+    // 이벤트에 같은 값을 붙인다. 페이지를 넘어가도, PG 결제창에 다녀와도
+    // 바뀌지 않는다.
+    //
+    // 예전에는 서버가 $first(received_at 순)로 추정했는데 배치 전송이라
+    // 도착 순서가 뒤집히면 틀렸고, utm_medium은 스키마에만 있고 SDK가
+    // 채우지 않아 항상 빈 값이었다.
     utm_source:   { type: String },
     utm_medium:   { type: String },
     utm_campaign: { type: String },
+    utm_term:     { type: String },
+    utm_content:  { type: String },
+
+    referrer_host:  { type: String },  // referrer의 도메인 (자사·PG는 걸러진 뒤)
+    channel:        { type: String },  // 최종 채널명 — 운영자 화면이 그대로 쓴다
+    in_app_browser: { type: String },  // Instagram / KakaoTalk / Naver ...
+    landing_page:   { type: String },  // 세션의 첫 진입 경로
 
     // ── 이벤트별 페이로드 (sdk-B/C가 채우는 필드) ─────────────
     data: { type: mongoose.Schema.Types.Mixed },

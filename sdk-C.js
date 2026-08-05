@@ -28,7 +28,7 @@ export function initC(handleRawEvent) {
   _initEcommerceTracking(handleRawEvent);
   _initReviewTracking(handleRawEvent);
 
-  console.log('[GhostTracker] sdk-C initialized');
+  // 초기화 로그는 남기지 않는다 — 남의 쇼핑몰 콘솔을 더럽히지 않기 위함
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -684,6 +684,8 @@ function _initEcommerceTracking(handleRawEvent) {
   const PURCHASE_TEXT = [
     /buy\s*now/i, /checkout/i, /place\s*order/i, /proceed\s*to\s*checkout/i,
     /구매하기/i, /주문하기/i, /결제하기/i, /^결제$/i, /주문\s*완료/i,
+    // Cafe24 기본 스킨 버튼은 "바로 구매" / "바로구매"라 기존 패턴에 안 걸렸다
+    /바로\s*구매/i, /^구매$/i, /즉시\s*구매/i, /지금\s*구매/i,
   ];
   const PURCHASE_HREF = ['/checkout', '/order', '/purchase', '/pay'];
   const PRODUCT_HREF  = /\/(?:product|p|item|goods|shop)\/([^/?#]+)/i;
@@ -705,10 +707,41 @@ function _initEcommerceTracking(handleRawEvent) {
     return _preClickText.get(el) || (el?.textContent || el?.innerText || '').trim();
   }
 
+  /**
+   * 엘리먼트가 "말하고 있는" 모든 텍스트 후보를 모은다.
+   *
+   * 예전에는 textContent와 aria-label만 봤다. 그런데 Cafe24 기본 스킨은
+   * 이미지 버튼을 쓴다:
+   *   <a href="..."><img alt="장바구니 담기" src="btn_list_cart.gif"></a>
+   *   <a href="javascript:;"><img alt="up" src="btn_count_up.gif"></a>
+   * textContent는 빈 문자열이고 aria-label도 없어서 전부 미감지였다.
+   *
+   * img alt / title / value까지 후보에 넣으면 이미지 버튼 쇼핑몰 전반이
+   * 함께 해결된다 (Cafe24 전용 대응이 아니다).
+   */
+  function textCandidates(el) {
+    if (!el) return [];
+
+    const out = [textOf(el)];
+
+    try {
+      const attr = (name) => el.getAttribute?.(name) || '';
+      out.push(attr('aria-label'), attr('title'), attr('alt'), attr('value'));
+
+      // 자식 이미지의 alt/title — 이미지 버튼의 실제 의미가 여기 있다
+      el.querySelectorAll?.('img, svg title').forEach((child) => {
+        out.push(child.getAttribute?.('alt') || '', child.textContent || '');
+      });
+    } catch {
+      /* DOM 접근 실패는 무시하고 있는 후보만 쓴다 */
+    }
+
+    return out.map((t) => String(t || '').trim()).filter(Boolean);
+  }
+
   function matchesPatterns(el, patterns) {
-    const text  = textOf(el);
-    const label = el?.getAttribute?.('aria-label') || '';
-    return patterns.some((p) => p.test(text) || p.test(label));
+    const candidates = textCandidates(el);
+    return patterns.some((p) => candidates.some((text) => p.test(text)));
   }
 
   function hasClass(el, keywords) {
@@ -716,14 +749,33 @@ function _initEcommerceTracking(handleRawEvent) {
     return keywords.some((k) => cls.includes(k));
   }
 
-  // product_id를 DOM 맥락 / URL에서 추론
+  // product_id 확보 — Layer 0(플랫폼 확정값) → DOM 마킹 → URL 추론 순
   function inferProductId(el) {
+    // Layer 0: Cafe24 등이 meta로 알려주는 확정값이 있으면 그게 정답이다.
+    // URL 정규식은 SEO URL에서 퍼센트 인코딩된 한글 슬러그를 잡아버린다.
+    const fromPlatform = window.__GT?.platformProductId?.();
+    if (fromPlatform) return fromPlatform;
+
     const fromParent = el?.closest?.('[data-product-id]')?.dataset?.productId;
     if (fromParent) return fromParent;
+
     const match = window.location.pathname.match(PRODUCT_HREF);
-    if (match) return match[1];
+    if (match) {
+      const seg = decodeURIComponent(match[1]);
+      // /product/{슬러그}/{상품번호}/... 형태면 다음 세그먼트가 진짜 ID다
+      const next = window.location.pathname.split('/').filter(Boolean);
+      const idx  = next.findIndex((s) => decodeURIComponent(s) === seg);
+      if (idx >= 0 && /^\d+$/.test(next[idx + 1] || '')) return next[idx + 1];
+      // 파일명(detail.html 등)을 ID로 쓰지 않는다
+      if (!/\.\w{2,5}$/.test(seg)) return seg;
+    }
+
     const params = new URLSearchParams(window.location.search);
-    return params.get('product_id') || params.get('id') || null;
+    return params.get('product_no')      // Cafe24
+        || params.get('product_id')
+        || params.get('goods_no')        // 고도몰
+        || params.get('id')
+        || null;
   }
 
   // 클릭된 엘리먼트로부터 이커머스 이벤트 추론
@@ -856,18 +908,68 @@ function _initEcommerceTracking(handleRawEvent) {
   });
 
   // ── change 이벤트 (select/input 변경) ───────────────────
-  document.addEventListener('change', (e) => {
-    const el   = e.target?.closest('[data-ghost-role]');
-    if (!el) return;
+  //
+  // Layer 2 fallback이 click에는 있는데 change에는 없어서, data-ghost-role
+  // 마킹이 없는 쇼핑몰에서는 option_select / quantity_change가 0건이었다.
+  // Cafe24 기본 스킨에 그런 마킹이 있을 리 없으니 사실상 전부 미수집이었다.
+  //
+  // 옵션 반복 변경("사이즈를 다섯 번 바꾸다 이탈")은 결정장애형 고객을
+  // 가르는 핵심 신호라, 이게 비면 클러스터링에서 유형이 안 갈린다.
 
-    const role      = el.dataset.ghostRole;
-    const productId = el.dataset.productId || el.closest('[data-product-id]')?.dataset.productId || null;
+  /** 마킹 없는 select/input이 옵션 선택인지 휴리스틱으로 판정 */
+  function inferOptionField(el) {
+    if (!(el instanceof Element)) return null;
+
+    const name = String(el.getAttribute?.('name') || '').toLowerCase();
+    const id   = String(el.id || '').toLowerCase();
+    const cls  = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+    const hay  = `${name} ${id} ${cls}`;
+
+    // 수량 입력 — Cafe24는 name="quantity", 일반적으로 qty/수량
+    const isQuantity =
+      /quantity|qty|수량|amount|ea_/.test(hay) ||
+      (el.tagName === 'INPUT' && el.type === 'number');
+    if (isQuantity) return 'quantity';
+
+    // 옵션 선택 — Cafe24는 product_option_id1 / option1 형태
+    const isOption =
+      el.tagName === 'SELECT' ||
+      /option|opt_|사이즈|색상|size|color/.test(hay);
+    if (isOption) return 'option';
+
+    return null;
+  }
+
+  document.addEventListener('change', (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+
+    const marked = target.closest?.('[data-ghost-role]');
+
+    // Layer 1: 명시 마킹이 있으면 그대로 신뢰
+    // Layer 2: 없으면 휴리스틱으로 역할을 추론 (inferred: true로 구분)
+    let el, role, inferred = false;
+    if (marked) {
+      el   = marked;
+      role = marked.dataset.ghostRole;
+    } else {
+      const kind = inferOptionField(target);
+      if (!kind) return;
+      el   = target;
+      role = kind === 'quantity' ? 'quantity-input' : 'option-select';
+      inferred = true;
+    }
+
+    const productId = el.dataset?.productId
+      || el.closest('[data-product-id]')?.dataset.productId
+      || (window.__GT?.platformProductId?.() ?? null);
 
     if (role === 'option-select') {
       handleRawEvent('option_select', {
         product_id:    productId,
-        option_name:   el.name || el.dataset.optionName || null,
+        option_name:   el.name || el.dataset?.optionName || null,
         option_value:  el.value,
+        ...(inferred && { inferred: true }),
       });
 
       // option_change: 같은 select 반복 변경 감지
@@ -876,9 +978,10 @@ function _initEcommerceTracking(handleRawEvent) {
         prev.count += 1;
         handleRawEvent('option_change', {
           product_id:    productId,
-          option_name:   el.name || el.dataset.optionName || null,
+          option_name:   el.name || el.dataset?.optionName || null,
           option_value:  el.value,
           change_count:  prev.count,
+          ...(inferred && { inferred: true }),
         });
       }
       optionChangeCounts.set(el, { count: prev.count, lastValue: el.value });
@@ -888,11 +991,45 @@ function _initEcommerceTracking(handleRawEvent) {
       handleRawEvent('quantity_change', {
         product_id: productId,
         quantity:   Number(el.value) || 0,
-        prev_quantity: Number(el.dataset.prevQuantity) || null,
+        prev_quantity: Number(el.dataset?.prevQuantity) || null,
+        ...(inferred && { inferred: true }),
       });
-      el.dataset.prevQuantity = el.value;
+      if (el.dataset) el.dataset.prevQuantity = el.value;
     }
   });
+
+  // ── 수량 +/- 버튼 (click 기반) ─────────────────────────────
+  //
+  // Cafe24 수량 조절은 select가 아니라 이미지 링크다:
+  //   <a href="javascript:;"><img alt="up" src="btn_count_up.gif"></a>
+  // change 이벤트가 아예 발생하지 않으므로 click으로 잡아야 한다.
+  const QTY_UP_TEXT   = [/^up$/i, /증가/, /플러스/, /^\+$/, /수량\s*증가/];
+  const QTY_DOWN_TEXT = [/^down$/i, /감소/, /마이너스/, /^-$/, /^−$/, /수량\s*감소/];
+
+  document.addEventListener('click', (e) => {
+    const el = e.target?.closest?.('a, button, [role="button"]');
+    if (!el) return;
+
+    // 이미 다른 이커머스 이벤트로 잡히는 버튼이면 건너뛴다
+    if (matchesPatterns(el, ADD_TO_CART_TEXT) || matchesPatterns(el, PURCHASE_TEXT)) return;
+
+    const isUp   = matchesPatterns(el, QTY_UP_TEXT);
+    const isDown = matchesPatterns(el, QTY_DOWN_TEXT);
+    if (!isUp && !isDown) return;
+
+    // 수량 맥락 안의 버튼인지 확인 (임의의 +/- 버튼 오탐 방지)
+    const scope = el.closest('[class*="quantity"], [class*="qty"], [class*="count"], [class*="product"], form, tr, li');
+    if (!scope) return;
+
+    const input = scope.querySelector('input[name*="quantity" i], input[name*="qty" i], input[type="number"]');
+
+    handleRawEvent('quantity_change', {
+      product_id: window.__GT?.platformProductId?.() ?? inferProductId(el),
+      direction:  isUp ? 'up' : 'down',
+      quantity:   input ? Number(input.value) || null : null,
+      inferred:   true,
+    });
+  }, { passive: true });
 }
 
 // ─────────────────────────────────────────────────────────────

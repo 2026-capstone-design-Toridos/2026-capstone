@@ -12,10 +12,31 @@ const express = require('express');
 const router  = express.Router();
 const Event   = require('../models/Event');
 
+/**
+ * 수집 출처를 하나의 사이트로 통일한다.
+ *
+ * Cafe24는 모바일을 m.도메인으로 서비스한다. 그대로 두면 같은 쇼핑몰이
+ * 대시보드 사이트 목록에 둘로 뜨고, 클러스터 스냅샷도 따로 생기고,
+ * 접근 키도 두 개가 필요해진다.
+ *
+ * m. 접두어를 떼어 데스크톱 도메인 기준으로 합친다.
+ * 기기 구분은 이미 device_type 필드가 하고 있다.
+ */
+function normalizeOrigin(raw) {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    url.hostname = url.hostname.replace(/^m\./i, '');
+    return `${url.protocol}//${url.host}`.toLowerCase();
+  } catch {
+    return raw;
+  }
+}
+
 // SDK 버퍼 전송 형식과 디버그용 단일 이벤트 형식을 모두 허용한다
 router.post('/', async (req, res) => {
   try {
-    const origin = req.headers.origin || req.headers.referer || null;
+    const origin = normalizeOrigin(req.headers.origin || req.headers.referer || null);
 
     const raw = req.body;
     const eventList = Array.isArray(raw.events)
