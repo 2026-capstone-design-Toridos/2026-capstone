@@ -34,9 +34,22 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'X-GT-Key'],   // 대시보드가 접근 키를 헤더로 보냄
 }));
 
-// ── Static (Dashboard) ────────────────────────────────────────
-// public 폴더에 있는 운영자/전문가 대시보드 html을 파일째로 내려줌
-app.use(express.static(path.join(__dirname, 'public')));
+// ── Static (Dashboard + SDK) ──────────────────────────────────
+// public 폴더에 있는 운영자/전문가 대시보드 html과 SDK 번들을 내려줌
+//
+// gt.js는 쇼핑몰에 삽입되는 SDK라 캐시 정책이 중요하다.
+// 기본 설정으로 두면 브라우저가 옛 번들을 계속 들고 있어서,
+// 배포해도 방문자에게는 반영되지 않는다. 실제로 그 문제로 한참 헤맸다.
+//
+// 'no-cache'는 "캐시하지 마라"가 아니라 "캐시하되 쓸 때마다 서버에 확인하라"다.
+// 바뀐 게 없으면 304(본문 없음)로 끝나 비용은 거의 없고, 배포는 즉시 반영된다.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('gt.js')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 
 // ── Body Parser ───────────────────────────────────────────────
 // SDK가 보내는 이벤트 JSON을 req.body로 파싱, 배치가 너무 커지지 않게 1mb로 제한
