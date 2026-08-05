@@ -17,6 +17,7 @@ import {
 } from './sessionManager.js';
 import { recordActivity, recordFirstClick, getPendingInactivity } from './timeTracker.js';
 import { send } from './sender.js';
+import { getPlatformContext } from './platformAdapter.js';
 
 // ── event_token vocab ──────────────────────────────────────────
 // AI 팀과 공유하는 고정 매핑. 변경 시 반드시 BE/AI 팀에 공지.
@@ -274,6 +275,10 @@ function _dispatch(eventType, data, timestamp) {
 
   const event_seq = nextEventSeq();
 
+  // Layer 0: 플랫폼이 알려주는 확정값 (Cafe24 meta 등).
+  // 감지 안 되는 사이트면 null이라 아무 필드도 붙지 않는다 → 기존 동작 유지.
+  const platform = getPlatformContext();
+
   const event = {
     // event_id: 재전송 중복 판정 키.
     // (session_id, event_seq)는 쓸 수 없다 — 아래 주석 참고.
@@ -285,6 +290,14 @@ function _dispatch(eventType, data, timestamp) {
     event_token:     EVENT_VOCAB[eventType] ?? 0,
     inter_event_gap,
     ...getPageContext(),  // page_url, pathname, referrer, utm_*, device_type 등 자동 부여
+
+    // 플랫폼 확정값 — URL 추론보다 우선하는 근거가 된다
+    ...(platform ? {
+      platform:      platform.platform,
+      page_type:     platform.page_type,
+      platform_role: platform.platform_role,
+    } : {}),
+
     data,
   };
 

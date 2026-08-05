@@ -48,7 +48,7 @@ export function initB(handleRawEvent) {
   trackMedia(handleRawEvent);
   trackSearch(handleRawEvent);
 
-  console.log('[GhostTracker] sdk-B initialized');
+  // 초기화 로그는 남기지 않는다 — 남의 쇼핑몰 콘솔을 더럽히지 않기 위함
 }
 
 /* =========================
@@ -134,7 +134,6 @@ function getFormMeta(target) {
 // 전역 클릭을 가로채서 click 이벤트를 emit한다
 function trackClicks(handleRawEvent) {
   document.addEventListener('click', (e) => {
-    console.log("[B] 클릭 감지됨");
     const target = getTrackableTarget(e.target);
     state.clickCount += 1;
 
