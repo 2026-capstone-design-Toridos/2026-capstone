@@ -12,14 +12,19 @@ const RISK_EVENTS = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag
 // 유입값을 운영자가 알아보기 쉬운 채널명으로 바꿔준다
 function prettySourceName(raw) {
   const value = String(raw || '').trim().toLowerCase();
-  if (!value) return '직접 방문';
+  if (!value || value === 'direct') return '직접 방문';
   if (value.includes('notion')) return 'Notion';
   if (value.includes('instagram') || value.includes('insta')) return 'Instagram';
-  if (value.includes('facebook')) return 'Facebook';
+  if (value.includes('threads')) return 'Threads';
+  if (value.includes('facebook') || value.includes('fban')) return 'Facebook';
   if (value.includes('github')) return 'GitHub';
   if (value.includes('kakao')) return 'Kakao';
   if (value.includes('google')) return 'Google';
   if (value.includes('naver')) return 'Naver';
+  if (value.includes('daum')) return 'Daum';
+  if (value.includes('tiktok')) return 'TikTok';
+  if (value.includes('youtube')) return 'YouTube';
+  if (value.includes('line')) return 'Line';
   return String(raw).replace(/^www\./i, '');
 }
 
@@ -42,9 +47,16 @@ function buildSessionPipeline(filter = {}) {
       $group: {
         _id: '$session_id',
         session_id: { $last: '$session_id' },
+        // SDK가 세션 전체에 동일한 first-touch 값을 붙여주므로 $first로 하나만
+        // 집어오면 된다. 예전에는 이 $first가 "도착 순서로 추정"하는 역할이라
+        // 배치 전송 순서가 뒤집히면 틀린 유입 경로가 나왔다.
         first_referrer: { $first: '$referrer' },
         first_utm_source: { $first: '$utm_source' },
+        first_utm_medium: { $first: '$utm_medium' },
         first_utm_campaign: { $first: '$utm_campaign' },
+        first_channel: { $first: '$channel' },
+        first_in_app: { $first: '$in_app_browser' },
+        first_landing: { $first: '$landing_page' },
         last_at: { $last: '$received_at' },
         pathname: { $last: '$pathname' },
         count: { $sum: 1 },
@@ -185,7 +197,11 @@ function buildSessionPipeline(filter = {}) {
         session_id: 1,
         referrer: { $ifNull: ['$first_referrer', ''] },
         utm_source: { $ifNull: ['$first_utm_source', ''] },
+        utm_medium: { $ifNull: ['$first_utm_medium', ''] },
         utm_campaign: { $ifNull: ['$first_utm_campaign', ''] },
+        channel: { $ifNull: ['$first_channel', ''] },
+        in_app_browser: { $ifNull: ['$first_in_app', ''] },
+        landing_page: { $ifNull: ['$first_landing', ''] },
         last_at: 1,
         pathname: { $ifNull: ['$pathname', '/'] },
         count: 1,
@@ -279,11 +295,20 @@ function screenLabel(pathname = '') {
   return '홈 화면';
 }
 
-// 세션 하나의 대표 유입 채널 이름 뽑기
+/**
+ * 세션 하나의 대표 유입 채널 이름 뽑기
+ *
+ * 우선순위: SDK가 확정한 channel → utm_source → referrer 도메인 → 직접 방문
+ *
+ * channel은 신규 SDK가 붙여주는 값이라, 그게 있으면 서버에서 다시 추론할
+ * 필요가 없다. UTM·인앱 브라우저·referrer를 이미 종합해 판정한 결과다.
+ * 구버전 SDK로 수집된 기존 데이터를 위해 아래 경로를 fallback으로 남긴다.
+ */
 function deriveSourceName(session = {}) {
-  return session.utm_source
-    ? prettySourceName(session.utm_source)
-    : prettySourceName(hostFromUrl(session.referrer));
+  if (session.channel) return prettySourceName(session.channel);
+  if (session.in_app_browser) return prettySourceName(session.in_app_browser);
+  if (session.utm_source) return prettySourceName(session.utm_source);
+  return prettySourceName(hostFromUrl(session.referrer));
 }
 
 // 멈춘 흔적 우선순위대로 훑어서 가장 그럴듯한 이탈 원인 하나를 고른다
@@ -445,9 +470,8 @@ router.get('/sources', async (req, res) => {
     const sessions = await Event.aggregate(buildSessionPipeline(filter));
     const counts = new Map();
     for (const session of sessions) {
-      const source = session.utm_source
-        ? prettySourceName(session.utm_source)
-        : prettySourceName(hostFromUrl(session.referrer));
+      // deriveSourceName과 같은 규칙을 쓴다 (예전엔 여기만 따로 판정해 결과가 갈렸다)
+      const source = deriveSourceName(session);
       counts.set(source, (counts.get(source) || 0) + 1);
     }
 

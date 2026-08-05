@@ -22,6 +22,7 @@ const SESSION_TS_KEY  = 'gt_sid_ts';    // 마지막 활동 시각 (TTL 갱신�
 const SESSION_CNT_KEY = 'gt_sid_cnt';   // 총 발급 세션 수 (is_returning 판단)
 const SESSION_SEQ_KEY = 'gt_seq';       // 세션 내 이벤트 순번 (페이지 이동해도 이어짐)
 const SESSION_LAST_TS_KEY = 'gt_last_ts'; // 마지막 이벤트 시각 (inter_event_gap 계산용)
+const FIRST_TOUCH_KEY = 'gt_first_touch'; // 세션의 최초 유입 경로 (아래 설명 참고)
 
 // ── 세션 TTL ────────────────────────────────────────────────────
 // 기본 30분. 코드 주석과 docs/notion-current-architecture.md의 원래 의도이자
@@ -115,7 +116,9 @@ function initSession() {
   // 활동 시각 갱신 (TTL 기준점)
   _write(SESSION_TS_KEY, now);
 
-  const utm = _parseUTM();
+  // 유입 경로는 세션 최초 진입 시점 값으로 고정한다.
+  // 새 세션이면 지금 값으로 다시 계산하고, 유지 중이면 저장된 값을 그대로 쓴다.
+  const touch = _resolveFirstTouch(is_new_session);
 
   return {
     session_id,
@@ -124,12 +127,21 @@ function initSession() {
     // 기존 세션을 재사용(is_new_session=false)하는 경우는 동일 세션 유지이므로 false.
     is_returning: is_new_session && storedCnt > 0,
     session_count: storedCnt + (is_new_session ? 1 : 0),
-    page_url:    window.location.href,
+    page_url:    cleanUrl(),          // icid 등 추적 파라미터 제거
     pathname:    window.location.pathname,
-    referrer:    document.referrer || '',
-    utm_source:  utm.utm_source,
-    utm_campaign: utm.utm_campaign,
     visit_time:  now,
+
+    // ── 유입 경로 (세션 고정값) ─────────────────────────────────
+    referrer:      touch.referrer,        // 자사·PG 도메인은 걸러진 값
+    referrer_host: touch.referrer_host,
+    utm_source:    touch.utm_source,
+    utm_medium:    touch.utm_medium,
+    utm_campaign:  touch.utm_campaign,
+    utm_term:      touch.utm_term,
+    utm_content:   touch.utm_content,
+    channel:       touch.channel,         // 운영자 화면이 바로 쓰는 최종 채널명
+    in_app_browser: touch.in_app_browser, // Instagram / KakaoTalk / ...
+    landing_page:  touch.landing_page,
   };
 }
 
@@ -182,16 +194,16 @@ function setPageContext(ctx) {
 }
 
 /**
- * SPA navigation 발생 시 url/pathname/utm 갱신
- * 나머지 env 정보는 세션 동안 고정
+ * SPA navigation 발생 시 url/pathname만 갱신한다.
+ *
+ * UTM은 여기서 다시 읽지 않는다. 예전에는 매 이동마다 현재 URL의 UTM으로
+ * 덮어써서, 파라미터가 없는 2번째 페이지부터 유입 정보가 빈 값이 됐다.
+ * 유입 경로는 세션 최초 진입 시점 값(first-touch)으로 고정한다.
  */
 function updatePageUrl() {
   if (_pageContext) {
-    const utm = _parseUTM();
-    _pageContext.page_url     = window.location.href;
-    _pageContext.pathname     = window.location.pathname;
-    _pageContext.utm_source   = utm.utm_source;
-    _pageContext.utm_campaign = utm.utm_campaign;
+    _pageContext.page_url = cleanUrl();
+    _pageContext.pathname = window.location.pathname;
   }
 }
 
@@ -208,21 +220,190 @@ function getSessionId() {
   return _read(SESSION_ID_KEY, '') || '';
 }
 
-// ── 내부 헬퍼 ────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+//  유입 경로 (first-touch attribution)
+// ══════════════════════════════════════════════════════════════════
+//
+// 왜 "최초 진입 시점"을 따로 저장하는가:
+//
+//  1) UTM은 랜딩 페이지 URL에만 붙는다.
+//     ?utm_source=instagram 으로 들어와도 다음 페이지부터는 파라미터가 사라진다.
+//
+//  2) referrer는 페이지를 넘길 때마다 자사 도메인으로 바뀐다.
+//     상품 상세에서 본 referrer는 "우리 홈"이지 "인스타그램"이 아니다.
+//
+//  3) Cafe24 결제는 별도 팝업으로 PG사(이니시스·토스 등)에 다녀온다.
+//     돌아오면 referrer가 PG사 도메인이 된다. 저장해두지 않으면
+//     "주문에 성공한 고객"의 유입 경로가 전부 PG사로 기록된다.
+//     하필 가장 중요한 세그먼트다.
+//
+//  예전에는 서버가 $first(received_at 순)로 추정했는데, 배치 전송이라
+//  도착 순서가 뒤집히면 틀린 값이 나왔다. 이제 SDK가 확정해서 보낸다.
+//
+//  저장 시점: 세션이 새로 발급될 때 1회. 세션이 유지되는 동안은 고정.
 
-// URL 쿼리에서 utm_source/utm_campaign만 뽑아온다
+// 결제대행사(PG) 도메인 — 여기서 돌아온 건 유입이 아니라 결제 왕복이다
+const PG_HOSTS = [
+  'inicis', 'kcp', 'nicepay', 'kgmobilians', 'settlebank',
+  'tosspayments', 'toss.im', 'kakaopay', 'naverpay', 'payco',
+  'smartro', 'ksnet', 'allat', 'kicc', 'danal', 'eximbay',
+  'pay.naver.com', 'paypal',
+];
+
+// 인앱 브라우저 판별 규칙 — [정규식, 채널명]
+//
+// Instagram·KakaoTalk 인앱 브라우저는 document.referrer를 보내지 않는다.
+// 그래서 지금까지 이 유입이 전부 "직접 방문"으로 집계됐다.
+// UA로 앱을 식별하면 referrer 없이도 채널을 알 수 있다.
+const IN_APP_BROWSERS = [
+  [/Instagram/i,            'Instagram'],
+  [/KAKAOTALK/i,            'KakaoTalk'],
+  [/NAVER\(inapp/i,         'Naver'],
+  [/DaumApps|daumcafe/i,    'Daum'],
+  [/FBAN|FBAV|FB_IAB/i,     'Facebook'],
+  [/Line\//i,               'Line'],
+  [/Threads/i,              'Threads'],
+  [/TikTok|Musical_ly/i,    'TikTok'],
+];
+
+/** UA로 인앱 브라우저를 식별한다 (아니면 '') */
+function _detectInAppBrowser(ua = navigator.userAgent) {
+  for (const [pattern, name] of IN_APP_BROWSERS) {
+    if (pattern.test(ua)) return name;
+  }
+  return '';
+}
+
+/**
+ * page_url에서 수집에 방해되는 추적 파라미터를 제거한다.
+ *
+ * Cafe24는 모든 상품 링크에 ?icid=MAIN.product_listmain_5 같은 내부 클릭
+ * 추적 파라미터를 붙인다. 같은 상품 페이지인데 진입 경로마다 URL이 달라져
+ * page_url 기준 집계("많이 멈춘 화면" 등)가 흩어진다.
+ *
+ * UTM은 first-touch로 이미 따로 저장하므로 여기서 지워도 안전하다.
+ */
+const TRACKING_PARAMS = [
+  'icid',                       // Cafe24 내부 클릭 추적
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+  'gclid', 'fbclid', 'igshid',  // 광고 플랫폼 클릭 ID
+  'n_media', 'n_query', 'n_ad_group', 'NaPm',  // 네이버 광고
+];
+
+function cleanUrl(rawUrl = window.location.href) {
+  try {
+    const url = new URL(rawUrl);
+    TRACKING_PARAMS.forEach((p) => url.searchParams.delete(p));
+    // 남은 파라미터가 없으면 물음표도 떼어 URL을 하나로 통일한다
+    url.search = url.searchParams.toString();
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+/** referrer URL에서 host만 뽑는다 */
+function _hostOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * 유입으로 인정할 수 없는 referrer인지 판정한다.
+ *  - 자사 도메인: 내부 이동이지 유입이 아니다
+ *  - PG 도메인: 결제 왕복이지 유입이 아니다
+ */
+function _isIgnoredReferrer(host) {
+  if (!host) return true;
+
+  const self = String(window.location.hostname || '').replace(/^www\./i, '').toLowerCase();
+  // 모바일 서브도메인(m.도메인)도 자사로 본다
+  if (host === self) return true;
+  if (self.endsWith(`.${host}`) || host.endsWith(`.${self}`)) return true;
+
+  return PG_HOSTS.some((pg) => host.includes(pg));
+}
+
+/** 이번 페이지 URL에서 UTM 5종을 모두 읽는다 */
 function _parseUTM() {
   const params = new URLSearchParams(window.location.search);
   return {
     utm_source:   params.get('utm_source')   || '',
+    utm_medium:   params.get('utm_medium')   || '',   // 스키마엔 있었는데 수집이 빠져 있었다
     utm_campaign: params.get('utm_campaign') || '',
+    utm_term:     params.get('utm_term')     || '',
+    utm_content:  params.get('utm_content')  || '',
   };
+}
+
+/**
+ * 지금 이 페이지 로드의 유입 정보를 계산한다.
+ * 채널 판정 우선순위: UTM → 인앱 브라우저 → referrer → 직접 방문
+ */
+function _computeTouch() {
+  const utm         = _parseUTM();
+  const referrer    = document.referrer || '';
+  const host        = _hostOf(referrer);
+  const ignored     = _isIgnoredReferrer(host);
+  const inApp       = _detectInAppBrowser();
+
+  let channel;
+  if (utm.utm_source)      channel = utm.utm_source;
+  else if (inApp)          channel = inApp;          // referrer 없는 인앱 유입 구제
+  else if (!ignored)       channel = host;
+  else                     channel = 'direct';
+
+  return {
+    ...utm,
+    referrer:        ignored ? '' : referrer,   // 자사·PG referrer는 버린다
+    referrer_host:   ignored ? '' : host,
+    in_app_browser:  inApp,
+    channel,
+    landing_page:    window.location.pathname,
+    touch_at:        Date.now(),
+  };
+}
+
+/**
+ * 세션의 first-touch를 읽는다. 없으면 지금 값으로 만들어 저장한다.
+ * @param {boolean} forceNew  새 세션이면 true — 기존 값을 버리고 다시 계산
+ */
+function _resolveFirstTouch(forceNew) {
+  if (!forceNew) {
+    const raw = _read(FIRST_TOUCH_KEY);
+    if (raw) {
+      try {
+        const saved = JSON.parse(raw);
+        if (saved && typeof saved === 'object') return saved;
+      } catch {
+        // 저장값이 깨졌으면 새로 계산한다
+      }
+    }
+  }
+
+  const touch = _computeTouch();
+  try {
+    _write(FIRST_TOUCH_KEY, JSON.stringify(touch));
+  } catch {
+    /* 저장 실패해도 이번 페이지 값은 그대로 쓴다 */
+  }
+  return touch;
+}
+
+/** 현재 세션의 first-touch 값 (sdk-A가 pageContext에 실어 보낸다) */
+function getFirstTouch() {
+  return _resolveFirstTouch(false);
 }
 
 export {
   initSession,
   configureSession,
   getSessionTtlMinutes,
+  getFirstTouch,
+  cleanUrl,
   touchSessionTimestamp,
   nextEventSeq,
   getLastEventTimestamp,

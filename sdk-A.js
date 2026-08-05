@@ -22,7 +22,8 @@
 import { initSession, configureSession, getSessionTtlMinutes, setPageContext, updatePageUrl, touchSessionTimestamp } from './core/sessionManager.js';
 import { recordPageEnter, resetPageTimers, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
 import { emit, emitSessionEnd, setActivityCallback, safe } from './core/eventProcessor.js';
-import { flush, configureSender } from './core/sender.js';
+import { flush, configureSender, warmUp } from './core/sender.js';
+import { getPlatformProductId, resetPlatformContext } from './core/platformAdapter.js';
 
 // ── 내부 상태 ─────────────────────────────────────────────────
 let _initialized = false;
@@ -61,15 +62,27 @@ function initA(options = {}) {
     configureSession(options.session);
   }
 
+  // 수집 서버를 미리 깨운다 (Render 콜드 스타트 대비) — 첫 이벤트 유실 방지
+  warmUp();
+
   const sessionCtx = initSession();
   const envInfo    = _collectEnv();
 
+  // 유입 경로는 세션 최초 진입 시점 값으로 고정된다.
+  // 여기서 pageContext에 실어두면 eventProcessor가 모든 이벤트에 자동으로 붙인다.
   setPageContext({
-    page_url:     sessionCtx.page_url,
-    pathname:     sessionCtx.pathname,
-    referrer:     sessionCtx.referrer,
-    utm_source:   sessionCtx.utm_source,
-    utm_campaign: sessionCtx.utm_campaign,
+    page_url:       sessionCtx.page_url,
+    pathname:       sessionCtx.pathname,
+    referrer:       sessionCtx.referrer,
+    referrer_host:  sessionCtx.referrer_host,
+    utm_source:     sessionCtx.utm_source,
+    utm_medium:     sessionCtx.utm_medium,
+    utm_campaign:   sessionCtx.utm_campaign,
+    utm_term:       sessionCtx.utm_term,
+    utm_content:    sessionCtx.utm_content,
+    channel:        sessionCtx.channel,
+    in_app_browser: sessionCtx.in_app_browser,
+    landing_page:   sessionCtx.landing_page,
     ...envInfo,
   });
 
@@ -174,6 +187,7 @@ function _onNavigation(trigger, prevPathname = null) {
 
   _navigationPath.push(pathname);
   updatePageUrl();
+  resetPlatformContext();     // 페이지가 바뀌었으니 meta를 다시 읽는다
   resetPageTimers();          // SPA 페이지 이동 시 dwell 시간 리셋
 
   // 페이지 이동 시 상태 초기화
@@ -285,6 +299,10 @@ function _setupGTBridge() {
   if (!window.__GT) window.__GT = {};
 
   Object.assign(window.__GT, {
+    // C(IIFE)가 Layer 0 확정 상품 ID를 쓸 수 있게 노출한다.
+    // C는 ES 모듈 import를 못 쓰므로 이 브리지로만 접근 가능하다.
+    platformProductId: getPlatformProductId,
+
     // C(IIFE)의 로컬 send()를 이것으로 교체하면 A 코어와 연결됨
     //   function send(eventType, payload) { window.__GT?.emit(eventType, payload); }
     emit,
