@@ -19,9 +19,9 @@
  * ────────────────────────────────────────────────────────────────
  */
 
-import { initSession, setPageContext, updatePageUrl, touchSessionTimestamp } from './core/sessionManager.js';
+import { initSession, configureSession, getSessionTtlMinutes, setPageContext, updatePageUrl, touchSessionTimestamp } from './core/sessionManager.js';
 import { recordPageEnter, resetPageTimers, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
-import { emit, emitSessionEnd, setActivityCallback } from './core/eventProcessor.js';
+import { emit, emitSessionEnd, setActivityCallback, safe } from './core/eventProcessor.js';
 import { flush, configureSender } from './core/sender.js';
 
 // ── 내부 상태 ─────────────────────────────────────────────────
@@ -34,9 +34,15 @@ let _resizeTimer = null;
 let _lastNavPathname  = null;               // BUG-01: navigation 중복 dedup용
 let _lastNavTimestamp = 0;                  // BUG-01: 동일 tick 내 중복 호출 방지
 
-// ── 세션 TTL 타이머 (30분 비활성 → session_end + 자동 새 세션) ──
-const SESSION_TTL_MS = 30 * 60 * 1000;     // 30분
+// ── 세션 TTL 타이머 (비활성 → session_end + 자동 새 세션) ──
+// sessionManager의 TTL과 같은 값을 써야 한다. 예전에는 여기 30분이 하드코딩돼 있고
+// sessionManager는 1분이라 두 정책이 어긋나 있었다.
+// initA({ session: { ttlMinutes } })로 주입하면 양쪽이 함께 바뀐다.
 let _sessionTTLTimer = null;
+
+function _sessionTtlMs() {
+  return getSessionTtlMinutes() * 60 * 1000;
+}
 
 // ── 초기화 ────────────────────────────────────────────────────
 
@@ -45,9 +51,14 @@ function initA(options = {}) {
   if (_initialized) return;
   _initialized = true;
 
-  // sender 설정 주입 (collectUrl, flushInterval, maxBufferSize)
+  // sender 설정 주입 (collectUrl, flushInterval, maxBufferSize, 재시도 정책)
   if (options.sender) {
     configureSender(options.sender);
+  }
+
+  // 세션 정책 주입 (ttlMinutes) — initSession보다 반드시 먼저 호출해야 적용된다
+  if (options.session) {
+    configureSession(options.session);
   }
 
   const sessionCtx = initSession();
@@ -147,7 +158,7 @@ function _setupNavigationTracking() {
     _onNavigation('replace', prevPathname);
   };
 
-  window.addEventListener('popstate', () => _onNavigation('pop', null));
+  window.addEventListener('popstate', safe(() => _onNavigation('pop', null), 'sdk-A.popstate'));
 }
 
 // 페이지 이동 시 navigation 이벤트를 emit하고 경로·bounce·subsection 상태를 리셋한다
@@ -206,16 +217,16 @@ function _setupSessionEnd() {
     flush(true);
   };
 
-  window.addEventListener('beforeunload', handleSessionEnd);
-  window.addEventListener('pagehide',     handleSessionEnd);
+  window.addEventListener('beforeunload', safe(handleSessionEnd, 'sdk-A.beforeunload'));
+  window.addEventListener('pagehide',     safe(handleSessionEnd, 'sdk-A.pagehide'));
 
   // 탭 숨김 (다른 탭으로 전환, 모바일 앱 전환 등): 버퍼에 쌓인 이벤트 즉시 전송
   // session_end는 emit하지 않음 — 사용자가 돌아올 수 있으므로
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener('visibilitychange', safe(() => {
     if (document.hidden && !_sessionEnded) {
       flush(true);
     }
-  });
+  }, 'sdk-A.visibilitychange'));
 }
 
 // ── 비활성 감지 ───────────────────────────────────────────────
@@ -249,7 +260,7 @@ function _setupInteractionTracking() {
 
 // 화면 크기 변화를 500ms debounce 후 emit한다
 function _setupScreenResize() {
-  window.addEventListener('resize', () => {
+  window.addEventListener('resize', safe(() => {
     clearTimeout(_resizeTimer);
     _resizeTimer = setTimeout(() => {
       emit('screen_resize', {
@@ -257,7 +268,7 @@ function _setupScreenResize() {
         screen_height: window.innerHeight,
       });
     }, 500);
-  });
+  }, 'sdk-A.resize'));
 }
 
 // ── window.__GT bridge ───────────────────────────────────────
@@ -317,7 +328,7 @@ function _setupGTBridge() {
 // 30분 타이머를 새로 시작한다 — 활동 때마다 호출해서 카운트를 리셋
 function _resetSessionTTLTimer() {
   clearTimeout(_sessionTTLTimer);
-  _sessionTTLTimer = setTimeout(_onSessionTTLExpired, SESSION_TTL_MS);
+  _sessionTTLTimer = setTimeout(_onSessionTTLExpired, _sessionTtlMs());
 }
 
 // 사용자 활동 발생 시 호출 — TTL 만료로 끊긴 세션이면 새 세션 시작

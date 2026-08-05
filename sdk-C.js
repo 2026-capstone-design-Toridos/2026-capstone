@@ -121,7 +121,7 @@ function _initScrollTracking(handleRawEvent) {
     scrollTimeout = setTimeout(() => {
       handleRawEvent('scroll_stop', { position: window.scrollY });
     }, 300);
-  });
+  }, { passive: true });
 }
 
 // ─────────────────────────────────────────────────────────────
