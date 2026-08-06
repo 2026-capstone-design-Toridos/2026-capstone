@@ -296,6 +296,11 @@ function _dispatch(eventType, data, timestamp) {
       platform:      platform.platform,
       page_type:     platform.page_type,
       platform_role: platform.platform_role,
+      // 상품 상세에서는 모든 이벤트에 상품 ID를 붙인다.
+      // 예전에는 add_to_cart 같은 특정 이벤트의 data 안에만 있어서,
+      // "이 세션이 어떤 상품을 봤는지"를 알 방법이 없었다.
+      ...(platform.product_id ? { product_id: platform.product_id } : {}),
+      ...(platform.product_price ? { product_price: platform.product_price } : {}),
     } : {}),
 
     data,

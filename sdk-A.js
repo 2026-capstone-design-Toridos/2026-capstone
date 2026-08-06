@@ -23,7 +23,7 @@ import { initSession, configureSession, getSessionTtlMinutes, setPageContext, up
 import { recordPageEnter, resetPageTimers, getPageDwellTime, getLastEventTime, onInactive, getPendingInactivity } from './core/timeTracker.js';
 import { emit, emitSessionEnd, setActivityCallback, safe } from './core/eventProcessor.js';
 import { flush, configureSender, warmUp } from './core/sender.js';
-import { getPlatformProductId, resetPlatformContext } from './core/platformAdapter.js';
+import { getPlatformProductId, getPlatformPageType, resetPlatformContext } from './core/platformAdapter.js';
 
 // ── 내부 상태 ─────────────────────────────────────────────────
 let _initialized = false;
@@ -302,6 +302,7 @@ function _setupGTBridge() {
     // C(IIFE)가 Layer 0 확정 상품 ID를 쓸 수 있게 노출한다.
     // C는 ES 모듈 import를 못 쓰므로 이 브리지로만 접근 가능하다.
     platformProductId: getPlatformProductId,
+    platformPageType:  getPlatformPageType,
 
     // C(IIFE)의 로컬 send()를 이것으로 교체하면 A 코어와 연결됨
     //   function send(eventType, payload) { window.__GT?.emit(eventType, payload); }
