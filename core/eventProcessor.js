@@ -33,6 +33,10 @@ const EVENT_VOCAB = Object.freeze({
   click:                   10,
   rage_click:              11,  // A 파생
 
+  // Ecommerce page entry
+  enter_category:           5,
+  enter_product:            6,
+
   // Mouse / Hover (B)
   mouse_move:              20,  // B: 2초 주기 누적 이동거리 + jitter
   hover_dwell:             21,  // B: 300ms 이상 hover

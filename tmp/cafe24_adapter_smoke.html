@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="path_role" content="PRODUCT_DETAIL" />
+  <meta name="design_html_path" content="/product/detail.html" />
+  <meta property="product:productId" content="170" />
+  <title>Cafe24 Adapter Smoke</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .hidden { display: none; }
+    .layer { border: 1px solid #999; padding: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div id="cart-count">Cart 1</div>
+
+  <nav id="product-tabs">
+    <a id="tab-detail" href="#prdDetail">상세정보</a>
+    <a id="tab-review" href="#prdReview">상품후기</a>
+    <a id="tab-qna" href="#prdQnA">상품문의</a>
+  </nav>
+
+  <section id="list-product">
+    <a id="list-cart" href="#" onclick="category_add_basket('170', '42', '1', 'A0000', false, '1', 'P00000GO', 'A', 'F', '0'); return false;">
+      <img alt="장바구니 담기" src="btn_list_cart.gif" />
+    </a>
+    <a id="list-option" href="#" onclick="CAPP_SHOP_NEW_PRODUCT_OPTIONSELECT.selectOptionCommon(166, 42, 'basket', ''); return false;">
+      <img alt="옵션 선택" src="btn_option.gif" />
+    </a>
+  </section>
+
+  <section id="detail-product">
+    <button id="actionCart" class="actionCart" onclick="product_submit(2, '/exec/front/order/basket/', this)">CART</button>
+    <button id="actionWish" class="actionWish" onclick="add_wishlist('/member/login.html'); return false;">관심상품</button>
+    <img id="wish-icon" class="ec-product-listwishicon" alt="관심상품 등록 전" productno="18" categoryno="1" icon_status="off" login_status="F" />
+  </section>
+
+  <div id="option-modal" class="layer hidden">옵션 레이어</div>
+  <div id="cart-success" class="layer hidden">장바구니에 담겼습니다</div>
+
+  <script>
+    window.__events = [];
+    const origFetch = window.fetch;
+    window.category_add_basket = function () {
+      setTimeout(() => { document.getElementById('cart-count').textContent = 'Cart 2'; }, 50);
+      setTimeout(() => { document.getElementById('cart-success').classList.remove('hidden'); }, 90);
+    };
+    window.CAPP_SHOP_NEW_PRODUCT_OPTIONSELECT = {
+      selectOptionCommon: function () {
+        setTimeout(() => { document.getElementById('option-modal').classList.remove('hidden'); }, 40);
+      },
+    };
+    window.product_submit = function () {
+      setTimeout(() => { document.getElementById('cart-count').textContent = 'Cart 2'; }, 60);
+      setTimeout(() => { document.getElementById('cart-success').classList.remove('hidden'); }, 100);
+    };
+    window.add_wishlist = function () {
+      setTimeout(() => {
+        const el = document.getElementById('wish-icon');
+        el.setAttribute('login_status', 'F');
+        el.setAttribute('icon_status', 'off');
+      }, 40);
+    };
+    window.fetch = async function patchedFetch(input, init) {
+      const url = typeof input === 'string' ? input : input && input.url ? input.url : '';
+      const body = init && init.body ? String(init.body) : '';
+      if (/collect/i.test(url)) {
+        try {
+          const payload = body ? JSON.parse(body) : null;
+          window.__events.push({ url, payload });
+        } catch {
+          window.__events.push({ url, payload: body });
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('/exec/front/order/basket/')) {
+        return new Response(JSON.stringify({ success: true, result: true, code: '0000', message: '장바구니에 담겼습니다' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.includes('/member/login.html')) {
+        return new Response('로그인 필요', { status: 200, headers: { 'Content-Type': 'text/plain' } });
+      }
+      return origFetch ? origFetch(input, init) : new Response('', { status: 200 });
+    };
+
+    window.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'list-cart') {
+        setTimeout(() => { document.getElementById('cart-count').textContent = 'Cart 2'; }, 50);
+        setTimeout(() => { document.getElementById('cart-success').classList.remove('hidden'); }, 90);
+      }
+      if (e.target && e.target.id === 'list-option') {
+        setTimeout(() => { document.getElementById('option-modal').classList.remove('hidden'); }, 40);
+      }
+      if (e.target && e.target.id === 'actionWish') {
+        setTimeout(() => {
+          const el = document.getElementById('wish-icon');
+          el.setAttribute('login_status', 'F');
+        }, 40);
+      }
+    }, true);
+  </script>
+  <script src="file:///c:/Users/user/OneDrive/%EB%AC%B8%EC%84%9C/GhostTracker/backend/public/gt.js"></script>
+</body>
+</html>

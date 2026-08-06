@@ -11,12 +11,14 @@
  *  sdk-B: initB(emit)  — B는 handleRawEvent 파라미터 주입 방식
  *  sdk-C: initC(emit)  — C는 ES 모듈. handleRawEvent 파라미터 주입 방식.
  *                        subsection enter/exit → window.__GT 브릿지 통해 A와 통신.
+ *  sdk-cafe24: initCafe24Adapter(emit) — Cafe24 전용 의미 이벤트/성공 판별 추가
  * ────────────────────────────────────────────────────────────────
  */
 
 import { initA, emit } from './sdk-A.js';
 import { initB } from './sdk-B.js';
 import { initC } from './sdk-C.js';
+import { initCafe24Adapter } from './sdk-cafe24.js';
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _init);
@@ -29,4 +31,5 @@ function _init() {
 
   initB(emit);
   initC(emit);
+  initCafe24Adapter(emit);
 }

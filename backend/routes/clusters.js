@@ -90,7 +90,9 @@ function koAction(action) {
     ENTER_PRODUCT: '상품 상세 진입',
     ENTER_CHECKOUT: '결제 화면 진입',
     VIEW_PRODUCT: '상품 확인',
+    VIEW_DETAIL: '상세정보 확인',
     VIEW_REVIEW: '리뷰 확인',
+    VIEW_QNA: '상품 문의 확인',
     ZOOM_IMAGE: '상품 이미지 확대',
     HOVER_ELEMENT: '요소 위에 머무름',
     CLICK_ELEMENT: '버튼 또는 메뉴 클릭',
@@ -130,7 +132,7 @@ function fallbackNlpLabel(clusterId, profile = {}) {
     name = '상품을 찾고 비교하는 고객';
   } else if (top3.includes('CHECK_PRICE') || top3.includes('CHECK_SIZE') || top3.includes('CHECK_SHIPPING')) {
     name = '구매 조건을 확인하는 고객';
-  } else if (top3.includes('VIEW_REVIEW') || top3.includes('ZOOM_IMAGE')) {
+  } else if (top3.includes('VIEW_REVIEW') || top3.includes('VIEW_QNA') || top3.includes('VIEW_DETAIL') || top3.includes('ZOOM_IMAGE')) {
     name = '후기와 이미지를 확인하는 고객';
   } else if (top3.includes('SCROLL_HOME') || top3.includes('SCROLL_PRODUCT')) {
     name = '페이지를 훑어보는 고객';

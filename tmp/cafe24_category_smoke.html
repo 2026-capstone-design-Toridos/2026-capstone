@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="path_role" content="CATEGORY" />
+  <meta name="design_html_path" content="/product/list.html" />
+  <title>Cafe24 Category Smoke</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    nav a { margin-right: 10px; }
+    .layer { border: 1px solid #999; padding: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div id="category-name">OUTER</div>
+  <nav id="category-nav">
+    <a href="/category/all/1/">All</a>
+    <a href="/category/outer/82/" id="cat-outer" aria-current="page">Outer</a>
+    <a href="/category/bottom/83/">Bottom</a>
+    <a href="/category/top/84/">Top</a>
+    <a href="/category/best/85/">BEST</a>
+    <a href="/category/26season/86/">26season</a>
+  </nav>
+
+  <script>
+    window.__events = [];
+    const origFetch = window.fetch;
+    window.fetch = async function patchedFetch(input, init) {
+      const url = typeof input === 'string' ? input : input && input.url ? input.url : '';
+      const body = init && init.body ? String(init.body) : '';
+      if (/collect/i.test(url)) {
+        try {
+          const payload = body ? JSON.parse(body) : null;
+          window.__events.push({ url, payload });
+        } catch {
+          window.__events.push({ url, payload: body });
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return origFetch ? origFetch(input, init) : new Response('', { status: 200 });
+    };
+    navigator.sendBeacon = function(url, data) {
+      const body = typeof data === 'string' ? data : data ? String(data) : '';
+      if (/collect/i.test(url)) {
+        try {
+          window.__events.push({ url, payload: body ? JSON.parse(body) : null, beacon: true });
+        } catch {
+          window.__events.push({ url, payload: body, beacon: true });
+        }
+      }
+      return true;
+    };
+  </script>
+  <script src="file:///c:/Users/user/OneDrive/%EB%AC%B8%EC%84%9C/GhostTracker/backend/public/gt.js"></script>
+</body>
+</html>

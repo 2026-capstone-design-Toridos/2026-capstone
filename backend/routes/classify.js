@@ -56,6 +56,16 @@ function normalizeEventType(doc = {}) {
   const eventType = String(doc.event_type || '');
   const page = inferPage(doc);
 
+  if (eventType === 'enter_category') return 'ENTER_CATEGORY';
+  if (eventType === 'enter_product') return 'ENTER_PRODUCT';
+  if (eventType === 'subsection_enter') {
+    const subsection = String(doc.data?.subsection_id || doc.subsection_id || '').toLowerCase();
+    if (subsection === 'review') return 'VIEW_REVIEW';
+    if (subsection === 'qa' || subsection === 'qna' || subsection === 'inquiry') return 'VIEW_QNA';
+    if (subsection === 'detail' || subsection === 'product_detail') return 'VIEW_DETAIL';
+    return 'CLICK_ELEMENT';
+  }
+
   if (isOrderSuccessDoc(doc)) return 'CLICK_BUY';
   if (eventType === 'purchase_click') return 'CLICK_BUY';
   if (eventType === 'add_to_cart') return 'ADD_CART';
