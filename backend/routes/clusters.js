@@ -435,7 +435,7 @@ async function classifySiteSessions(origin, profiles, labels) {
   // 끝 슬래시가 붙은 origin도 같이 매칭한다
   const docs = await Event.find(originCondition(origin))
     .sort({ received_at: -1 })
-    .limit(2500)
+    .limit(20000)
     .lean();
 
   const grouped = new Map();
