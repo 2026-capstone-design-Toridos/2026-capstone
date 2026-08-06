@@ -377,7 +377,7 @@ function runPythonClustering({ full = true } = {}) {
     const args = [RETRAIN_SCRIPT];
     if (full) args.push('--full');
 
-    const child = spawn('python', args, {
+    const child = spawn('/home/opc/ghosttracker-venv/bin/python3.11', args, {
       cwd: ML_DIR,
       env: { ...process.env },
       windowsHide: true,
