@@ -39,12 +39,18 @@ router.post('/', async (req, res) => {
     const origin = normalizeOrigin(req.headers.origin || req.headers.referer || null);
 
     const raw = req.body;
-    const eventList = Array.isArray(raw.events)
-      ? raw.events
-      : [raw];
+
+    // beacon은 text/plain으로 오기 때문에 파싱에 실패하면 문자열이 그대로 남는다.
+    // 검증 없이 진행하면 쓰레기 문서가 DB에 쌓인다.
+    if (!raw || typeof raw !== 'object') {
+      return res.status(400).json({ error: '이벤트 형식이 올바르지 않습니다.' });
+    }
+
+    const eventList = (Array.isArray(raw.events) ? raw.events : [raw])
+      .filter((e) => e && typeof e === 'object' && typeof e.event_type === 'string');
 
     if (eventList.length === 0) {
-      return res.status(400).json({ error: 'events 배열이 비어 있습니다.' });
+      return res.status(400).json({ error: '저장할 이벤트가 없습니다.' });
     }
 
     // 수신 시점 메타는 서버에서 붙여 원본 이벤트와 분리해 추적한다

@@ -55,6 +55,23 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // SDK가 보내는 이벤트 JSON을 req.body로 파싱, 배치가 너무 커지지 않게 1mb로 제한
 app.use(express.json({ limit: '1mb' }));
 
+// 페이지를 떠날 때의 이벤트는 navigator.sendBeacon으로 오는데,
+// beacon은 CORS preflight를 못 보낸다. 그래서 SDK가 preflight가 필요 없는
+// text/plain으로 보내고, 여기서 문자열을 받아 JSON으로 파싱한다.
+// (application/json으로 보내면 preflight가 필요해져 beacon이 조용히 실패한다)
+app.use(express.text({ type: ['text/plain', 'text/*'], limit: '1mb' }));
+
+app.use((req, res, next) => {
+  if (typeof req.body === 'string' && req.body.length) {
+    try {
+      req.body = JSON.parse(req.body);
+    } catch {
+      // JSON이 아니면 그대로 두고 라우터가 판단하게 한다
+    }
+  }
+  next();
+});
+
 // ── 라우터 ────────────────────────────────────────────────────
 // 경로별로 역할 나눠서 각 routes/ 파일에 위임 (수집 / 로그조회 / 옛 predict 호환 / 클러스터 / 분류 / 리포트)
 //
