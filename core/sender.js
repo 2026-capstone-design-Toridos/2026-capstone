@@ -264,16 +264,44 @@ function _drainRetryQueue() {
   return events;
 }
 
-// unload 전송 — sendBeacon 우선, 실패 시 fetch keepalive
+/**
+ * unload 전송 — sendBeacon 우선, 실패 시 fetch keepalive
+ *
+ * ── Content-Type을 text/plain으로 보내는 이유 (중요) ─────────────
+ *
+ * 예전에는 Blob type을 'application/json'으로 줬는데, 이 값은
+ * CORS-safelisted Content-Type이 아니다. 그래서 교차 출처 요청이
+ * "단순 요청"이 아니게 되고 preflight(OPTIONS)가 필요해진다.
+ *
+ * fetch는 preflight를 보낼 수 있지만 sendBeacon은 못 한다.
+ * 게다가 sendBeacon은 "큐에 넣었다"는 뜻으로 true를 반환하기 때문에,
+ * 그 뒤 실제 전송이 CORS로 막혀도 알 수가 없다.
+ * true를 받았으니 아래 fetch fallback도 실행되지 않는다.
+ *
+ * 결과: 페이지를 떠나는 순간의 이벤트가 전부 조용히 사라졌다.
+ *   - 링크를 눌러 이동할 때의 click
+ *   - 장바구니 담기·구매 클릭 (누르자마자 페이지가 넘어간다)
+ *   - session_end (exit_page·dwell_time·bounce_flag가 여기 들어 있다)
+ * 실측에서도 click과 session_end만 0건이고 스크롤·마우스는 정상이었다.
+ *
+ * text/plain은 safelisted라 preflight 없이 나간다.
+ * 서버는 text/plain 본문도 JSON으로 파싱한다(backend/server.js).
+ * GA·Segment 같은 수집 SDK가 beacon을 text/plain으로 보내는 것도 같은 이유다.
+ * ────────────────────────────────────────────────────────────────
+ */
 function _sendBeaconOrFetch(payload) {
   if (navigator.sendBeacon) {
-    const blob = new Blob([payload], { type: 'application/json' });
-    if (navigator.sendBeacon(COLLECT_URL, blob)) return;
-    // sendBeacon 큐 포화(false 반환) → fallback
+    const blob = new Blob([payload], { type: 'text/plain;charset=UTF-8' });
+    try {
+      if (navigator.sendBeacon(COLLECT_URL, blob)) return;
+    } catch {
+      // 일부 브라우저는 큐 포화 시 예외를 던진다 → fetch로 넘어간다
+    }
   }
+
   fetch(COLLECT_URL, {
     method:    'POST',
-    headers:   { 'Content-Type': 'application/json' },
+    headers:   { 'Content-Type': 'text/plain;charset=UTF-8' },
     body:      payload,
     keepalive: true,
   }).catch(() => {
