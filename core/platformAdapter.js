@@ -199,6 +199,12 @@ function getPlatformProductId() {
   return ctx && ctx.product_id ? ctx.product_id : null;
 }
 
+/** Layer 0이 확정한 페이지 타입 (없으면 '') */
+function getPlatformPageType() {
+  const ctx = getPlatformContext();
+  return ctx && ctx.page_type ? ctx.page_type : '';
+}
+
 /** SPA 이동 등으로 DOM이 바뀌었을 때 캐시를 비운다 */
 function resetPlatformContext() {
   _cached = null;
@@ -208,6 +214,7 @@ function resetPlatformContext() {
 export {
   getPlatformContext,
   getPlatformProductId,
+  getPlatformPageType,
   resetPlatformContext,
   PAGE,
 };

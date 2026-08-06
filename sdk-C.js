@@ -639,6 +639,11 @@ function _initEcommerceTracking(handleRawEvent) {
   ];
 
   // Level 2: 일반 패턴 (아래 cart item 컨텍스트 내에서만 허용)
+  //
+  // 실측: Cafe24 장바구니의 삭제 버튼은 <a class="btnNormal btn_close">삭제</a>이고
+  // 행(row)은 xans-record- / xans-order-normalbasket 클래스를 쓴다.
+  // 아래 목록에 그 형태가 없어서 컨텍스트 판정에 실패했고, 텍스트가 정확히
+  // "삭제"인데도 remove_from_cart가 한 건도 안 잡혔다.
   const CART_ITEM_SELECTOR = [
     '[class*="cart-item"]', '[class*="cart_item"]',
     '[class*="cart-product"]', '[class*="cart_product"]',
@@ -647,6 +652,8 @@ function _initEcommerceTracking(handleRawEvent) {
     '[class*="order-item"]', '[class*="order_item"]',
     '[class*="line-item"]', '[class*="lineitem"]',
     '[data-cart-item]', '[data-item-id]',
+    // Cafe24 계열
+    '[class*="xans-order"]', '[class*="xans-record"]',
   ].join(',');
 
   const REMOVE_GENERIC_TEXT = [
@@ -687,7 +694,12 @@ function _initEcommerceTracking(handleRawEvent) {
     ) return true;
 
     // Level 2: 일반 — cart item 컨텍스트 필수 (오탐 방지)
-    const inCartCtx = !!el.closest(CART_ITEM_SELECTOR);
+    //
+    // 클래스 이름은 쇼핑몰마다 제각각이라 목록만으로는 한계가 있다.
+    // Layer 0가 "지금 이 페이지는 장바구니"라고 알려주면 그 자체가 컨텍스트다.
+    // 장바구니 화면에서 "삭제"를 눌렀다면 담은 상품을 빼는 것이 맞다.
+    const onCartPage = window.__GT?.platformPageType?.() === 'CART';
+    const inCartCtx  = onCartPage || !!el.closest(CART_ITEM_SELECTOR);
     if (!inCartCtx) return false;
 
     // 2a. 일반 삭제 텍스트 (정확히 매치)
@@ -796,6 +808,49 @@ function _initEcommerceTracking(handleRawEvent) {
     return keywords.some((k) => cls.includes(k));
   }
 
+  /**
+   * 링크 주소에서 상품 번호를 뽑는다.
+   *
+   * 실측 결과 Cafe24 상품 링크는 두 형태다.
+   *   /product/데일리-케이블-조직-니트-풀오버/18/category/1/display/10/
+   *   /product/detail.html?product_no=20&cate_no=1
+   *
+   * 예전에는 첫 세그먼트를 그대로 ID로 썼다. 그래서 목록에서 상품을 클릭하면
+   * product_id가 "데일리-케이블-조직-니트-풀오버"(한글 슬러그)로 기록되고,
+   * 같은 상품을 상세에서 담으면 "18"로 기록돼 서로 다른 상품처럼 보였다.
+   *
+   * 슬러그 다음 세그먼트가 숫자면 그게 상품 번호다.
+   */
+  function productIdFromHref(href) {
+    const raw = String(href || '');
+    if (!raw) return null;
+
+    // 쿼리 파라미터 우선 (detail.html?product_no=20)
+    const q = raw.split('?')[1] || '';
+    const byParam = new URLSearchParams(q).get('product_no')
+                 || new URLSearchParams(q).get('product_id')
+                 || new URLSearchParams(q).get('goods_no');
+    if (byParam) return byParam;
+
+    const path = raw.split('?')[0];
+    const seg = path.split('/').filter(Boolean).map((s) => {
+      try { return decodeURIComponent(s); } catch { return s; }
+    });
+
+    const idx = seg.findIndex((s) => /^(product|item|goods|shop|p)$/i.test(s));
+    if (idx === -1) return null;
+
+    // /product/{슬러그}/{번호}/... → 번호를 쓴다
+    if (/^\d+$/.test(seg[idx + 2] || '')) return seg[idx + 2];
+    // /product/{번호}/...
+    if (/^\d+$/.test(seg[idx + 1] || '')) return seg[idx + 1];
+
+    const slug = seg[idx + 1] || '';
+    // detail.html 같은 파일명은 ID가 아니다
+    if (!slug || /\.\w{2,5}$/.test(slug)) return null;
+    return slug;
+  }
+
   // product_id 확보 — Layer 0(플랫폼 확정값) → DOM 마킹 → URL 추론 순
   function inferProductId(el) {
     // Layer 0: Cafe24 등이 meta로 알려주는 확정값이 있으면 그게 정답이다.
@@ -880,11 +935,17 @@ function _initEcommerceTracking(handleRawEvent) {
       const m = href.match(PRODUCT_HREF);
       // 가격 혼입 방지: heading → p 순으로 첫 번째 텍스트 요소만 사용
       const nameEl = el.querySelector('h1,h2,h3,h4,h5,h6,p');
-      const productName = (nameEl?.textContent?.trim() || textOf(el)).slice(0, 80) || null;
+      // 이미지 링크면 텍스트가 없으니 img alt가 상품명이다
+      const productName = (
+        nameEl?.textContent?.trim()
+        || el.querySelector('img')?.getAttribute('alt')
+        || textOf(el)
+      ).slice(0, 80) || null;
       return {
         type: 'product_click',
         data: {
-          product_id:   m ? m[1] : null,
+          // 슬러그가 아니라 실제 상품 번호를 쓴다
+          product_id:   productIdFromHref(href) || (m ? m[1] : null),
           product_name: productName,
           ghost_role:   'inferred_link',
           inferred:     true,
@@ -1060,6 +1121,20 @@ function _initEcommerceTracking(handleRawEvent) {
   const QTY_UP_TEXT   = [/^up$/i, /증가/, /플러스/, /^\+$/, /수량\s*증가/];
   const QTY_DOWN_TEXT = [/^down$/i, /감소/, /마이너스/, /^-$/, /^−$/, /수량\s*감소/];
 
+  // 실측: Cafe24 장바구니 수량 버튼은 <a class="up"> / <a class="down">이고
+  // 안에 든 이미지의 alt가 비어 있는 스킨도 있다. alt만 믿으면 스킨에 따라 깨진다.
+  // 클래스도 함께 보되, 아래에서 "수량 입력칸이 같은 영역에 있을 것"을 요구해
+  // 임의의 up/down 클래스가 잘못 걸리지 않게 한다.
+  const QTY_UP_CLASS   = ['up', 'quantityup', 'quantity-up', 'btn-up', 'plus', 'increase', 'btncountup'];
+  const QTY_DOWN_CLASS = ['down', 'quantitydown', 'quantity-down', 'btn-down', 'minus', 'decrease', 'btncountdown'];
+
+  // 클래스 토큰이 정확히 일치하는지 검사 (부분 문자열이면 'group'이 'up'에 걸린다)
+  function hasClassToken(el, tokens) {
+    const cls = (typeof el?.className === 'string' ? el.className : '').toLowerCase();
+    const parts = cls.split(/[\s_-]+/).filter(Boolean);
+    return tokens.some((t) => parts.includes(t) || cls.replace(/[\s_-]/g, '') === t);
+  }
+
   document.addEventListener('click', (e) => {
     const el = e.target?.closest?.('a, button, [role="button"]');
     if (!el) return;
@@ -1067,18 +1142,34 @@ function _initEcommerceTracking(handleRawEvent) {
     // 이미 다른 이커머스 이벤트로 잡히는 버튼이면 건너뛴다
     if (matchesPatterns(el, ADD_TO_CART_TEXT) || matchesPatterns(el, PURCHASE_TEXT)) return;
 
-    const isUp   = matchesPatterns(el, QTY_UP_TEXT);
-    const isDown = matchesPatterns(el, QTY_DOWN_TEXT);
+    const byTextUp   = matchesPatterns(el, QTY_UP_TEXT);
+    const byTextDown = matchesPatterns(el, QTY_DOWN_TEXT);
+    const byClassUp   = hasClassToken(el, QTY_UP_CLASS);
+    const byClassDown = hasClassToken(el, QTY_DOWN_CLASS);
+
+    const isUp   = byTextUp   || byClassUp;
+    const isDown = byTextDown || byClassDown;
     if (!isUp && !isDown) return;
 
     // 수량 맥락 안의 버튼인지 확인 (임의의 +/- 버튼 오탐 방지)
     const scope = el.closest('[class*="quantity"], [class*="qty"], [class*="count"], [class*="product"], form, tr, li');
     if (!scope) return;
 
+    // 클래스만으로 판단한 경우에는 같은 영역에 수량 입력칸이 있어야 인정한다.
+    // 'up'/'down' 같은 짧은 클래스가 다른 용도로 쓰이는 걸 걸러낸다.
+    const hasQtyInput = !!scope.querySelector('input[name*="quantity" i], input[name*="qty" i], input[type="number"]');
+    if (!byTextUp && !byTextDown && !hasQtyInput) return;
+
     const input = scope.querySelector('input[name*="quantity" i], input[name*="qty" i], input[type="number"]');
 
+    // 장바구니에는 상품이 여러 개라 페이지 단위 ID가 없다.
+    // 같은 행 안의 상품 링크에서 어떤 상품의 수량인지 찾아낸다.
+    const rowLink = scope.querySelector('a[href*="/product/"]')?.getAttribute('href');
+
     handleRawEvent('quantity_change', {
-      product_id: window.__GT?.platformProductId?.() ?? inferProductId(el),
+      product_id: window.__GT?.platformProductId?.()
+                  ?? productIdFromHref(rowLink)
+                  ?? inferProductId(el),
       direction:  isUp ? 'up' : 'down',
       quantity:   input ? Number(input.value) || null : null,
       inferred:   true,
