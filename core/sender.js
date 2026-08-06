@@ -31,7 +31,7 @@
  * ────────────────────────────────────────────────────────────────
  */
 
-let COLLECT_URL     = 'https://two026-capstone.onrender.com/collect';
+let COLLECT_URL     = 'https://capstone-toridos.duckdns.org/collect';
 let FLUSH_INTERVAL  = 5_000; // 5초마다 자동 플러시
 let MAX_BUFFER_SIZE = 30;    // 버퍼 최대 크기 (초과 시 즉시 플러시)
 

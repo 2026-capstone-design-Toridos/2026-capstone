@@ -25,11 +25,11 @@
 
 문제는 세 층위로 나뉩니다.
 
-| 층위 | 증상 | 해당 단계 |
-|---|---|---|
-| **수집 신뢰성** | 세션이 1분마다 끊기고, 전송 실패 시 데이터가 사라짐 | 1단계 |
-| **의미 부여** | 상품·옵션·장바구니·주문성공을 인식하지 못함 | 2·3·4단계 |
-| **활용** | 대시보드 수치가 부정확하고, 클러스터 결과가 휘발됨 | 5·6단계 |
+| 층위            | 증상                                                | 해당 단계 |
+| --------------- | --------------------------------------------------- | --------- |
+| **수집 신뢰성** | 세션이 1분마다 끊기고, 전송 실패 시 데이터가 사라짐 | 1단계     |
+| **의미 부여**   | 상품·옵션·장바구니·주문성공을 인식하지 못함         | 2·3·4단계 |
+| **활용**        | 대시보드 수치가 부정확하고, 클러스터 결과가 휘발됨  | 5·6단계   |
 
 아래 순서는 이 의존 관계를 따릅니다. **수집이 깨진 상태에서 모은 데이터로는 이후 단계를 검증할 수 없기 때문에** 순서를 바꾸면 작업을 두 번 하게 됩니다.
 
@@ -37,15 +37,15 @@
 
 ## 2. 전체 로드맵
 
-| 단계 | 작업 | 왜 이 순서인가 | 상태 |
-|---|---|---|---|
-| 0 | 배포 환경 실측 | 6단계 설계가 이 결과에 달림 | 진행 중 (팀 확인 대기) |
-| 1 | SDK 안정화 | 이게 안 되면 이후 수집 데이터 전부 폐기 | 착수 대기 |
-| 2 | 유입 경로 추적 | SDK 수정이라 1과 같이 배포해야 배포 횟수가 줌 | 착수 대기 |
-| 3 | Cafe24 어댑터 | 1·2가 끝나야 붙일 수 있음 | 착수 대기 |
-| 4 | 페이지 이벤트 매핑 | 3의 어댑터 출력에 의존 | 대기 |
-| 5 | 대시보드 고도화 | 4의 페이지 타입에 의존 | 대기 |
-| 6 | 클러스터링 저장 구조 | 데이터가 쌓인 뒤 검증 가능 | 대기 |
+| 단계 | 작업                 | 왜 이 순서인가                                | 상태                   |
+| ---- | -------------------- | --------------------------------------------- | ---------------------- |
+| 0    | 배포 환경 실측       | 6단계 설계가 이 결과에 달림                   | 진행 중 (팀 확인 대기) |
+| 1    | SDK 안정화           | 이게 안 되면 이후 수집 데이터 전부 폐기       | 착수 대기              |
+| 2    | 유입 경로 추적       | SDK 수정이라 1과 같이 배포해야 배포 횟수가 줌 | 착수 대기              |
+| 3    | Cafe24 어댑터        | 1·2가 끝나야 붙일 수 있음                     | 착수 대기              |
+| 4    | 페이지 이벤트 매핑   | 3의 어댑터 출력에 의존                        | 대기                   |
+| 5    | 대시보드 고도화      | 4의 페이지 타입에 의존                        | 대기                   |
+| 6    | 클러스터링 저장 구조 | 데이터가 쌓인 뒤 검증 가능                    | 대기                   |
 
 ---
 
@@ -56,7 +56,8 @@
 `backend/routes/clusters.js:19`, `backend/routes/classify.js:23`
 
 ```js
-const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
+const CLUSTER_SERVER =
+  process.env.CLUSTER_SERVER_URL || "http://localhost:5002";
 ```
 
 Python 분류 서버 주소가 **기본값 `localhost:5002`**입니다. Render에 배포된 Node 서버 입장에서 `localhost`는 자기 자신이고, 거기엔 Python 서버가 없습니다.
@@ -71,12 +72,12 @@ Python 분류 서버 주소가 **기본값 `localhost:5002`**입니다. Render�
 
 ## 확인할 것
 
-| # | 항목 | 확인 방법 | 담당 |
-|---|---|---|---|
-| 0-1 | `CLUSTER_SERVER_URL` 실제 값 | Render 대시보드 → Environment | 팀 확인 필요 |
-| 0-2 | Python 분류 서버가 어디서 도는지 | 별도 호스팅인지, 로컬 전용인지 | 팀 확인 필요 |
-| 0-3 | `ml/output/.../site_snapshots/` 파일 생존 여부 | 재배포 후에도 스냅샷이 남아 있는지 | 확인 필요 |
-| 0-4 | Cafe24 비회원 구매 허용 | Cafe24 관리자 → 쇼핑몰 설정 | **허용 예정 (확인됨)** |
+| #   | 항목                                           | 확인 방법                          | 담당                   |
+| --- | ---------------------------------------------- | ---------------------------------- | ---------------------- |
+| 0-1 | `CLUSTER_SERVER_URL` 실제 값                   | Render 대시보드 → Environment      | 팀 확인 필요           |
+| 0-2 | Python 분류 서버가 어디서 도는지               | 별도 호스팅인지, 로컬 전용인지     | 팀 확인 필요           |
+| 0-3 | `ml/output/.../site_snapshots/` 파일 생존 여부 | 재배포 후에도 스냅샷이 남아 있는지 | 확인 필요              |
+| 0-4 | Cafe24 비회원 구매 허용                        | Cafe24 관리자 → 쇼핑몰 설정        | **허용 예정 (확인됨)** |
 
 **0-3이 "사라진다"면** 6단계에서 MongoDB 이관이 필수가 됩니다 (이미 그 방향으로 합의).
 
@@ -117,7 +118,7 @@ TTL 값을 하드코딩에서 빼내 **설정 주입 방식**으로 바꿉니다
 
 ```js
 // 변경 후 (개념)
-initA({ session: { ttlMinutes: 30 } })
+initA({ session: { ttlMinutes: 30 } });
 ```
 
 - 기본값은 주석·문서와 일치하는 **30분**
@@ -166,12 +167,12 @@ function _sendFetch(payload) {
 
 ### 무엇을 하는가
 
-| 항목 | 내용 |
-|---|---|
-| 성공 판정 | `res.ok` 확인 후에만 버퍼에서 제거 |
-| 재시도 | 지수 백오프 1s → 2s → 4s, 최대 3회 |
-| 폐기 정책 | 3회 실패 시 폐기 (localStorage 백업은 하지 않음 — 용량·프라이버시 리스크) |
-| 큐 상한 | 200건 초과 시 오래된 것부터 폐기 — 무한 증가 방지 |
+| 항목        | 내용                                                                               |
+| ----------- | ---------------------------------------------------------------------------------- |
+| 성공 판정   | `res.ok` 확인 후에만 버퍼에서 제거                                                 |
+| 재시도      | 지수 백오프 1s → 2s → 4s, 최대 3회                                                 |
+| 폐기 정책   | 3회 실패 시 폐기 (localStorage 백업은 하지 않음 — 용량·프라이버시 리스크)          |
+| 큐 상한     | 200건 초과 시 오래된 것부터 폐기 — 무한 증가 방지                                  |
 | unload 경로 | 현행 유지 (`sendBeacon` → `fetch keepalive`). 재시도 불가능한 구간이라 손대지 않음 |
 
 ### 건드리는 파일
@@ -289,8 +290,8 @@ passive가 없으면 브라우저가 "이 핸들러가 `preventDefault()`를 호
 
 ```js
 return {
-  utm_source:   params.get('utm_source')   || '',
-  utm_campaign: params.get('utm_campaign') || '',
+  utm_source: params.get("utm_source") || "",
+  utm_campaign: params.get("utm_campaign") || "",
 };
 ```
 
@@ -312,14 +313,14 @@ Instagram 인앱 브라우저는 `document.referrer`를 보내지 않습니다. 
 
 ## 무엇을 하는가
 
-| # | 작업 | 해결하는 문제 |
-|---|---|---|
-| 2-1 | `utm_medium`, `utm_term`, `utm_content` 수집 추가 | 문제 1 |
-| 2-2 | 최초 진입 시 UTM·referrer를 localStorage에 **first-touch로 고정 저장** | 문제 2, 3 |
-| 2-3 | 자사 도메인 referrer는 무시 (내부 이동을 유입으로 오인 방지) | 문제 2 |
-| 2-4 | PG 도메인 목록을 referrer 무시 대상에 추가 | 문제 3 |
-| 2-5 | User-Agent 기반 인앱 브라우저 판별 (Instagram, KakaoTalk, Naver 등) | 문제 4 |
-| 2-6 | 서버 집계를 `$first` 추정에서 **저장된 first-touch 값 사용**으로 전환 | 문제 2 |
+| #   | 작업                                                                   | 해결하는 문제 |
+| --- | ---------------------------------------------------------------------- | ------------- |
+| 2-1 | `utm_medium`, `utm_term`, `utm_content` 수집 추가                      | 문제 1        |
+| 2-2 | 최초 진입 시 UTM·referrer를 localStorage에 **first-touch로 고정 저장** | 문제 2, 3     |
+| 2-3 | 자사 도메인 referrer는 무시 (내부 이동을 유입으로 오인 방지)           | 문제 2        |
+| 2-4 | PG 도메인 목록을 referrer 무시 대상에 추가                             | 문제 3        |
+| 2-5 | User-Agent 기반 인앱 브라우저 판별 (Instagram, KakaoTalk, Naver 등)    | 문제 4        |
+| 2-6 | 서버 집계를 `$first` 추정에서 **저장된 first-touch 값 사용**으로 전환  | 문제 2        |
 
 ## 건드리는 파일
 
@@ -341,14 +342,14 @@ Instagram 인앱 브라우저는 `document.referrer`를 보내지 않습니다. 
 
 `https://toridos.cafe24.com` 실측 결과, **현재 휴리스틱 추론 방식으로는 Cafe24에서 이커머스 이벤트가 거의 잡히지 않습니다.**
 
-| 행동 | 실제 DOM | 현재 감지 |
-|---|---|---|
-| 목록에서 장바구니 담기 | `<img alt="장바구니 담기">` + 텍스트 `"Cart"` | ❌ |
-| 상세에서 장바구니 담기 | 텍스트 `"장바구니"` | ✅ |
-| 바로구매 | 텍스트 `"바로 구매"` | ❌ |
-| 수량 +/- | `<a href="javascript:;"><img alt="up"></a>` | ❌ |
-| 옵션 선택 | `<a href="#none">옵션선택</a>` 커스텀 드롭다운 | ❌ |
-| 결제 | 별도 팝업 창 (PG사 도메인) | ❌ (측정 불가) |
+| 행동                   | 실제 DOM                                       | 현재 감지      |
+| ---------------------- | ---------------------------------------------- | -------------- |
+| 목록에서 장바구니 담기 | `<img alt="장바구니 담기">` + 텍스트 `"Cart"`  | ❌             |
+| 상세에서 장바구니 담기 | 텍스트 `"장바구니"`                            | ✅             |
+| 바로구매               | 텍스트 `"바로 구매"`                           | ❌             |
+| 수량 +/-               | `<a href="javascript:;"><img alt="up"></a>`    | ❌             |
+| 옵션 선택              | `<a href="#none">옵션선택</a>` 커스텀 드롭다운 | ❌             |
+| 결제                   | 별도 팝업 창 (PG사 도메인)                     | ❌ (측정 불가) |
 
 **상품 상세의 "장바구니" 버튼 하나를 빼면 전부 0건입니다.**
 
@@ -359,10 +360,10 @@ Instagram 인앱 브라우저는 `document.referrer`를 보내지 않습니다. 
 상품 상세 페이지 head:
 
 ```html
-<meta name="path_role" content="PRODUCT_DETAIL">
-<meta property="product:productId" content="45">
-<meta property="product:price:amount" content="105000">
-<meta name="design_html_path" content="/product/detail.html">
+<meta name="path_role" content="PRODUCT_DETAIL" />
+<meta property="product:productId" content="45" />
+<meta property="product:price:amount" content="105000" />
+<meta name="design_html_path" content="/product/detail.html" />
 ```
 
 홈에서는 `path_role: MAIN`입니다.
@@ -403,11 +404,11 @@ Layer 0이 붙으면 **페이지 타입과 상품 ID가 추론이 아니라 확�
 
 Layer 0과 별개로, 다른 쇼핑몰에도 이득이 되는 수정입니다.
 
-| # | 작업 | 근거 |
-|---|---|---|
-| a | `img alt` / `title` 속성을 텍스트 후보에 추가 | 수량 버튼(`alt="up"`), 목록 장바구니(`alt="장바구니 담기"`) 두 건이 한 번에 해결됨. `sdk-C.js:703-712`의 `textOf()` / `matchesPatterns()`는 현재 `textContent`와 `aria-label`만 봄 |
-| b | `change` 핸들러에 Layer 2 fallback 추가 | `sdk-C.js:857-860`이 `if (!el) return`으로 마킹 없으면 즉시 종료. `click`에는 있는 fallback이 `change`에는 없음 |
-| c | `PURCHASE_TEXT`에 `/바로\s*구매/`, `/^구매$/` 추가 | `sdk-C.js:684-687` 현재 패턴이 `"바로 구매"`를 못 잡음 |
+| #   | 작업                                               | 근거                                                                                                                                                                               |
+| --- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a   | `img alt` / `title` 속성을 텍스트 후보에 추가      | 수량 버튼(`alt="up"`), 목록 장바구니(`alt="장바구니 담기"`) 두 건이 한 번에 해결됨. `sdk-C.js:703-712`의 `textOf()` / `matchesPatterns()`는 현재 `textContent`와 `aria-label`만 봄 |
+| b   | `change` 핸들러에 Layer 2 fallback 추가            | `sdk-C.js:857-860`이 `if (!el) return`으로 마킹 없으면 즉시 종료. `click`에는 있는 fallback이 `change`에는 없음                                                                    |
+| c   | `PURCHASE_TEXT`에 `/바로\s*구매/`, `/^구매$/` 추가 | `sdk-C.js:684-687` 현재 패턴이 `"바로 구매"`를 못 잡음                                                                                                                             |
 
 ### 3-3. URL 정규화
 
@@ -424,14 +425,14 @@ Layer 0과 별개로, 다른 쇼핑몰에도 이득이 되는 수정입니다.
 
 ## 건드리는 파일
 
-| 파일 | 변경 |
-|---|---|
-| `core/platformAdapter.js` | **신규** — Layer 0 플랫폼 감지 및 Cafe24 어댑터 |
-| `sdk-C.js` | Layer 0 연동, `textOf()`/`matchesPatterns()`에 alt·title 추가, `change` fallback, 구매 텍스트 패턴 확장 |
-| `core/eventProcessor.js` | Layer 0 확정값을 공통 필드로 첨부 |
-| `core/sessionManager.js` | URL 정규화 (`icid` 제거) |
-| `backend/routes/collect.js` | `origin` 모바일 도메인 정규화 |
-| `index.js` | 어댑터 초기화 배선 |
+| 파일                        | 변경                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `core/platformAdapter.js`   | **신규** — Layer 0 플랫폼 감지 및 Cafe24 어댑터                                                         |
+| `sdk-C.js`                  | Layer 0 연동, `textOf()`/`matchesPatterns()`에 alt·title 추가, `change` fallback, 구매 텍스트 패턴 확장 |
+| `core/eventProcessor.js`    | Layer 0 확정값을 공통 필드로 첨부                                                                       |
+| `core/sessionManager.js`    | URL 정규화 (`icid` 제거)                                                                                |
+| `backend/routes/collect.js` | `origin` 모바일 도메인 정규화                                                                           |
+| `index.js`                  | 어댑터 초기화 배선                                                                                      |
 
 ## 완료 기준
 
@@ -529,15 +530,15 @@ Event.distinct('session_id', filter),   // 날짜 필터 없음
 
 원래 리스트의 7개 카드를 기준으로 합니다.
 
-| 카드 | 현재 상태 | 작업 |
-|---|---|---|
-| 오늘 방문자 수 | ❌ 전체 기간 누적 | KST 기준 당일 필터 추가 |
-| 탐색 중지 신호 수 | ⚠️ 집계는 되나 기간 없음 | 기간 필터 적용 |
-| 주문 성공 수 | ❌ 텍스트 정규식 의존 | 4단계 `ORDER_SUCCESS` 기반으로 교체 |
-| 유입 경로 TOP | ⚠️ 2단계 전까지 부정확 | 2단계 first-touch 기반으로 교체 |
-| 많이 멈춘 화면 TOP | ❌ 장바구니 오분류 | 4단계 매핑 수정 반영 |
-| 문제 원인 TOP | ⚠️ 규칙 기반, 검증 안 됨 | 실데이터로 규칙 재검토 |
-| 고객 유형 요약 | ⚠️ 0단계 결과에 의존 | ML 서버 연결 확인 후 |
+| 카드               | 현재 상태                | 작업                                |
+| ------------------ | ------------------------ | ----------------------------------- |
+| 오늘 방문자 수     | ❌ 전체 기간 누적        | KST 기준 당일 필터 추가             |
+| 탐색 중지 신호 수  | ⚠️ 집계는 되나 기간 없음 | 기간 필터 적용                      |
+| 주문 성공 수       | ❌ 텍스트 정규식 의존    | 4단계 `ORDER_SUCCESS` 기반으로 교체 |
+| 유입 경로 TOP      | ⚠️ 2단계 전까지 부정확   | 2단계 first-touch 기반으로 교체     |
+| 많이 멈춘 화면 TOP | ❌ 장바구니 오분류       | 4단계 매핑 수정 반영                |
+| 문제 원인 TOP      | ⚠️ 규칙 기반, 검증 안 됨 | 실데이터로 규칙 재검토              |
+| 고객 유형 요약     | ⚠️ 0단계 결과에 의존     | ML 서버 연결 확인 후                |
 
 추가로:
 
@@ -562,7 +563,10 @@ Event.distinct('session_id', filter),   // 날짜 필터 없음
 `backend/routes/clusters.js:30`
 
 ```js
-const SNAPSHOT_DIR = path.join(__dirname, '../../ml/output/unsupervised_semantic/site_snapshots');
+const SNAPSHOT_DIR = path.join(
+  __dirname,
+  "../../ml/output/unsupervised_semantic/site_snapshots",
+);
 ```
 
 스냅샷을 **파일 시스템**에 저장합니다. Render는 파일 시스템이 휘발성이라 재시작·재배포하면 전부 사라집니다.
@@ -576,20 +580,20 @@ const SNAPSHOT_DIR = path.join(__dirname, '../../ml/output/unsupervised_semantic
 `backend/routes/clusters.js:665`
 
 ```js
-const cols = line.split(',');
+const cols = line.split(",");
 ```
 
 CSV를 단순 `split(',')`으로 파싱합니다. 상품명이나 라벨에 쉼표가 들어가면 컬럼이 밀립니다. 이 몰의 상품명(`레이스 디테일 미디 원피스`)에는 없지만, Gemini가 생성하는 클러스터 라벨에는 들어갈 수 있습니다.
 
 ## 무엇을 하는가
 
-| # | 작업 |
-|---|---|
-| 6-1 | `site_snapshots` 파일 → **MongoDB 컬렉션 이관** |
-| 6-2 | 스냅샷에 실행 시각·모델 버전·세션 수 메타 기록 → 재현 가능성 확보 |
-| 6-3 | 사이트별(origin) 스냅샷 분리 검증 — 3단계 모바일 도메인 정규화 반영 |
+| #   | 작업                                                                          |
+| --- | ----------------------------------------------------------------------------- |
+| 6-1 | `site_snapshots` 파일 → **MongoDB 컬렉션 이관**                               |
+| 6-2 | 스냅샷에 실행 시각·모델 버전·세션 수 메타 기록 → 재현 가능성 확보             |
+| 6-3 | 사이트별(origin) 스냅샷 분리 검증 — 3단계 모바일 도메인 정규화 반영           |
 | 6-4 | 작은 클러스터 / 미분류(noise) / 품질 지표(silhouette, DB index) 대시보드 노출 |
-| 6-5 | CSV 파싱 개선 또는 CSV 의존 제거 |
+| 6-5 | CSV 파싱 개선 또는 CSV 의존 제거                                              |
 
 ## 건드리는 파일
 
@@ -605,14 +609,14 @@ CSV를 단순 `split(',')`으로 파싱합니다. 상품명이나 라벨에 쉼�
 
 # 5장. 팀 상의가 필요한 항목
 
-| # | 항목 | 배경 | 임시 조치 |
-|---|---|---|---|
-| 1 | **세션 TTL 확정값** | 코드는 1분, 주석·문서는 30분. GA4 기본값은 30분 | 설정값으로 분리하고 임시 기본값 30분. 확정 시 숫자만 교체 |
-| 2 | **`CLUSTER_SERVER_URL` 실제 값** | 배포 환경 ML 동작 여부가 여기 달림 | 0단계에서 확인 |
-| 3 | **Python 분류 서버 호스팅 방안** | 2번 결과가 "없음"이면 별도 호스팅 필요 | 2번 확인 후 |
-| 4 | **기존 중복 데이터 처리** | unique 인덱스 생성 전 정리 필요 여부 | 중복 스캔 후 결정 |
-| 5 | **PAGE 어휘 변경 시 모델 재학습** | 4단계에서 vocab 불일치 발생 | 호환성 확인 후 별도 작업 분리 |
-| 6 | **측정 범위: 결제 팝업 제외** | 기술적으로 불가능. 발표자료에 명시 필요 | 설계 결정으로 문서화 |
+| #   | 항목                              | 배경                                            | 임시 조치                                                 |
+| --- | --------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| 1   | **세션 TTL 확정값**               | 코드는 1분, 주석·문서는 30분. GA4 기본값은 30분 | 설정값으로 분리하고 임시 기본값 30분. 확정 시 숫자만 교체 |
+| 2   | **`CLUSTER_SERVER_URL` 실제 값**  | 배포 환경 ML 동작 여부가 여기 달림              | 0단계에서 확인                                            |
+| 3   | **Python 분류 서버 호스팅 방안**  | 2번 결과가 "없음"이면 별도 호스팅 필요          | 2번 확인 후                                               |
+| 4   | **기존 중복 데이터 처리**         | unique 인덱스 생성 전 정리 필요 여부            | 중복 스캔 후 결정                                         |
+| 5   | **PAGE 어휘 변경 시 모델 재학습** | 4단계에서 vocab 불일치 발생                     | 호환성 확인 후 별도 작업 분리                             |
+| 6   | **측정 범위: 결제 팝업 제외**     | 기술적으로 불가능. 발표자료에 명시 필요         | 설계 결정으로 문서화                                      |
 
 ---
 
@@ -620,17 +624,17 @@ CSV를 단순 `split(',')`으로 파싱합니다. 상품명이나 라벨에 쉼�
 
 ## A-1. toridos.cafe24.com URL 구조
 
-| 화면 | 실제 경로 | 현재 `infer_page` |
-|---|---|---|
-| 홈 | `/` | HOME ✅ |
-| 카테고리 | `/category/아우터/42/` | CATEGORY ✅ |
-| 상품 상세 | `/product/{한글슬러그}/45/category/1/display/6/` | PRODUCT ✅ |
-| 장바구니 | `/order/basket.html` | **CHECKOUT ❌** |
-| 리뷰 게시판 | `/board/상품-사용후기/4/` | **UNKNOWN ❌** |
-| 상품 리뷰 목록 | `/board/product/list.html?board_no=4&link_product_no=45` | **UNKNOWN ❌** |
-| 이미지 확대 | `/product/image_zoom2.html?product_no=45&cate_no=1` | PRODUCT |
-| 마이페이지 | `/myshop/index.html` | UNKNOWN |
-| 로그인 | `/member/login.html` | UNKNOWN |
+| 화면           | 실제 경로                                                | 현재 `infer_page` |
+| -------------- | -------------------------------------------------------- | ----------------- |
+| 홈             | `/`                                                      | HOME ✅           |
+| 카테고리       | `/category/아우터/42/`                                   | CATEGORY ✅       |
+| 상품 상세      | `/product/{한글슬러그}/45/category/1/display/6/`         | PRODUCT ✅        |
+| 장바구니       | `/order/basket.html`                                     | **CHECKOUT ❌**   |
+| 리뷰 게시판    | `/board/상품-사용후기/4/`                                | **UNKNOWN ❌**    |
+| 상품 리뷰 목록 | `/board/product/list.html?board_no=4&link_product_no=45` | **UNKNOWN ❌**    |
+| 이미지 확대    | `/product/image_zoom2.html?product_no=45&cate_no=1`      | PRODUCT           |
+| 마이페이지     | `/myshop/index.html`                                     | UNKNOWN           |
+| 로그인         | `/member/login.html`                                     | UNKNOWN           |
 
 ## A-2. Cafe24 meta 태그 (상품 상세)
 
@@ -648,48 +652,48 @@ og:type:                product
 
 ## A-3. 코드 근거 인덱스
 
-| 사실 | 위치 |
-|---|---|
-| 세션 TTL 1분 | `core/sessionManager.js:26` |
-| 배포 번들도 1분 | `backend/public/gt.js` (`SESSION_TTL_MS = 60 * 1e3`) |
-| 전송 전 버퍼 비움 | `core/sender.js:71` |
-| 실패 시 무시 | `core/sender.js:88-90` |
-| try/catch 0개 | `sdk-A.js`, `sdk-B.js`, `sdk-C.js`, `core/eventProcessor.js` |
-| scroll passive 누락 | `sdk-C.js:111` (비교: 같은 파일 1084줄에는 있음) |
-| 상품 ID 정규식 | `sdk-C.js:689` |
-| `change` fallback 없음 | `sdk-C.js:857-860` |
-| `textOf`가 alt 미확인 | `sdk-C.js:703-712` |
-| 구매 텍스트 패턴 | `sdk-C.js:684-687` |
-| UTM 2개만 파싱 | `core/sessionManager.js` `_parseUTM()` |
-| `utm_medium` 스키마만 존재 | `backend/models/Event.js` |
-| cart/checkout 순서 버그 (Python) | `ml/semantic_event_mapper.py:166-169` |
-| cart/checkout 순서 버그 (Node) | `backend/routes/logs.js:261` |
-| 전환 판정 텍스트 정규식 | `backend/routes/logs.js:145` |
-| 방문자 수 날짜 필터 없음 | `backend/routes/logs.js:241` |
-| ML 서버 기본값 localhost | `backend/routes/clusters.js:19`, `classify.js:23` |
-| 스냅샷 파일 저장 | `backend/routes/clusters.js:30` |
-| CSV 단순 split | `backend/routes/clusters.js:665` |
-| origin = 요청 헤더 | `backend/routes/collect.js:18` |
+| 사실                             | 위치                                                         |
+| -------------------------------- | ------------------------------------------------------------ |
+| 세션 TTL 1분                     | `core/sessionManager.js:26`                                  |
+| 배포 번들도 1분                  | `backend/public/gt.js` (`SESSION_TTL_MS = 60 * 1e3`)         |
+| 전송 전 버퍼 비움                | `core/sender.js:71`                                          |
+| 실패 시 무시                     | `core/sender.js:88-90`                                       |
+| try/catch 0개                    | `sdk-A.js`, `sdk-B.js`, `sdk-C.js`, `core/eventProcessor.js` |
+| scroll passive 누락              | `sdk-C.js:111` (비교: 같은 파일 1084줄에는 있음)             |
+| 상품 ID 정규식                   | `sdk-C.js:689`                                               |
+| `change` fallback 없음           | `sdk-C.js:857-860`                                           |
+| `textOf`가 alt 미확인            | `sdk-C.js:703-712`                                           |
+| 구매 텍스트 패턴                 | `sdk-C.js:684-687`                                           |
+| UTM 2개만 파싱                   | `core/sessionManager.js` `_parseUTM()`                       |
+| `utm_medium` 스키마만 존재       | `backend/models/Event.js`                                    |
+| cart/checkout 순서 버그 (Python) | `ml/semantic_event_mapper.py:166-169`                        |
+| cart/checkout 순서 버그 (Node)   | `backend/routes/logs.js:261`                                 |
+| 전환 판정 텍스트 정규식          | `backend/routes/logs.js:145`                                 |
+| 방문자 수 날짜 필터 없음         | `backend/routes/logs.js:241`                                 |
+| ML 서버 기본값 localhost         | `backend/routes/clusters.js:19`, `classify.js:23`            |
+| 스냅샷 파일 저장                 | `backend/routes/clusters.js:30`                              |
+| CSV 단순 split                   | `backend/routes/clusters.js:665`                             |
+| origin = 요청 헤더               | `backend/routes/collect.js:18`                               |
 
 ---
 
 # 부록 B. 변경 파일 요약
 
-| 파일 | 1 | 2 | 3 | 4 | 5 | 6 |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|
-| `core/sessionManager.js` | ● | ● | ● | | | |
-| `core/sender.js` | ● | | | | | |
-| `core/eventProcessor.js` | ● | | ● | ● | | |
-| `core/platformAdapter.js` **(신규)** | | | ● | | | |
-| `sdk-A.js` | ● | | | | | |
-| `sdk-C.js` | ● | | ● | | | |
-| `index.js` | | | ● | | | |
-| `backend/models/Event.js` | ● | ● | | | ● | |
-| `backend/routes/collect.js` | ● | | ● | | | |
-| `backend/routes/logs.js` | | ● | | ● | ● | |
-| `backend/routes/clusters.js` | | | | | | ● |
-| `backend/public/operator-dashboard.html` | | | | | ● | ● |
-| `ml/semantic_event_mapper.py` | | | | ● | | |
+| 파일                                     |  1  |  2  |  3  |  4  |  5  |  6  |
+| ---------------------------------------- | :-: | :-: | :-: | :-: | :-: | :-: |
+| `core/sessionManager.js`                 |  ●  |  ●  |  ●  |     |     |     |
+| `core/sender.js`                         |  ●  |     |     |     |     |     |
+| `core/eventProcessor.js`                 |  ●  |     |  ●  |  ●  |     |     |
+| `core/platformAdapter.js` **(신규)**     |     |     |  ●  |     |     |     |
+| `sdk-A.js`                               |  ●  |     |     |     |     |     |
+| `sdk-C.js`                               |  ●  |     |  ●  |     |     |     |
+| `index.js`                               |     |     |  ●  |     |     |     |
+| `backend/models/Event.js`                |  ●  |  ●  |     |     |  ●  |     |
+| `backend/routes/collect.js`              |  ●  |     |  ●  |     |     |     |
+| `backend/routes/logs.js`                 |     |  ●  |     |  ●  |  ●  |     |
+| `backend/routes/clusters.js`             |     |     |     |     |     |  ●  |
+| `backend/public/operator-dashboard.html` |     |     |     |     |  ●  |  ●  |
+| `ml/semantic_event_mapper.py`            |     |     |     |  ●  |     |     |
 
 `sdk-B.js`는 전 단계에서 변경하지 않습니다.
 
@@ -708,5 +712,5 @@ node backend/build.js     # index.js → backend/public/gt.js
 Cafe24 삽입 위치는 스킨 레이아웃 파일의 `</head>` 직전입니다. 개별 페이지 스킨이 아니라 **공통 레이아웃**에 넣어야 전 페이지에 적용됩니다.
 
 ```html
-<script src="https://two026-capstone.onrender.com/gt.js"></script>
+<script src="https://capstone-toridos.duckdns.org/gt.js"></script>
 ```
