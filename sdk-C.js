@@ -652,6 +652,8 @@ function _initEcommerceTracking(handleRawEvent) {
   const REMOVE_GENERIC_TEXT = [
     /^(삭제|제거|지우기)$/,
     /^(remove|delete)$/i,
+    // Cafe24 장바구니 상단의 일괄 삭제 버튼
+    /^(선택|전체)\s*(삭제|제거)$/,
   ];
   const REMOVE_GENERIC_CLASS = [
     'remove-btn', 'remove-item', 'delete-item',
@@ -668,26 +670,31 @@ function _initEcommerceTracking(handleRawEvent) {
   const X_ICON_RE = /^[×✕✖✗]$|^x$/i;
 
   // remove_from_cart 판별 함수
+  //
+  // 텍스트 후보는 textCandidates()를 쓴다. 예전에는 textOf + aria-label만 봐서
+  // Cafe24 장바구니의 삭제 버튼을 놓쳤다:
+  //   <a class="btnDelete"><img alt="삭제" src="btn_delete.gif"></a>
+  // textContent가 빈 문자열이고 aria-label도 없어서 전부 미감지였다.
   function isRemoveFromCart(el) {
+    const candidates = textCandidates(el);   // 텍스트 + aria-label + title + img alt
+    const ariaLabel  = el.getAttribute?.('aria-label') || '';
+
     // Level 1: 명시적 — 컨텍스트 불필요
-    const ariaLabel = el.getAttribute?.('aria-label') || '';
     if (
-      REMOVE_EXPLICIT_TEXT.some((p) => p.test(textOf(el)) || p.test(ariaLabel)) ||
+      REMOVE_EXPLICIT_TEXT.some((p) => candidates.some((t) => p.test(t))) ||
       hasClass(el, REMOVE_EXPLICIT_CLASS) ||
       REMOVE_EXPLICIT_ARIA.some((p) => p.test(ariaLabel))
     ) return true;
 
-    // Level 2: 일반 — cart item 컨텍스트 필수
+    // Level 2: 일반 — cart item 컨텍스트 필수 (오탐 방지)
     const inCartCtx = !!el.closest(CART_ITEM_SELECTOR);
     if (!inCartCtx) return false;
 
-    const t = textOf(el).trim();
-
     // 2a. 일반 삭제 텍스트 (정확히 매치)
-    if (REMOVE_GENERIC_TEXT.some((p) => p.test(t))) return true;
+    if (REMOVE_GENERIC_TEXT.some((p) => candidates.some((t) => p.test(t)))) return true;
 
     // 2b. X / × 아이콘 텍스트
-    if (X_ICON_RE.test(t)) return true;
+    if (candidates.some((t) => X_ICON_RE.test(t))) return true;
 
     // 2c. 클래스 기반
     if (hasClass(el, REMOVE_GENERIC_CLASS)) return true;
@@ -713,8 +720,21 @@ function _initEcommerceTracking(handleRawEvent) {
     /구매하기/i, /주문하기/i, /결제하기/i, /^결제$/i, /주문\s*완료/i,
     // Cafe24 기본 스킨 버튼은 "바로 구매" / "바로구매"라 기존 패턴에 안 걸렸다
     /바로\s*구매/i, /^구매$/i, /즉시\s*구매/i, /지금\s*구매/i,
+    // Cafe24 장바구니 하단 주문 버튼: "전체상품주문" / "선택상품주문"
+    // "주문내역"·"주문조회" 같은 조회 메뉴가 걸리지 않게 '상품주문' 형태로 좁힌다
+    /상품\s*주문/i, /^주문$/i,
   ];
-  const PURCHASE_HREF = ['/checkout', '/order', '/purchase', '/pay'];
+  // 주소만 보고 "구매 의사"로 판정할 수 있는 경로.
+  //
+  // 예전에는 '/order'가 들어 있었는데 너무 넓었다. Cafe24 기준으로
+  //   /order/basket.html        → 장바구니 (구매 아님)
+  //   /myshop/order/list.html   → 주문 조회 (구매 아님)
+  // 둘 다 '/order'를 포함해서 헤더 메뉴만 눌러도 purchase_click이 찍혔다.
+  // 실제 결제 진행 경로만 남긴다.
+  const PURCHASE_HREF = ['/checkout', '/purchase', '/pay', '/orderform', '/order/order.html'];
+
+  // 장바구니 "페이지로 이동"하는 링크 — 담기가 아니라 이동이다
+  const CART_PAGE_HREF = ['/order/basket', '/cart', '/basket'];
   const PRODUCT_HREF  = /\/(?:product|p|item|goods|shop)\/([^/?#]+)/i;
 
   // React 18이 클릭 이벤트 처리 중 DOM을 업데이트하기 전에
@@ -811,6 +831,13 @@ function _initEcommerceTracking(handleRawEvent) {
     // PostHog autocapture 방식: 7종 엘리먼트까지 탐색 (form·label 추가)
     const el   = target.closest('a, button, form, input, select, textarea, label, [role="button"]') || target;
     const href = el.getAttribute?.('href') || '';
+
+    // 헤더의 "장바구니(3)" 같은 링크는 담기가 아니라 페이지 이동이다.
+    // 텍스트에 "장바구니"가 들어가서 add_to_cart로 잡히고 있었다.
+    // 담기 의도가 명시된 문구("담기", "add to cart")가 없으면 이동으로 본다.
+    const goesToCartPage = CART_PAGE_HREF.some((p) => href.includes(p));
+    const saysAddExplicitly = matchesPatterns(el, [/담기/i, /add\s*to\s*(cart|bag|basket)/i, /카트에?\s*추가/i]);
+    if (goesToCartPage && !saysAddExplicitly) return null;
 
     // add_to_cart
     if (
