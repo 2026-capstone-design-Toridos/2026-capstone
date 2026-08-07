@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>운영자 쉬운 화면 | GhostTracker</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body data-page="overview">
+  <header class="topbar">
+    <a class="brand" href="/demo-operator-dashboard.html">
+      <span class="logo">GT</span>
+      <span><strong>쇼핑몰 운영자 화면</strong><small>고객 행동을 쉬운 말로 보고, 바로 할 일을 확인합니다.</small></span>
+    </a>
+    <div class="status-row">
+      <button class="secondary mobile-only" data-menu="#side">메뉴</button>
+      <span class="live">목업 데이터</span>
+    </div>
+  </header>
+  <div class="app-shell">
+    <aside class="sidebar" id="side">
+      <div class="side-label">데모 운영</div>
+      <nav class="side-nav">
+        <a class="active" href="/demo-operator-dashboard.html">오늘의 요약</a>
+        <a href="/demo-sessions.html">고객 행동</a>
+        <a href="/demo-dropoffs.html">이탈 분석</a>
+        <a href="/demo-segments.html">고객 유형</a>
+        <a href="/demo-reports.html">리포트</a>
+      </nav>
+      <div class="side-separator"></div>
+      <nav class="side-nav">
+        <a href="/settings.html">연동 및 설정</a>
+        <a href="/help.html">도움말</a>
+        <a href="/operator-dashboard.html">실제 운영자 화면</a>
+      </nav>
+    </aside>
+    <main class="app-main">
+      <div class="page-head">
+        <div class="page-title"><h1>오늘의 운영 요약</h1><p>목업 고객 행동을 바탕으로 화면 구성과 분석 흐름을 체험합니다.</p></div>
+        <button data-demo-action="목업 리포트라 실제 파일을 생성하지 않습니다.">주간 리포트 체험</button>
+      </div>
+      <section class="two-grid" style="grid-template-columns:1.2fr .8fr">
+        <article class="card">
+          <span class="kicker">오늘의 운영 포커스</span>
+          <h2 style="font-size:2rem;margin:18px 0 10px">상품 상세 화면에서 망설이는 고객을 먼저 확인하세요.</h2>
+          <p class="lead">옵션을 여러 번 바꾼 뒤 구매 버튼을 누르지 않은 고객이 평소보다 많아요.</p>
+          <div class="metric-grid" style="grid-template-columns:repeat(4,1fr);margin-top:20px">
+            <div class="metric"><span>방문 고객</span><strong>128명</strong></div>
+            <div class="metric"><span>수집된 행동</span><strong>1,842건</strong></div>
+            <div class="metric"><span>탐색 중지</span><strong>19건</strong></div>
+            <div class="metric"><span>구매 성공</span><strong>12명</strong></div>
+          </div>
+        </article>
+        <aside class="card">
+          <div class="card-head"><div><h3>지금 운영자가 볼 것</h3><div class="sub">오늘 먼저 실행하면 좋은 항목입니다.</div></div><span class="badge warn">우선 확인</span></div>
+          <div class="notice warn"><strong>배송 안내를 가까이 보여주세요.</strong><br>배송비와 도착일을 옵션 선택 영역 근처에 배치하면 좋아요.</div>
+          <div class="actions"><a class="btn" href="/demo-dropoffs.html">이탈 원인 자세히 보기</a></div>
+        </aside>
+      </section>
+      <section class="three-grid" style="margin-top:16px">
+        <a class="card" href="/demo-dropoffs.html"><span class="badge risk">32명</span><h3 style="margin-top:14px">오늘 가장 막히는 화면</h3><p>상품 상세의 옵션 선택 영역에서 가장 많은 중지 신호가 발견됐어요.</p></a>
+        <a class="card" href="/demo-sessions.html"><span class="badge info">최근 행동</span><h3 style="margin-top:14px">방금 들어온 고객</h3><p>최근 고객의 방문부터 탐색 중지까지 행동 순서를 확인해보세요.</p></a>
+        <a class="card" href="/demo-segments.html"><span class="badge warn">31%</span><h3 style="margin-top:14px">가장 많은 고객 유형</h3><p>구매 직전 옵션과 가격을 반복해서 확인하는 고객이 가장 많아요.</p></a>
+      </section>
+      <section class="card" style="margin-top:16px">
+        <div class="card-head"><div><h3>방금 들어온 고객 행동</h3><div class="sub">실제 고객이 아닌 화면 체험용 목업 기록입니다.</div></div><a class="btn secondary" href="/demo-sessions.html">전체 보기</a></div>
+        <div class="list">
+          <div class="list-item"><div class="item-main"><strong>최근 고객 1번이 주문을 완료했습니다.</strong><small>3분 전 · 모바일 · 네이버 유입</small></div><span class="badge good">구매 완료</span></div>
+          <div class="list-item"><div class="item-main"><strong>최근 고객 2번이 옵션 선택 후 멈췄습니다.</strong><small>6분 전 · 모바일 · 인스타그램 유입</small></div><span class="badge risk">탐색 중지</span></div>
+          <div class="list-item"><div class="item-main"><strong>최근 고객 3번이 여러 상품을 비교하고 있습니다.</strong><small>11분 전 · PC · 직접 방문</small></div><span class="badge warn">비교 중</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
