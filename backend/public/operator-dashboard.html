@@ -1,9 +1,13 @@
-/*
- * 운영자 화면 전용 HTML 파일
- * - SDK가 보내는 이벤트를 실시간으로 수집하고, 요약/분석하여 운영자에게 보여줌
- * - 운영자가 쉽게 이해할 수 있는 언어로 번역된 인사이트와 액션을 제공
- */
 <!DOCTYPE html>
+<!--
+  운영자 화면 전용 HTML 파일
+  - SDK가 보내는 이벤트를 실시간으로 수집하고, 요약/분석하여 운영자에게 보여줌
+  - 운영자가 쉽게 이해할 수 있는 언어로 번역된 인사이트와 액션을 제공
+
+  주의: 이 주석은 반드시 <!DOCTYPE html> 뒤에 와야 한다.
+  DOCTYPE 앞에 문자가 있으면 브라우저가 quirks mode로 렌더링하고,
+  JS 스타일 /* */ 주석은 HTML에서 그냥 텍스트라 화면 상단에 그대로 출력된다.
+-->
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -946,6 +950,11 @@
       const actions = (cluster.top_actions || []).map((a) => a.action);
       const label = cluster.label || "";
       const top3 = actions.slice(0, 3);
+
+      // 서버(cluster_meta.json의 nlp_labels)가 이름을 주면 그대로 쓴다.
+      // 명명 규칙이 서버와 화면 양쪽에 있으면 반드시 어긋난다.
+      // 아래 규칙들은 label이 없는 옛 artifacts를 위한 하위 호환용이다.
+      if (cluster.persona_source) return label || `고객 유형 ${cluster.cluster}`;
       if (label.includes("행동 데이터 부족")) return "행동 데이터 부족 고객";
       if (label.includes("결제 단계에서 망설이는 고객")) return "결제 단계에서 망설이는 고객";
       if (label.includes("탐색을 빠르게 멈추는 고객")) return "탐색을 빠르게 멈추는 고객";
@@ -1081,12 +1090,23 @@
       const groups = new Map();
       clusters.forEach((cluster) => {
         const baseName = friendlyClusterName(cluster);
-        const meta = operatorClusterMeta(baseName);
+        // 서버가 이름을 준 경우 operatorClusterMeta의 재명명을 건너뛴다.
+        // 예: "상품 상세를 꼼꼼히 보는 고객"이 "꼼꼼히"에 걸려
+        //     "상품을 찾고 비교하는 고객"으로 덮어써지던 문제.
+        const meta = cluster.persona_source
+          ? {
+              key: `persona-${cluster.persona_id || baseName}`,
+              name: baseName,
+              summary: cluster.summary || "",
+              action: cluster.action || "",
+            }
+          : operatorClusterMeta(baseName);
         const row = groups.get(meta.key) || {
           key: meta.key,
           label: meta.name,
-          summary: meta.summary,
-          action: meta.action,
+          // 서버가 요약·추천을 주면 그것을 쓴다. 화면 문구는 fallback.
+          summary: cluster.summary || meta.summary,
+          action: cluster.action || meta.action,
           count: 0,
           members: [],
         };

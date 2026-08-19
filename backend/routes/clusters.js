@@ -559,6 +559,11 @@ router.get('/', async (req, res) => {
         label: nlp.name || buildLabel(clusterId, profile, meta.cluster_labels || {}),
         summary: nlp.summary || '',
         action: nlp.action || '',
+        // 이름이 어디서 왔는지 화면에 알려준다.
+        // 화면은 자체 명명 규칙을 갖고 있어, 서버가 준 이름이 있으면
+        // 그쪽을 우선해야 두 규칙이 어긋나지 않는다.
+        persona_source: nlp.source || (nlp.name ? 'meta' : null),
+        persona_id: nlp.id || null,
         count,
         top_actions: profile.top_actions || [],
         page_dist: profile.page_dist || {},

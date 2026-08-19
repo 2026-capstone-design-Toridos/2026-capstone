@@ -90,7 +90,9 @@ def build_profiles(rows: List[dict], labels: np.ndarray, top_n: int = 8) -> Dict
         total_pages = sum(pages.values()) or 1
 
         profiles[str(cid)] = {
-            "size": len(group),
+            # 필드명은 backend/routes/clusters.js 가 읽는 이름과 맞춘다.
+            # profile.count / nlp_labels[].summary / nlp_labels[].action
+            "count": len(group),
             "avg_length": round(float(np.mean(lengths)), 2) if lengths else 0.0,
             "top_actions": [
                 {"action": a, "count": c} for a, c in actions.most_common(top_n)
@@ -119,36 +121,36 @@ PERSONA_RULES = [
     {
         "id": "price_checker",
         "name": "가격을 반복 확인하는 고객",
-        "description": "상품 페이지에서 가격 구간을 계속 오가며 확인합니다. 구매 의사는 있으나 가격에서 망설입니다.",
-        "suggestion": "할인 조건이나 무료배송 기준을 가격 근처에 함께 보여주세요.",
+        "summary": "상품 페이지에서 가격 구간을 계속 오가며 확인합니다. 구매 의사는 있으나 가격에서 망설입니다.",
+        "action": "할인 조건이나 무료배송 기준을 가격 근처에 함께 보여주세요.",
         "test": lambda a, pg, prof: a.get("CHECK_PRICE", 0) >= 0.25,
     },
     {
         "id": "size_checker",
         "name": "사이즈를 확인하는 고객",
-        "description": "사이즈 표를 반복해서 봅니다. 치수 확신이 없어 결정을 미룹니다.",
-        "suggestion": "실측 사이즈와 모델 착용 정보를 사이즈 표 옆에 배치하세요.",
+        "summary": "사이즈 표를 반복해서 봅니다. 치수 확신이 없어 결정을 미룹니다.",
+        "action": "실측 사이즈와 모델 착용 정보를 사이즈 표 옆에 배치하세요.",
         "test": lambda a, pg, prof: a.get("CHECK_SIZE", 0) >= 0.20,
     },
     {
         "id": "review_reader",
         "name": "리뷰를 찾아보는 고객",
-        "description": "리뷰 영역에 오래 머무릅니다. 다른 사람의 후기로 확신을 얻으려 합니다.",
-        "suggestion": "사진 리뷰를 상단으로 올리고 리뷰 수를 상품명 옆에 표시하세요.",
+        "summary": "리뷰 영역에 오래 머무릅니다. 다른 사람의 후기로 확신을 얻으려 합니다.",
+        "action": "사진 리뷰를 상단으로 올리고 리뷰 수를 상품명 옆에 표시하세요.",
         "test": lambda a, pg, prof: a.get("VIEW_REVIEW", 0) >= 0.20,
     },
     {
         "id": "list_bouncer",
         "name": "목록만 훑고 나가는 고객",
-        "description": "카테고리 목록을 스크롤하다 상품에 들어가지 않고 이탈합니다. 끌리는 상품을 못 찾았습니다.",
-        "suggestion": "목록 썸네일과 첫 화면 상품 구성을 점검하세요.",
+        "summary": "카테고리 목록을 스크롤하다 상품에 들어가지 않고 이탈합니다. 끌리는 상품을 못 찾았습니다.",
+        "action": "목록 썸네일과 첫 화면 상품 구성을 점검하세요.",
         "test": lambda a, pg, prof: pg.get("CATEGORY", 0) >= 0.40 and a.get("ADD_CART", 0) < 0.01,
     },
     {
         "id": "active_buyer",
         "name": "구매까지 진행하는 활발한 고객",
-        "description": "여러 화면을 오가며 장바구니에 담고 입력까지 진행합니다. 가장 오래 머무는 유형입니다.",
-        "suggestion": "이 경로에서 이탈이 생기면 손실이 가장 큽니다. 결제 단계를 우선 점검하세요.",
+        "summary": "여러 화면을 오가며 장바구니에 담고 입력까지 진행합니다. 가장 오래 머무는 유형입니다.",
+        "action": "이 경로에서 이탈이 생기면 손실이 가장 큽니다. 결제 단계를 우선 점검하세요.",
         "test": lambda a, pg, prof: (
             a.get("EDIT_INPUT", 0) >= 0.04
             or (a.get("ADD_CART", 0) >= 0.03 and prof.get("avg_length", 0) >= 50)
@@ -157,8 +159,8 @@ PERSONA_RULES = [
     {
         "id": "detail_reader",
         "name": "상품 상세를 꼼꼼히 보는 고객",
-        "description": "상품 페이지를 천천히 내리며 이미지·리뷰·사이즈를 두루 봅니다.",
-        "suggestion": "상세 이미지 하단에 담기 버튼을 한 번 더 두면 이탈을 줄일 수 있습니다.",
+        "summary": "상품 페이지를 천천히 내리며 이미지·리뷰·사이즈를 두루 봅니다.",
+        "action": "상세 이미지 하단에 담기 버튼을 한 번 더 두면 이탈을 줄일 수 있습니다.",
         "test": lambda a, pg, prof: (
             pg.get("PRODUCT", 0) >= 0.60
             and (a.get("VIEW_REVIEW", 0) + a.get("CHECK_SIZE", 0) + a.get("ZOOM_IMAGE", 0)) >= 0.10
@@ -169,8 +171,8 @@ PERSONA_RULES = [
 FALLBACK_PERSONA = {
     "id": "browser",
     "name": "둘러보는 고객",
-    "description": "뚜렷한 목적 행동 없이 여러 화면을 이동합니다.",
-    "suggestion": "관심을 끌 진입 지점이 있는지 확인하세요.",
+    "summary": "뚜렷한 목적 행동 없이 여러 화면을 이동합니다.",
+    "action": "관심을 끌 진입 지점이 있는지 확인하세요.",
 }
 
 
@@ -184,8 +186,8 @@ def auto_label(profile: dict) -> dict:
                 return {
                     "id": rule["id"],
                     "name": rule["name"],
-                    "description": rule["description"],
-                    "suggestion": rule["suggestion"],
+                    "summary": rule["summary"],
+                    "action": rule["action"],
                     "source": "rule",
                 }
         except Exception:
@@ -196,7 +198,7 @@ def auto_label(profile: dict) -> dict:
 def load_overrides(path: str) -> dict:
     """
     규칙이 틀렸을 때 손으로 덮어쓰는 파일.
-    형식: {"1": {"name": "...", "description": "...", "suggestion": "..."}}
+    형식: {"1": {"name": "...", "summary": "...", "action": "..."}}
     """
     if not path or not os.path.exists(path):
         return {}
@@ -277,6 +279,15 @@ def main() -> None:
         with open(args.cluster_metrics, "r", encoding="utf-8") as f:
             metrics = json.load(f)
 
+    # backend/routes/clusters.js 의 qualitySummary() 가 읽는 이름으로 맞춘다.
+    # sample_count 를 주지 않으면 노이즈를 뺀 세션 수(=클러스터 합계)를 분모로 써서
+    # 미분류 비율이 32/100=32% 처럼 실제(32/132=24%)보다 부풀려진다.
+    quality = dict(metrics)
+    quality["sample_count"] = len(rows)
+    quality["noise_count"] = int((labels == -1).sum())
+    if metrics.get("noise_ratio") is not None:
+        quality["noise_rate"] = metrics["noise_ratio"]
+
     meta = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "generated_by": "export_cluster_artifacts.py",
@@ -296,7 +307,7 @@ def main() -> None:
         "calinski_harabasz": metrics.get("calinski_harabasz"),
         "noise_ratio": metrics.get("noise_ratio"),
         "duplicate_sequence_ratio": metrics.get("duplicate_sequence_ratio"),
-        "cluster_quality": metrics,
+        "cluster_quality": quality,
     }
 
     print("=== Export 점검 ===")
@@ -314,7 +325,7 @@ def main() -> None:
             "규칙" if lab.get("source") == "rule" else "미분류"
         )
         print(f"    {cid}: {lab['name']}  ({cnt}세션, {mark})")
-        print(f"       → {lab.get('suggestion', '')}")
+        print(f"       → {lab.get('action', '')}")
 
     if args.dry_run:
         print("\n--dry-run: 파일을 쓰지 않았습니다.")
