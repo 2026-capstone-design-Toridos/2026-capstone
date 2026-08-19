@@ -138,50 +138,130 @@ def safe_number(value: Any, default: Optional[float] = None) -> Optional[float]:
 # PAGE Inference
 # =========================================================
 
-def infer_page(event: Event) -> str:
-    """pathname / page_url 기반 PAGE 추론."""
-    pathname = normalize_text(event.get("pathname"))
-    page_url = normalize_text(event.get("page_url"))
-    raw = pathname or page_url
+# SDK가 Layer 0(플랫폼 meta)에서 확정한 page_type을 우리 PAGE 어휘로 옮긴다.
+# 추론이 아니라 쇼핑몰 솔루션이 알려준 값이라 URL 규칙보다 항상 정확하다.
+PLATFORM_PAGE_TYPES = {
+    "HOME", "PRODUCT", "CATEGORY", "SEARCH", "CART",
+    "CHECKOUT", "ORDER_SUCCESS", "REVIEW", "BOARD", "MYPAGE", "MEMBER",
+}
 
-    if not raw:
-        return "UNKNOWN"
 
+def _first_segment_in(path: str, names) -> bool:
+    """경로의 첫 세그먼트가 주어진 이름 중 하나인지 확인한다.
+
+    부분 문자열 비교를 쓰면 /shopinfo 가 /shop 에 걸리는 식의 오분류가 난다.
+    """
+    seg = path.lstrip("/").split("/", 1)[0]
+    return seg in names
+
+
+def _split_path_query(raw: str):
+    """경로와 쿼리를 분리한다 (절대 URL / 상대 경로 모두 지원)."""
     if "://" in raw:
         try:
             from urllib.parse import urlparse
             parsed = urlparse(raw)
-            path = parsed.path.rstrip("/") or "/"
-            query = parsed.query
+            return (parsed.path.rstrip("/") or "/"), parsed.query
         except Exception:
-            path = raw
-            query = ""
-    else:
-        path = raw.split("?")[0].rstrip("/") or "/"
-        query = raw[len(path):]
+            return raw, ""
+    path = raw.split("?")[0].rstrip("/") or "/"
+    return path, raw[len(path):]
 
-    if path in ("", "/", "/home", "/main"):
+
+def infer_page(event: Event) -> str:
+    """
+    이벤트가 발생한 페이지 종류를 판정한다.
+
+    판정 순서
+      1) SDK가 실어 보낸 page_type (Layer 0 — 플랫폼 meta 기반 확정값)
+      2) URL 규칙 추론 (구버전 데이터·비지원 플랫폼용 fallback)
+
+    ── 왜 순서가 중요한가 ────────────────────────────────────────
+    Cafe24 실측에서 URL 추론이 6/11을 틀렸다.
+      /order/basket.html      → CHECKOUT   (장바구니인데 결제로)
+      /order/order_result.html→ CHECKOUT   (주문 완료인데 결제로)
+      /board/product/list.html→ PRODUCT    (리뷰 게시판인데 상품으로)
+    URL만 보면 쇼핑몰마다 규칙이 달라 끝없이 예외가 생긴다.
+    SDK가 <meta name="path_role">을 읽어 확정값을 보내주므로 그것을 먼저 쓴다.
+    """
+    # ── 1) Layer 0 확정값 ─────────────────────────────────────
+    page_type = normalize_text(event.get("page_type")).upper()
+    if page_type in PLATFORM_PAGE_TYPES:
+        return page_type
+
+    # ── 2) URL 규칙 fallback ──────────────────────────────────
+    raw = normalize_text(event.get("pathname")) or normalize_text(event.get("page_url"))
+    if not raw:
+        return "UNKNOWN"
+
+    path, query = _split_path_query(raw)
+    path = path.lower()
+
+    if path in ("", "/", "/home", "/main", "/index.html"):
         return "HOME"
 
-    if any(k in path for k in ("/checkout", "/order", "/payment", "/pay", "/결제", "/주문")):
-        return "CHECKOUT"
+    # 순서가 중요하다. 아래 세 줄을 섞으면 Cafe24가 통째로 오분류된다.
+    #   /order/order_result.html  주문 완료
+    #   /order/basket.html        장바구니
+    #   /order/orderform.html     주문서(결제)
+    # '/order'를 먼저 검사하면 장바구니와 주문 완료가 전부 CHECKOUT이 된다.
+    if any(k in path for k in ("order_result", "orderresult", "/complete", "/thank",
+                               "order_complete", "/주문완료")):
+        return "ORDER_SUCCESS"
 
-    if any(k in path for k in ("/cart", "/basket", "/bag", "/장바구니")):
+    if any(k in path for k in ("/cart", "basket", "/bag", "/장바구니")):
         return "CART"
 
-    if any(k in path for k in ("/product", "/products", "/item", "/items",
-                                "/goods", "/shop", "/상품", "/detail")):
-        return "PRODUCT"
+    if any(k in path for k in ("orderform", "order_form", "/checkout",
+                               "/payment", "/pay", "/결제", "/주문")):
+        return "CHECKOUT"
 
-    if any(k in query for k in ("product_id=", "item_id=", "goods_id=")):
-        return "PRODUCT"
-
-    if any(k in path for k in ("/category", "/categories", "/collections",
-                                "/collection", "/search", "/카테고리")):
-        return "CATEGORY"
+    # 게시판을 상품보다 먼저 본다.
+    # Cafe24 리뷰 목록이 /board/product/list.html이라 '/product'에 걸려버린다.
+    if "/board" in path or any(k in path for k in ("/후기", "/리뷰", "/qa", "/문의")):
+        if any(k in path for k in ("review", "후기", "상품평", "구매평")) \
+           or "board_no=4" in query:
+            return "REVIEW"
+        return "BOARD"
 
     if any(k in path for k in ("/review", "/reviews", "/후기", "/리뷰")):
         return "REVIEW"
+
+    if "/myshop" in path or "/mypage" in path or "/마이페이지" in path:
+        return "MYPAGE"
+
+    if "/member" in path or "/login" in path or "/join" in path or "/회원" in path:
+        return "MEMBER"
+
+    if any(k in path for k in ("/search", "/검색")):
+        return "SEARCH"
+
+    # 경로 "첫 세그먼트"로 먼저 가른다.
+    # Cafe24 상품 상세는 /product/{슬러그}/18/category/1/display/10/ 형태라
+    # '/category'가 경로 안에 들어 있다. 부분 문자열만 보면 카테고리로 잘못 잡힌다.
+    #
+    # 세그먼트 단위로 비교하는 이유: 단순 startswith면
+    # /shopinfo/company.html 이 '/shop'에 걸려 상품으로 분류된다.
+    if _first_segment_in(path, ("product", "products", "item", "items",
+                                "goods", "shop", "상품")):
+        return "PRODUCT"
+
+    if _first_segment_in(path, ("category", "categories", "collection",
+                                "collections", "카테고리")):
+        return "CATEGORY"
+
+    # 첫 세그먼트가 아닌 곳에 있는 경우를 위한 fallback.
+    # 구분자를 양쪽에 붙여 /shopinfo 같은 접두어 오탐을 막는다.
+    if any(k in path for k in ("/category/", "/categories/", "/collection/",
+                               "/collections/", "/카테고리/")):
+        return "CATEGORY"
+
+    if any(k in path for k in ("/product/", "/products/", "/item/", "/items/",
+                               "/goods/", "/shop/", "/상품/", "/detail")):
+        return "PRODUCT"
+
+    if any(k in query for k in ("product_no=", "product_id=", "item_id=", "goods_id=")):
+        return "PRODUCT"
 
     return "UNKNOWN"
 
@@ -320,7 +400,17 @@ def map_event_to_semantic_token(
     data = get_data(event)
 
     page = current_page or infer_page(event)
-    area = classify_area(current_section, current_subsection)
+
+    # 이벤트가 자기 section/subsection을 싣고 있으면 그것을 우선한다.
+    # 추적 상태(current_*)는 exit 이벤트가 오지 않으면 영구히 남아
+    # 이후 모든 이벤트를 직전 영역(주로 PRICE)으로 오염시킨다.
+    own_section = data.get("section") or data.get("element_section")
+    own_subsection = data.get("subsection_id") or data.get("subsection")
+    if own_section or own_subsection:
+        area = classify_area(own_section, own_subsection)
+    else:
+        area = classify_area(current_section, current_subsection)
+
     page = resolve_page(page, event_type, area)
 
     # ── 1. 세션 / 페이지 이동 ──────────────────────────────────────────

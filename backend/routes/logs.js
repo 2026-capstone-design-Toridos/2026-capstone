@@ -59,6 +59,7 @@ function buildSessionPipeline(filter = {}) {
         first_landing: { $first: '$landing_page' },
         last_at: { $last: '$received_at' },
         pathname: { $last: '$pathname' },
+        page_type: { $last: '$page_type' },   // 마지막으로 머문 화면 종류
         count: { $sum: 1 },
         tab_exit_hits: {
           $sum: { $cond: [{ $eq: ['$event_type', 'tab_exit'] }, 1, 0] },
@@ -151,11 +152,44 @@ function buildSessionPipeline(filter = {}) {
             $cond: [{ $in: ['$event_type', RISK_EVENTS] }, 1, 0],
           },
         },
+        // ── 주문 성공 판정 ───────────────────────────────────────
+        //
+        // 1순위: 주문 완료 페이지에 도달했는가 (page_type === 'ORDER_SUCCESS')
+        //
+        // 예전에는 클릭·호버 텍스트에 '주문이 완료'라는 문자열이 있는지로
+        // 판정했다. 그러면 주문 완료 화면에서 사용자가 그 문구를 클릭하거나
+        // 마우스를 올려야만 전환으로 집계된다. 결제하고 창을 닫으면 0건이라
+        // 대시보드의 "주문 성공 수"가 실제 주문 수와 무관했다.
+        //
+        // 이제는 그 화면에 "도달"하기만 하면 잡힌다. 도달은 페이지 로드마다
+        // 반드시 이벤트가 발생하므로 놓칠 수 없다.
+        //
+        // 아래 두 줄은 page_type이 없던 구버전 데이터를 위한 fallback이다.
         completed_hits: {
           $sum: {
             $cond: [
               {
                 $or: [
+                  // 1순위 — 플랫폼이 알려준 확정값
+                  { $eq: ['$page_type', 'ORDER_SUCCESS'] },
+
+                  // fallback — 주문 완료 페이지 경로
+                  {
+                    $regexMatch: {
+                      input: {
+                        $toLower: {
+                          $concat: [
+                            { $ifNull: ['$pathname', ''] },
+                            ' ',
+                            { $ifNull: ['$page_url', ''] },
+                          ],
+                        },
+                      },
+                      regex: 'order_result|order_complete|/complete|/thank',
+                    },
+                  },
+
+                  // fallback — 구버전 텍스트 판정 (기존 데이터 호환)
                   {
                     $regexMatch: {
                       input: {
@@ -166,20 +200,6 @@ function buildSessionPipeline(filter = {}) {
                         ],
                       },
                       regex: '주문이 완료',
-                    },
-                  },
-                  {
-                    $regexMatch: {
-                      input: {
-                        $toLower: {
-                          $concat: [
-                            { $ifNull: ['$data.hover_target', ''] },
-                            ' ',
-                            { $ifNull: ['$data.click_target', ''] },
-                          ],
-                        },
-                      },
-                      regex: 'complete',
                     },
                   },
                 ],
@@ -204,6 +224,7 @@ function buildSessionPipeline(filter = {}) {
         landing_page: { $ifNull: ['$first_landing', ''] },
         last_at: 1,
         pathname: { $ifNull: ['$pathname', '/'] },
+        page_type: { $ifNull: ['$page_type', ''] },
         count: 1,
         tab_exit_hits: 1,
         inactivity_hits: 1,
@@ -286,13 +307,65 @@ router.get('/stats', async (req, res) => {
 });
 
 // pathname을 운영자가 보는 화면 이름으로 단순화
-function screenLabel(pathname = '') {
+/**
+ * 화면 이름을 운영자가 알아보는 말로 바꾼다.
+ *
+ * 1순위는 SDK가 실어 보낸 page_type(Layer 0 — 플랫폼 meta 확정값),
+ * 없으면 pathname으로 추론한다. ml/semantic_event_mapper.py의 infer_page와
+ * 같은 규칙을 쓴다. 두 곳이 어긋나면 대시보드와 분석 결과가 서로 다른
+ * 화면을 가리키게 된다.
+ *
+ * 예전 규칙은 Cafe24에서 크게 틀렸다.
+ *   /order/basket.html       '/order'가 먼저 걸려 장바구니가 '결제 화면'
+ *   /order/order_result.html 주문 완료도 '결제 화면'
+ *   /board/product/list.html 리뷰 게시판이 '상품 상세'
+ *   /myshop, /member         전부 '홈 화면'
+ */
+const PAGE_TYPE_LABEL = {
+  HOME:          '홈 화면',
+  PRODUCT:       '상품 상세',
+  CATEGORY:      '검색/카테고리',
+  SEARCH:        '검색/카테고리',
+  CART:          '장바구니',
+  CHECKOUT:      '결제 화면',
+  ORDER_SUCCESS: '주문 완료',
+  REVIEW:        '리뷰',
+  BOARD:         '게시판',
+  MYPAGE:        '마이페이지',
+  MEMBER:        '로그인/회원',
+};
+
+function firstSegment(path) {
+  return String(path || '').replace(/^\/+/, '').split('/')[0].toLowerCase();
+}
+
+function screenLabel(pathname = '', pageType = '') {
+  // 1순위: 플랫폼이 알려준 확정값
+  const byType = PAGE_TYPE_LABEL[String(pageType || '').toUpperCase()];
+  if (byType) return byType;
+
+  // 2순위: 경로 추론 (구버전 데이터·비지원 플랫폼)
   const path = String(pathname || '').toLowerCase();
-  if (path.includes('checkout') || path.includes('payment') || path.includes('order')) return '결제 화면';
-  if (path.includes('cart') || path.includes('basket')) return '장바구니';
-  if (path.includes('product') || path.includes('item') || path.includes('prod_')) return '상품 상세';
-  if (path.includes('search') || path.includes('category') || path.includes('collection')) return '검색/카테고리';
-  return '홈 화면';
+  const seg  = firstSegment(path);
+
+  // 순서 주의: order_result → basket → orderform 순으로 봐야 한다
+  if (path.includes('order_result') || path.includes('/complete')) return '주문 완료';
+  if (path.includes('basket') || path.includes('/cart'))           return '장바구니';
+  if (path.includes('orderform') || path.includes('checkout')
+      || path.includes('payment') || path.includes('/pay'))        return '결제 화면';
+
+  if (path.includes('/board')) return '게시판';
+  if (seg === 'myshop' || seg === 'mypage') return '마이페이지';
+  if (seg === 'member') return '로그인/회원';
+
+  if (['product', 'products', 'item', 'items', 'goods', 'shop'].includes(seg)) {
+    return path.includes('search') ? '검색/카테고리' : '상품 상세';
+  }
+  if (['category', 'categories', 'collection', 'collections'].includes(seg)) return '검색/카테고리';
+  if (path.includes('search')) return '검색/카테고리';
+
+  if (path === '' || path === '/' || path.includes('index.html')) return '홈 화면';
+  return '기타 화면';
 }
 
 /**
@@ -360,7 +433,7 @@ router.get('/operator-summary', async (req, res) => {
 
     const blockedPagesMap = new Map();
     riskySessions.forEach((session) => {
-      const key = screenLabel(session.pathname);
+      const key = screenLabel(session.pathname, session.page_type);
       blockedPagesMap.set(key, (blockedPagesMap.get(key) || 0) + 1);
     });
     const blocked_pages = [...blockedPagesMap.entries()]
@@ -399,7 +472,7 @@ router.get('/operator-summary', async (req, res) => {
       row.total += 1;
       if (session.completed) row.completed += 1;
       if (session.risky) row.risky += 1;
-      const page = screenLabel(session.pathname);
+      const page = screenLabel(session.pathname, session.page_type);
       row.pageCounts.set(page, (row.pageCounts.get(page) || 0) + 1);
       sourceMap.set(key, row);
     });
