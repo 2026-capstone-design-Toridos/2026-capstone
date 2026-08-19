@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>접근 키 관리 — GhostTracker</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --text:#1f2937;
+    --muted:#6b7280; --accent:#2563eb; --danger:#dc2626; --ok:#059669;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:32px 20px 64px; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;
+    font-size:14px; line-height:1.6;
+  }
+  .wrap { max-width:880px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 28px; }
+  .card {
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:20px; margin-bottom:20px;
+  }
+  .card h2 { font-size:15px; margin:0 0 14px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:0 0 5px; }
+  input[type=text], input[type=password] {
+    width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:6px;
+    font-size:14px; font-family:inherit;
+  }
+  input:focus { outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent; }
+  .row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:200px; }
+  button {
+    padding:9px 16px; border:0; border-radius:6px; background:var(--accent); color:#fff;
+    font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap;
+  }
+  button:hover { filter:brightness(.94); }
+  button.ghost { background:#fff; color:var(--text); border:1px solid var(--line); font-weight:500; }
+  button.danger { background:#fff; color:var(--danger); border:1px solid var(--line); font-weight:500; }
+  button:disabled { opacity:.5; cursor:default; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { font-size:12px; color:var(--muted); font-weight:600; }
+  td.mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; word-break:break-all; }
+  .tag { display:inline-block; padding:1px 7px; border-radius:99px; font-size:11px; background:#eef2ff; color:#4338ca; }
+  .tag.env { background:#fef3c7; color:#92400e; }
+  .tag.off { background:#f3f4f6; color:var(--muted); }
+  .msg { padding:11px 14px; border-radius:6px; margin-bottom:16px; display:none; }
+  .msg.err { background:#fef2f2; color:var(--danger); display:block; }
+  .msg.ok  { background:#ecfdf5; color:var(--ok); display:block; }
+  .issued {
+    background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px;
+    padding:16px; margin-top:16px; display:none;
+  }
+  .issued.show { display:block; }
+  .issued .label { font-size:12px; color:var(--muted); margin-top:10px; }
+  .copybox { display:flex; gap:8px; margin-top:4px; }
+  .copybox input { font-family:ui-monospace,Menlo,monospace; font-size:12px; background:#fff; }
+  .empty { color:var(--muted); text-align:center; padding:28px 0; }
+  .hint { font-size:12px; color:var(--muted); margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>접근 키 관리</h1>
+  <p class="sub">쇼핑몰마다 키를 발급합니다. 사장님은 이 키가 들어간 주소로만 자기 가게 데이터를 봅니다.</p>
+
+  <div class="msg" id="msg"></div>
+
+  <!-- 관리자 인증 -->
+  <div class="card" id="auth-card">
+    <h2>관리자 키</h2>
+    <div class="row">
+      <div>
+        <label for="admin-key">서버의 ADMIN_KEY</label>
+        <input type="password" id="admin-key" placeholder="관리자 키를 입력하세요" autocomplete="off">
+      </div>
+      <button id="btn-auth">확인</button>
+    </div>
+    <p class="hint">이 브라우저에만 저장됩니다. 공용 PC에서는 사용 후 "잠그기"를 눌러주세요.</p>
+  </div>
+
+  <!-- 발급 -->
+  <div class="card" id="issue-card" style="display:none">
+    <h2>새 키 발급</h2>
+    <div class="row">
+      <div>
+        <label for="origin">쇼핑몰 주소</label>
+        <input type="text" id="origin" placeholder="hshh2020.cafe24.com">
+      </div>
+      <div>
+        <label for="label">이름 (선택)</label>
+        <input type="text" id="label" placeholder="Digno Lucir">
+      </div>
+      <button id="btn-issue">발급</button>
+    </div>
+    <p class="hint">https:// 는 없어도 됩니다. m. 으로 시작하는 모바일 주소는 자동으로 합쳐집니다.</p>
+
+    <div class="issued" id="issued">
+      <strong>발급 완료</strong>
+      <div class="label">사장님께 보낼 주소</div>
+      <div class="copybox">
+        <input type="text" id="out-url" readonly>
+        <button class="ghost" data-copy="out-url">복사</button>
+      </div>
+      <div class="label">키</div>
+      <div class="copybox">
+        <input type="text" id="out-key" readonly>
+        <button class="ghost" data-copy="out-key">복사</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 목록 -->
+  <div class="card" id="list-card" style="display:none">
+    <div class="row" style="justify-content:space-between; margin-bottom:12px;">
+      <h2 style="margin:0">발급된 키</h2>
+      <div style="flex:0">
+        <button class="ghost" id="btn-toggle-revoked">폐기된 키 보기</button>
+        <button class="ghost" id="btn-lock">잠그기</button>
+      </div>
+    </div>
+    <div id="list"></div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  const STORAGE = 'gt_admin_key';
+  const $ = (id) => document.getElementById(id);
+  let showRevoked = false;
+
+  const msg = (text, kind = 'err') => {
+    const el = $('msg');
+    el.textContent = text;
+    el.className = 'msg ' + kind;
+    if (kind === 'ok') setTimeout(() => { el.className = 'msg'; }, 4000);
+  };
+
+  const adminKey = () => { try { return localStorage.getItem(STORAGE) || ''; } catch { return ''; } };
+
+  async function api(path, options = {}) {
+    const res = await fetch(path, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', 'X-GT-Admin-Key': adminKey(), ...(options.headers || {}) },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
+  }
+
+  function setLocked(locked) {
+    $('auth-card').style.display  = locked ? '' : 'none';
+    $('issue-card').style.display = locked ? 'none' : '';
+    $('list-card').style.display  = locked ? 'none' : '';
+  }
+
+  // ── 인증 ──────────────────────────────────────────────
+  async function unlock(key) {
+    try { localStorage.setItem(STORAGE, key); } catch {}
+    try {
+      await api('/api/admin/keys');
+      setLocked(false);
+      $('msg').className = 'msg';
+      load();
+    } catch (err) {
+      try { localStorage.removeItem(STORAGE); } catch {}
+      msg(err.message);
+      setLocked(true);
+    }
+  }
+
+  $('btn-auth').addEventListener('click', () => {
+    const k = $('admin-key').value.trim();
+    if (!k) return msg('관리자 키를 입력하세요.');
+    unlock(k);
+  });
+  $('admin-key').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-auth').click(); });
+
+  $('btn-lock').addEventListener('click', () => {
+    try { localStorage.removeItem(STORAGE); } catch {}
+    $('admin-key').value = '';
+    setLocked(true);
+    msg('잠갔습니다.', 'ok');
+  });
+
+  // ── 발급 ──────────────────────────────────────────────
+  $('btn-issue').addEventListener('click', async () => {
+    const origin = $('origin').value.trim();
+    if (!origin) return msg('쇼핑몰 주소를 입력하세요.');
+
+    $('btn-issue').disabled = true;
+    try {
+      const r = await api('/api/admin/keys', {
+        method: 'POST',
+        body: JSON.stringify({ origin, label: $('label').value.trim() }),
+      });
+
+      $('out-url').value = location.origin + r.dashboard_url;
+      $('out-key').value = r.key;
+      $('issued').classList.add('show');
+      $('origin').value = '';
+      $('label').value  = '';
+
+      msg(r.warning ? r.warning : `${r.origin} 키를 발급했습니다.`, r.warning ? 'err' : 'ok');
+      load();
+    } catch (err) {
+      msg(err.message);
+    } finally {
+      $('btn-issue').disabled = false;
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    const id = e.target.getAttribute?.('data-copy');
+    if (!id) return;
+    const input = $(id);
+    input.select();
+    navigator.clipboard?.writeText(input.value)
+      .then(() => msg('복사했습니다.', 'ok'))
+      .catch(() => msg('복사에 실패했습니다. 직접 선택해 주세요.'));
+  });
+
+  // ── 목록 ──────────────────────────────────────────────
+  $('btn-toggle-revoked').addEventListener('click', () => {
+    showRevoked = !showRevoked;
+    $('btn-toggle-revoked').textContent = showRevoked ? '유효한 키만 보기' : '폐기된 키 보기';
+    load();
+  });
+
+  const fmt = (d) => d ? new Date(d).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+
+  async function load() {
+    try {
+      const r = await api('/api/admin/keys' + (showRevoked ? '?include_revoked=1' : ''));
+
+      if (!r.keys.length) {
+        $('list').innerHTML = '<div class="empty">발급된 키가 없습니다.</div>';
+        return;
+      }
+
+      $('list').innerHTML = `
+        <table>
+          <thead><tr>
+            <th>쇼핑몰</th><th>이름</th><th>키</th><th>마지막 사용</th><th></th>
+          </tr></thead>
+          <tbody>${r.keys.map(rowHtml).join('')}</tbody>
+        </table>`;
+    } catch (err) {
+      msg(err.message);
+      if (/관리자/.test(err.message)) setLocked(true);
+    }
+  }
+
+  function rowHtml(k) {
+    const host = k.origin.replace(/^https?:\/\//, '');
+    const tag = k.revoked
+      ? '<span class="tag off">폐기됨</span>'
+      : (k.source === 'env' ? '<span class="tag env">환경변수 이관</span>' : '');
+    const action = k.revoked
+      ? `<button class="ghost" data-restore="${k.id}">복구</button>`
+      : `<button class="danger" data-revoke="${k.id}">폐기</button>`;
+
+    return `<tr>
+      <td>${host} ${tag}</td>
+      <td>${k.label || '—'}</td>
+      <td class="mono">${k.key}</td>
+      <td>${fmt(k.last_used_at)}</td>
+      <td style="text-align:right">${action}</td>
+    </tr>`;
+  }
+
+  document.addEventListener('click', async (e) => {
+    const revokeId  = e.target.getAttribute?.('data-revoke');
+    const restoreId = e.target.getAttribute?.('data-restore');
+
+    if (revokeId) {
+      if (!confirm('이 키를 폐기하면 해당 사장님은 대시보드에 들어갈 수 없습니다. 진행할까요?')) return;
+      try { await api(`/api/admin/keys/${revokeId}`, { method: 'DELETE' }); msg('폐기했습니다.', 'ok'); load(); }
+      catch (err) { msg(err.message); }
+    }
+
+    if (restoreId) {
+      try { await api(`/api/admin/keys/${restoreId}/restore`, { method: 'POST' }); msg('복구했습니다.', 'ok'); load(); }
+      catch (err) { msg(err.message); }
+    }
+  });
+
+  // ── 시작 ──────────────────────────────────────────────
+  if (adminKey()) unlock(adminKey());
+  else setLocked(true);
+})();
+</script>
+</body>
+</html>

@@ -8,7 +8,7 @@ const express     = require('express');
 const cors        = require('cors');
 const path        = require('path');
 const { connectDB } = require('./db');
-const { requireSite, logAccessMode } = require('./middleware/siteAccess');
+const { requireSite, requireAdmin, logAccessMode, migrateEnvKeysToDb } = require('./middleware/siteAccess');
 
 const collectRouter  = require('./routes/collect');
 const logsRouter     = require('./routes/logs');
@@ -16,6 +16,7 @@ const predictRouter  = require('./routes/predict');
 const clustersRouter = require('./routes/clusters');
 const classifyRouter = require('./routes/classify');
 const reportRouter   = require('./routes/report');
+const adminKeysRouter = require('./routes/adminKeys');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -30,8 +31,8 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
 // allowedOrigins는 사실 안 쓰는 중 — 어디에 SDK가 붙을지 아직 다 모르는 데모 단계라 origin: true로 일단 다 열어둠
 app.use(cors({
   origin: true,   // 모든 출처 허용 (팀원 사이트 연동용)
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-GT-Key'],   // 대시보드가 접근 키를 헤더로 보냄
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'X-GT-Key', 'X-GT-Admin-Key'],
 }));
 
 // ── Static (Dashboard + SDK) ──────────────────────────────────
@@ -85,6 +86,10 @@ app.use('/api/clusters', requireSite, clustersRouter);
 app.use('/api/classify', requireSite, classifyRouter);
 app.use('/api/report',   requireSite, reportRouter);
 
+// 키 발급·폐기 — 사이트 키가 아니라 ADMIN_KEY로 보호한다.
+// 이 화면이 뚫리면 아무나 아무 사이트의 키를 만들 수 있다.
+app.use('/api/admin/keys', requireAdmin, adminKeysRouter);
+
 // ── 헬스체크 ──────────────────────────────────────────────────
 // 서버 살아있는지만 확인하는 용도, 배포 후 모니터링이나 uptime 체크할 때 씀
 app.get('/health', (req, res) => {
@@ -104,6 +109,10 @@ connectDB()
     app.listen(PORT, () => {
       console.log(`[GhostTracker] 서버 실행 중 → http://localhost:${PORT}`);
       logAccessMode();   // 사이트 접근 키 설정 여부를 알림
+
+      // 환경변수에 있던 키를 DB로 옮긴다 (멱등).
+      // 이관 후에는 SITE_KEYS를 지워도 되고, 새 사장님은 관리 화면에서 발급한다.
+      migrateEnvKeysToDb();
     });
   })
   .catch((err) => {
