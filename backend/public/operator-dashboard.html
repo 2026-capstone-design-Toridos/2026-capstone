@@ -1065,15 +1065,18 @@
     // 그룹에 속한 세부 클러스터들의 top_actions를 합쳐서 상위 3개만
     function aggregateTopActions(clusters) {
       const counts = new Map();
+      const labels = new Map();
       clusters.forEach((cluster) => {
         (cluster.top_actions || []).forEach((action) => {
           counts.set(action.action, (counts.get(action.action) || 0) + (action.count || 0));
+          // 서버가 붙여준 한글 라벨을 합치는 과정에서 잃지 않도록 보존한다.
+          if (action.label) labels.set(action.action, action.label);
         });
       });
       return [...counts.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
-        .map(([action, count]) => ({ action, count }));
+        .map(([action, count]) => ({ action, count, label: labels.get(action) }));
     }
 
     // 그룹 안에서 가장 낮은 검증 상태를 대표값으로 사용
@@ -1134,7 +1137,12 @@
         .slice(0, 4);
     }
 
-    // 이벤트 액션 코드를 쉬운 말로 바꾸는 표
+    // 행동 코드 → 쉬운 말 (fallback 전용).
+    //
+    // 정식 사전은 backend/routes/clusters.js 의 koAction() 이고,
+    // 서버가 top_actions[].label 로 번역을 실어 보낸다.
+    // 이 표는 label이 없는 옛 응답을 위한 하위 호환용이므로 확장하지 않는다.
+    // 새 행동 코드는 koAction() 에 추가할 것.
     function friendlyAction(action) {
       const labels = {
         START_SESSION: "쇼핑몰 방문",
@@ -1501,7 +1509,7 @@
 
       $("customer-types").innerHTML = clusters.map((c, idx) => {
         const pct = total ? Math.round(c.count / total * 100) : 0;
-        const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${friendlyAction(a.action)}</span>`).join("");
+        const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${a.label || friendlyAction(a.action)}</span>`).join("");
         return `
           <div class="type-card ${typeTone(c)}" data-cluster="${c.representative_cluster ?? c.cluster}">
             <div class="type-top">

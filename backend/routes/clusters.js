@@ -81,32 +81,76 @@ function normalizeText(text) {
 }
 
 // 내부 semantic action 코드를 대시보드/리포트용 한국어 라벨로 바꾼다
+// 행동 코드 → 운영자가 읽는 말.
+//
+// 이 사전이 유일한 출처다. 화면에서 다시 번역하지 않는다.
+// (예전에는 대시보드에도 friendlyAction() 사전이 따로 있어
+//  같은 코드가 화면마다 다른 말로 나오거나 영어로 남았다.)
+// semantic_event_mapper.py 가 만들 수 있는 모든 SEMANTIC 값을 덮어야 한다.
 function koAction(action) {
   const labels = {
-    SCROLL_HOME: '홈 화면 스크롤',
-    SCROLL_PRODUCT: '상품 페이지 스크롤',
-    SCROLL_PAGE: '페이지 스크롤',
-    ENTER_CATEGORY: '카테고리 진입',
+    // 진입
+    START_SESSION: '쇼핑몰 방문',
+    ENTER_HOME: '첫 화면 진입',
     ENTER_PRODUCT: '상품 상세 진입',
+    ENTER_CATEGORY: '카테고리 진입',
+    ENTER_CART: '장바구니 진입',
     ENTER_CHECKOUT: '결제 화면 진입',
-    VIEW_PRODUCT: '상품 확인',
+    ENTER_MEMBER: '회원 화면 진입',
+    ENTER_UNKNOWN: '기타 화면 진입',
+
+    // 열람
+    VIEW_PRODUCT: '상품 살펴봄',
     VIEW_DETAIL: '상세정보 확인',
     VIEW_REVIEW: '리뷰 확인',
     VIEW_QNA: '상품 문의 확인',
+    VIEW_IMAGE: '이미지 확인',
+    VIEW_SECTION: '특정 영역 확인',
     ZOOM_IMAGE: '상품 이미지 확대',
-    HOVER_ELEMENT: '요소 위에 머무름',
-    CLICK_ELEMENT: '버튼 또는 메뉴 클릭',
-    SEARCH_USE: '검색 사용',
+
+    // 확인
     CHECK_PRICE: '가격 확인',
     CHECK_SIZE: '사이즈 확인',
     CHECK_SHIPPING: '배송 정보 확인',
+
+    // 스크롤
+    SCROLL_HOME: '첫 화면 스크롤',
+    SCROLL_PRODUCT: '상품 페이지 스크롤',
+    SCROLL_CATEGORY: '카테고리 스크롤',
+    SCROLL_REVIEW: '리뷰 스크롤',
+    SCROLL_PAGE: '페이지 스크롤',
+
+    // 조작
+    HOVER_ELEMENT: '요소 위에 머무름',
+    CLICK_ELEMENT: '버튼 또는 메뉴 클릭',
+    CLICK_BUY: '구매 버튼 클릭',
+    SEARCH_USE: '상품 검색',
+
+    // 장바구니
+    ADD_CART: '장바구니 담기',
+    REMOVE_CART: '장바구니에서 제거',
+    CHANGE_QUANTITY: '수량 변경',
+    CART_ABANDON: '장바구니 두고 나감',
+
+    // 입력
     START_INPUT: '입력 시작',
     EDIT_INPUT: '입력 수정',
-    EXIT_BOUNCE: '빠른 탐색 중지',
-    EXIT_SESSION: '탐색 중지',
+    ABANDON_INPUT: '입력 중단',
+
+    // 이탈 / 주의
+    TAB_OUT: '다른 탭으로 이동',
+    TAB_RETURN: '탭으로 돌아옴',
     INACTIVE: '움직임 없음',
     RAGE_CLICK: '반복 클릭',
-    CHANGE_QUANTITY: '수량 변경',
+    EXIT_SESSION: '탐색 중지',
+    EXIT_BOUNCE: '빠른 탐색 중지',
+
+    // 에피소드 — 같은 의도가 짧은 구간에 반복될 때 승격되는 신호
+    PRICE_REVIEW_EPISODE: '가격을 반복 확인',
+    SIZE_CHECK_EPISODE: '사이즈를 반복 확인',
+    SHIPPING_CHECK_EPISODE: '배송 정보를 반복 확인',
+    REVIEW_EXPLORATION_EPISODE: '리뷰를 집중해서 확인',
+    DISTRACTED_EPISODE: '주의가 흩어짐',
   };
   return labels[action] || String(action || '').replaceAll('_', ' ').toLowerCase();
 }
@@ -516,7 +560,11 @@ async function classifySiteSessions(origin, profiles, labels) {
         summary: nlp.summary || '',
         action: nlp.action || '',
         count,
-        top_actions: profile.top_actions || [],
+        // 번역은 서버에서 붙여 내려보낸다. 화면이 다시 번역하면 사전이 두 개가 된다.
+        top_actions: (profile.top_actions || []).map((a) => ({
+          ...a,
+          label: koAction(a.action),
+        })),
         page_dist: profile.page_dist || {},
         validation: clusterValidation(clusterId, profile, count, sessions.length, {}),
       };
@@ -565,7 +613,11 @@ router.get('/', async (req, res) => {
         persona_source: nlp.source || (nlp.name ? 'meta' : null),
         persona_id: nlp.id || null,
         count,
-        top_actions: profile.top_actions || [],
+        // 번역은 서버에서 붙여 내려보낸다. 화면이 다시 번역하면 사전이 두 개가 된다.
+        top_actions: (profile.top_actions || []).map((a) => ({
+          ...a,
+          label: koAction(a.action),
+        })),
         page_dist: profile.page_dist || {},
         validation: clusterValidation(clusterId, profile, count, totalSessions, meta),
       };
