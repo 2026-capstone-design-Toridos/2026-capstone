@@ -1,0 +1,26 @@
+# GhostTracker Python 서비스 의존성
+#
+# 이 파일은 Render의 Python 서비스가 읽는다.
+# 무거운 패키지를 넣을수록 무료 플랜(512MB) 한계에 가까워지므로,
+# 꼭 필요한 것만 단계적으로 올린다.
+
+# ── 1단계: 분류 서버 최소 구성 ────────────────────────────────
+# cluster_server.py가 뜨는 데 필요한 전부.
+# torch가 없으면 자동으로 TF-IDF 모드로 떨어지도록 코드가 짜여 있다.
+flask==3.0.3
+numpy==1.26.4
+pymongo==4.8.0
+
+# ── 2단계: 리포트 생성 (PDF) ──────────────────────────────────
+# report_html.py가 필요로 한다. 분류 서버만 먼저 띄울 거면 주석 처리해도 된다.
+# weasyprint는 시스템 라이브러리(cairo, pango 등)도 필요하므로
+# Render 빌드 명령에 apt 설치가 함께 들어가야 한다.
+matplotlib==3.9.2
+weasyprint==62.3
+Pillow==10.4.0
+
+# ── 3단계: BERT 임베딩 모드 (선택) ────────────────────────────
+# 없어도 동작한다. 넣으면 용량이 800MB 이상 늘어 무료 플랜에서는 실패한다.
+# /health의 mode가 "tfidf"로 뜨는데 정확도가 부족할 때만 검토한다.
+# --extra-index-url https://download.pytorch.org/whl/cpu
+# torch==2.4.1+cpu
