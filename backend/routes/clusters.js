@@ -377,7 +377,7 @@ function runPythonClustering({ full = true } = {}) {
     const args = [RETRAIN_SCRIPT];
     if (full) args.push('--full');
 
-    const child = spawn('python', args, {
+    const child = spawn('/home/opc/ghosttracker-venv/bin/python3.11', args, {
       cwd: ML_DIR,
       env: { ...process.env },
       windowsHide: true,
@@ -435,7 +435,7 @@ async function classifySiteSessions(origin, profiles, labels) {
   // 끝 슬래시가 붙은 origin도 같이 매칭한다
   const docs = await Event.find(originCondition(origin))
     .sort({ received_at: -1 })
-    .limit(2500)
+    .limit(20000)
     .lean();
 
   const grouped = new Map();
