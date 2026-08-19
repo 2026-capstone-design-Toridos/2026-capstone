@@ -15,6 +15,9 @@ from datetime import datetime
 from io import BytesIO
 from urllib.parse import urlparse, urlunparse
 
+os.environ.setdefault('MPLCONFIGDIR', os.path.join(tempfile.gettempdir(), 'ghosttracker-matplotlib'))
+os.makedirs(os.environ['MPLCONFIGDIR'], exist_ok=True)
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -37,9 +40,9 @@ EXIT_CAPTURE_DIR = os.path.join(OUT_DIR, 'exit_captures')
 
 # ── 색상 ───────────────────────────────────────────────────────────────────────
 PALETTE = [
-    '#3949AB','#00897B','#E53935','#FB8C00','#8E24AA',
-    '#039BE5','#43A047','#D81B60','#546E7A','#6D4C41',
-    '#00ACC1','#7CB342',
+    '#185ADB','#14B8A6','#E85D4F','#F59E0B','#8B5CF6',
+    '#0EA5E9','#22C55E','#EC4899','#64748B','#A16207',
+    '#06B6D4','#84CC16',
 ]
 INTENT_COLOR = {'높음': '#2e7d32', '중간': '#e65100', '낮음': '#b71c1c'}
 INTENT_BG    = {'높음': '#e8f5e9', '중간': '#fff3e0', '낮음': '#ffebee'}
@@ -161,6 +164,31 @@ def merge_profiles(raw: dict) -> dict:
             'members': g['members'],
         }
     return out
+
+
+def load_result_csv(csv_path: str) -> dict:
+    """백엔드가 사이트별 행동을 집계한 result.csv를 리포트 프로파일로 변환한다."""
+    profiles = {}
+    with open(csv_path, encoding='utf-8-sig', newline='') as stream:
+        for index, row in enumerate(csv.DictReader(stream)):
+            cid = str(row.get('cluster_id') or index)
+            try:
+                top_actions = json.loads(row.get('top_actions_json') or '[]')
+                page_dist = json.loads(row.get('page_dist_json') or '{}')
+            except json.JSONDecodeError as exc:
+                raise ValueError(f'result.csv JSON 형식 오류 (cluster {cid}): {exc}') from exc
+            profiles[cid] = {
+                'name': str(row.get('name') or f'고객 유형 {cid}').strip(),
+                'count': int(float(row.get('count') or 0)),
+                'summary': str(row.get('summary') or '').strip(),
+                'action': str(row.get('action') or '').strip(),
+                'top_actions': top_actions,
+                'page_dist': page_dist,
+                'members': [cid],
+            }
+    if not profiles:
+        raise ValueError('result.csv에 고객 유형 데이터가 없습니다.')
+    return profiles
 
 # ── 데이터 기반 인사이트 템플릿 (유형마다 다르게, Gemini 미사용/실패 시) ──────────
 # 유형명에 따라 데이터 기반 인사이트 문단을 반환한다 — Gemini 실패 시 폴백으로 사용
@@ -871,6 +899,52 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 .badge-high   {{ background:#e8f5e9; color:#2e7d32; padding:1.2px 7px; border-radius:999px; font-size:8pt; white-space:nowrap; border:1px solid #c8e6c9; }}
 .badge-mid    {{ background:#fff3e0; color:#e65100; padding:1.2px 7px; border-radius:999px; font-size:8pt; white-space:nowrap; border:1px solid #ffd8a8; }}
 .badge-low    {{ background:#ffebee; color:#b71c1c; padding:1.2px 7px; border-radius:999px; font-size:8pt; white-space:nowrap; border:1px solid #ffcdd2; }}
+
+/* GhostTracker 운영자 화면과 동일한 밝은 카드형 리포트 테마 */
+.page {{
+    background: linear-gradient(180deg, #fbfcff 0%, #f6f8fb 100%);
+}}
+.page::before {{
+    background: linear-gradient(90deg, #185adb 0%, #0f7ae5 58%, #14b8a6 100%);
+}}
+.cover {{
+    align-items: flex-start;
+    justify-content: flex-start;
+    text-align: left;
+    padding: 32mm 18mm 24mm;
+    color: #172033;
+    background:
+      radial-gradient(circle at 86% 10%, rgba(20,184,166,.20), transparent 27%),
+      radial-gradient(circle at 8% 0%, rgba(24,90,219,.18), transparent 34%),
+      linear-gradient(180deg, #fbfcff 0%, #f3f7fc 100%);
+}}
+.cover::before {{ background: radial-gradient(circle, rgba(24,90,219,.14), rgba(24,90,219,0) 72%); }}
+.cover::after {{ background: radial-gradient(circle, rgba(20,184,166,.15), rgba(20,184,166,0) 72%); }}
+.cover .logo-line {{
+    color: #185adb; opacity: 1; letter-spacing: 2px;
+    background: #e9f1ff; border-color: #cfe0ff;
+}}
+.cover .main-title {{ font-size: 30pt; color: #172033; margin-top: 13mm; }}
+.cover .sub-title {{ color: #65758b; opacity: 1; }}
+.cover .period-box {{ color:#1e3a8a; background:#ffffff; border-color:#d9e5f2; box-shadow:0 5px 18px rgba(23,32,51,.07); }}
+.cover .divider {{ margin-left:0; background:#185adb; }}
+.cover .kpi-row {{ width:100%; gap:5mm; }}
+.cover .kpi-item {{ flex:1; min-width:0; background:#fff; border:1px solid #dde7f2; border-top:3px solid #185adb; box-shadow:0 8px 24px rgba(23,32,51,.08); text-align:left; }}
+.cover .kpi-item:nth-child(2) {{ border-top-color:#14b8a6; }}
+.cover .kpi-item:nth-child(3) {{ border-top-color:#e85d4f; }}
+.cover .kpi-val {{ color:#172033; }}
+.cover .kpi-lbl {{ color:#65758b; opacity:1; }}
+.cover .footer-line {{ color:#94a3b8; opacity:1; text-align:left; left:18mm; }}
+.page-header {{ background:#fff; color:#172033; border-bottom:1px solid #dde7f2; padding:5.5mm 12mm 5mm; }}
+.page-header .brand {{ color:#185adb; opacity:1; background:#e9f1ff; }}
+.page-header .period {{ color:#65758b; opacity:1; }}
+.summary-lead {{ background:linear-gradient(135deg,#ffffff,#eef5ff 65%,#ecfbf8); border-color:#dde7f2; box-shadow:0 8px 24px rgba(23,32,51,.06); }}
+.section-title {{ color:#172033; border-left-color:#185adb; }}
+.type-header {{ background:linear-gradient(135deg,#172033,#185adb 72%,#0f7ae5); }}
+.insight-box {{ background:#fff; border-color:#dde7f2; border-left-color:#14b8a6; }}
+.rec-table {{ background:#fff; border:1px solid #dde7f2; }}
+.rec-table th {{ background:#172033; }}
+.rec-table tr:nth-child(even) td {{ background:#f6f8fb; }}
     """
 
     # ── 표지 ──────────────────────────────────────────────────────────────────
@@ -991,7 +1065,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 </div>
 """
 
-    summary_table_html = """
+    summary_table_html = f"""
 <div class="page">
   <div class="page-header">
     <span class="brand">GHOSTTRACKER</span>
@@ -1019,7 +1093,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         ma   = meaningful_actions(p, 2)
         top1 = ' · '.join(ko_action(a['action']) for a in ma) if ma else '-'
         badge_cls = {'높음':'badge-high','중간':'badge-mid','낮음':'badge-low'}[intt]
-        summary_html += f"""
+        summary_table_html += f"""
       <tr>
         <td><b>{name}</b></td>
         <td style="text-align:center;">{cnt}건</td>
@@ -1027,7 +1101,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         <td><span class="{badge_cls}">{intt}</span></td>
         <td>{top1}</td>
       </tr>"""
-    summary_html += """
+    summary_table_html += """
     </table>
     <div style="font-size:7.5pt; color:#90a4ae; margin-top:3mm; line-height:1.6;">
       ※ 고객 유형은 세션 행동 패턴을 군집화하여 도출했습니다.
@@ -1037,7 +1111,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     </div>
   </div>
 </div>
-""".replace("{start}", start).replace("{end}", end)
+"""
 
     # ── 전환 퍼널 페이지 (세션 데이터 있을 때만) ──────────────────────────────
     funnel_html = ''
@@ -1217,7 +1291,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       <div>
         <div class="type-num">고객 유형</div>
         <div class="type-name">{name}</div>
-        <div class="type-count">이번 달 방문 {cnt}건 · 전체의 {share}%{(' · 세부 패턴 ' + str(n_sub) + '개 통합') if n_sub > 1 else ''}</div>
+        <div class="type-count">이번 주 방문 {cnt}건 · 전체의 {share}%{(' · 세부 패턴 ' + str(n_sub) + '개 통합') if n_sub > 1 else ''}</div>
       </div>
       <div class="intent-badge" style="background:{ibg}; color:{ic};">
         구매 가능성 {intt}
@@ -1380,7 +1454,8 @@ def site_key(origin: str) -> str:
     return re.sub(r'[^a-z0-9._-]+', '_', value)
 
 
-def generate_report(start_date: str, end_date: str, output_path: str, origin: str = ''):
+def generate_report(start_date: str, end_date: str, output_path: str,
+                    origin: str = '', result_csv: str = ''):
     print("=" * 55)
     print("  GhostTracker 고객 분석 리포트 생성기 (HTML → PDF)")
     print("=" * 55)
@@ -1395,10 +1470,15 @@ def generate_report(start_date: str, end_date: str, output_path: str, origin: st
 
     # 2. 데이터 로드
     print("\n[1/4] 데이터 로드 중...")
-    with open(META_PATH, encoding='utf-8') as f:
-        meta = json.load(f)
-    raw_profiles = meta.get('cluster_profiles', {})
-    profiles = merge_profiles(raw_profiles)   # 12개 → 이름 기준 소수 유형으로 통합
+    if result_csv:
+        raw_profiles = load_result_csv(result_csv)
+        profiles = merge_profiles(raw_profiles)
+        print(f"  → 사이트별 result.csv 로드: {result_csv}")
+    else:
+        with open(META_PATH, encoding='utf-8') as f:
+            meta = json.load(f)
+        raw_profiles = meta.get('cluster_profiles', {})
+        profiles = merge_profiles(raw_profiles)   # 12개 → 이름 기준 소수 유형으로 통합
     total_visits = sum(p.get('count', 0) for p in profiles.values()) or 1
     print(f"  → 원본 {len(raw_profiles)}개 클러스터 → {len(profiles)}개 고객 유형으로 통합")
     print(f"     총 {total_visits}건")
@@ -1458,20 +1538,46 @@ def generate_report(start_date: str, end_date: str, output_path: str, origin: st
     try:
         from weasyprint import HTML as WH
         WH(filename=html_path).write_pdf(output_path)
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, OSError):
         browser = browser_executable()
         if not browser:
             print("  → WeasyPrint/Chrome 없음 → PDF 변환 생략, HTML만 생성")
             return
-        html_abs = os.path.abspath(html_path)
-        out_abs = os.path.abspath(output_path)
-        subprocess.run([
-            browser,
-            '--headless=new',
-            '--disable-gpu',
-            f'--print-to-pdf={out_abs}',
-            f'file:///{html_abs.replace(os.sep, "/")}',
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+        # Chrome headless는 한글 경로 또는 사용 중인 기본 프로필에서 멈출 수 있다.
+        # 영문 임시 경로와 전용 프로필에서 변환한 뒤 최종 위치로 이동한다.
+        with tempfile.TemporaryDirectory(prefix='gt-report-', ignore_cleanup_errors=True) as temp_dir:
+            temp_html = os.path.join(temp_dir, 'report.html')
+            temp_pdf = os.path.join(temp_dir, 'report.pdf')
+            profile_dir = os.path.join(temp_dir, 'chrome-profile')
+            shutil.copyfile(html_path, temp_html)
+            subprocess.run([
+                browser,
+                '--headless=new',
+                '--disable-gpu',
+                '--disable-extensions',
+                '--disable-dev-shm-usage',
+                '--no-first-run',
+                '--no-sandbox',
+                f'--user-data-dir={profile_dir}',
+                f'--print-to-pdf={temp_pdf}',
+                f'file:///{temp_html.replace(os.sep, "/")}',
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+            if not os.path.exists(temp_pdf):
+                raise RuntimeError('Chrome PDF 변환 결과가 생성되지 않았습니다.')
+            # Chrome 자식 프로세스가 Windows에서 임시 파일 핸들을 잠깐 유지할 수
+            # 있으므로 파일 자체를 이동하지 않고 완성본을 별도로 복사한다.
+            # 백엔드는 이 출력도 .generating 경로에 쓴 뒤 최종 이름으로 바꾼다.
+            last_error = None
+            for _ in range(20):
+                try:
+                    shutil.copyfile(temp_pdf, output_path)
+                    last_error = None
+                    break
+                except PermissionError as exc:
+                    last_error = exc
+                    time.sleep(0.25)
+            if last_error:
+                raise last_error
 
     size_kb = os.path.getsize(output_path) // 1024
     total_p = 2 + len(profiles) + 1
@@ -1489,6 +1595,8 @@ def main():
     p.add_argument('--origin', default='',
                    help='대상 쇼핑몰 origin (예: https://toridos.cafe24.com). '
                         '지정하지 않으면 전체 사이트가 섞인다.')
+    p.add_argument('--result-csv', default='',
+                   help='사이트별 고객 유형 집계 CSV. 지정하면 전역 cluster_meta 대신 사용한다.')
     args = p.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -1501,7 +1609,7 @@ def main():
                     if args.origin else f"ghosttracker_report_{stamp}.pdf")
 
     out = args.output or os.path.join(OUT_DIR, default_name)
-    generate_report(args.start, args.end, out, origin=args.origin)
+    generate_report(args.start, args.end, out, origin=args.origin, result_csv=args.result_csv)
 
 if __name__ == '__main__':
     main()
