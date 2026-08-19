@@ -400,7 +400,17 @@ def map_event_to_semantic_token(
     data = get_data(event)
 
     page = current_page or infer_page(event)
-    area = classify_area(current_section, current_subsection)
+
+    # 이벤트가 자기 section/subsection을 싣고 있으면 그것을 우선한다.
+    # 추적 상태(current_*)는 exit 이벤트가 오지 않으면 영구히 남아
+    # 이후 모든 이벤트를 직전 영역(주로 PRICE)으로 오염시킨다.
+    own_section = data.get("section") or data.get("element_section")
+    own_subsection = data.get("subsection_id") or data.get("subsection")
+    if own_section or own_subsection:
+        area = classify_area(own_section, own_subsection)
+    else:
+        area = classify_area(current_section, current_subsection)
+
     page = resolve_page(page, event_type, area)
 
     # ── 1. 세션 / 페이지 이동 ──────────────────────────────────────────
