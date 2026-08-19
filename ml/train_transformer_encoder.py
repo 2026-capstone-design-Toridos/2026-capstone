@@ -347,6 +347,8 @@ def train(args):
             },
             "vocab": vocab,
             "input_config": config,
+            # 추론 서버가 같은 pooling을 써야 centroid와 같은 공간에 놓인다.
+            "pooling": args.pooling,
         },
         model_path,
     )

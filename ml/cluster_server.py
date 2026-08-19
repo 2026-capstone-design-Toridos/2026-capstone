@@ -125,58 +125,32 @@ def events_to_tokens(events: List[dict]) -> List[str]:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TransformerMLM – Colab colab_pretrain_cluster.ipynb의 실제 모델 구조
-# (bert_encoder.pt state_dict 키 이름과 정확히 일치해야 함)
+# 학습 모델 정의 재사용
+#
+# 과거에는 이 파일이 TransformerMLM 이라는 별도 클래스를 자체 정의했다.
+# 그러나 실제 학습은 train_transformer_encoder.SessionTransformerEncoder 로
+# 이루어지고 두 클래스는 state_dict 키가 다르다.
+#     학습:  token_embedding / position_embedding / output_head  (LayerNorm 없음)
+#     서버:  token_emb       / pos_emb            / head + norm
+# 겹치는 키가 encoder.layers.* 뿐이라 load_state_dict(strict=False) 가
+# 임베딩을 랜덤 초기값으로 남긴 채 조용히 통과했다.
+#
+# 모델 정의는 한 곳에만 존재해야 한다. 학습 코드에서 직접 import 한다.
 # ══════════════════════════════════════════════════════════════════════════════
 
+SessionTransformerEncoder = None
+
 if HAS_TORCH:
-    class TransformerMLM(nn.Module):
-        """
-        Colab 학습 모델과 동일한 구조.
-        state_dict 키: token_emb, pos_emb, norm, encoder, head
-        forward() → [CLS] 위치(index 0)의 hidden state 반환
-        """
-        def __init__(
-            self,
-            vocab_size: int,
-            embed_dim: int    = 64,
-            nhead: int        = 4,
-            num_layers: int   = 2,
-            max_len: int      = 60,
-            dim_feedforward: int = 128,
-            dropout: float    = 0.1,
-        ):
-            super().__init__()
-            self.embed_dim = embed_dim
-            self.max_len   = max_len
-
-            self.token_emb = nn.Embedding(vocab_size, embed_dim)
-            self.pos_emb   = nn.Embedding(max_len + 5, embed_dim)
-            self.norm      = nn.LayerNorm(embed_dim)
-
-            enc_layer = nn.TransformerEncoderLayer(
-                d_model=embed_dim, nhead=nhead,
-                dim_feedforward=dim_feedforward,
-                dropout=dropout, batch_first=True,
-            )
-            self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
-            self.head     = nn.Linear(embed_dim, vocab_size)   # MLM head (inference에서는 무시)
-
-        def forward(
-            self,
-            input_ids: "torch.Tensor",       # (B, L)
-            attention_mask: "torch.Tensor",  # (B, L), 1=실제 토큰 0=패드
-        ) -> "torch.Tensor":                 # (B, embed_dim) – index 0 ([CLS]) hidden state
-            B, L = input_ids.shape
-            positions = torch.arange(L, device=input_ids.device).unsqueeze(0)
-
-            x = self.token_emb(input_ids) + self.pos_emb(positions)
-            x = self.norm(x)
-
-            src_key_padding_mask = (attention_mask == 0)  # True = 무시
-            x = self.encoder(x, src_key_padding_mask=src_key_padding_mask)
-
-            return x[:, 0, :]   # (B, embed_dim) – [CLS] 임베딩
+    try:
+        _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+        if _THIS_DIR not in sys.path:
+            sys.path.insert(0, _THIS_DIR)
+        from train_transformer_encoder import (  # noqa: E402
+            SessionTransformerEncoder as _SessionTransformerEncoder,
+        )
+        SessionTransformerEncoder = _SessionTransformerEncoder
+    except Exception as _e:  # pragma: no cover
+        print(f"[ClusterServer] 학습 모델 정의 import 실패: {_e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -276,56 +250,62 @@ class ClusterPredictor:
     def _load_bert(self, encoder_path: str, centroids_path: str, meta: dict):
         import torch
 
+        if SessionTransformerEncoder is None:
+            raise RuntimeError(
+                "train_transformer_encoder.SessionTransformerEncoder 를 import 하지 못했습니다."
+            )
+
         ckpt = torch.load(encoder_path, map_location=self.device, weights_only=False)
 
-        # 체크포인트에서 하이퍼파라미터 추출
-        embed_dim  = ckpt.get("embed_dim",   meta.get("embedding_dim", 64))
-        max_len    = ckpt.get("max_len",     meta.get("max_len", 60))
-        vocab_size = ckpt.get("vocab_size",  len(self.vocab))
+        state = ckpt.get("model_state_dict", ckpt.get("encoder_state"))
+        if state is None:
+            raise RuntimeError(
+                "체크포인트에 model_state_dict 가 없습니다. "
+                "train_transformer_encoder.py 로 학습한 파일인지 확인하세요."
+            )
 
-        # state_dict 키로 num_layers, dim_feedforward 역산
-        state = ckpt.get("model_state_dict", ckpt.get("encoder_state", ckpt))
-        layer_indices = sorted(set(
-            int(k.split(".")[2])
-            for k in state if k.startswith("encoder.layers.")
-        ))
-        num_layers = len(layer_indices) or 2
+        # 하이퍼파라미터는 체크포인트의 model_config를 신뢰한다.
+        # meta 값으로 추측하면 학습과 다른 구조를 만들 수 있다.
+        cfg = ckpt.get("model_config")
+        if not cfg:
+            raise RuntimeError(
+                "체크포인트에 model_config 가 없습니다. 모델 구조를 복원할 수 없습니다."
+            )
 
-        ff_key = f"encoder.layers.0.linear1.weight"
-        dim_feedforward = state[ff_key].shape[0] if ff_key in state else embed_dim * 2
+        self.pooling = ckpt.get("pooling", meta.get("pooling", "mean"))
 
-        pos_key = "pos_emb.weight"
-        if pos_key in state:
-            # The model allocates max_len + 5 positions. Infer this value from
-            # the checkpoint so older exported metadata cannot cause a mismatch.
-            max_len = int(state[pos_key].shape[0]) - 5
-
-        # nhead: embed_dim의 약수 중 가장 큰 값 (최대 8)
-        nhead = next(
-            (n for n in [8, 4, 2, 1] if embed_dim % n == 0),
-            4,
-        )
-
-        self.bert = TransformerMLM(
-            vocab_size      = vocab_size,
-            embed_dim       = embed_dim,
-            nhead           = nhead,
-            num_layers      = num_layers,
-            max_len         = max_len,
-            dim_feedforward = dim_feedforward,
-            dropout         = 0.0,
+        self.bert = SessionTransformerEncoder(
+            vocab_size = cfg["vocab_size"],
+            max_len    = cfg["max_len"],
+            pad_id     = cfg["pad_id"],
+            embed_dim  = cfg["embed_dim"],
+            num_heads  = cfg["num_heads"],
+            num_layers = cfg["num_layers"],
+            ff_dim     = cfg["ff_dim"],
+            dropout    = 0.0,
         ).to(self.device)
 
-        missing, unexpected = self.bert.load_state_dict(state, strict=False)
-        if missing:
-            print(f"[ClusterServer] 누락 키 (무시 가능): {missing[:3]}")
-        if unexpected:
-            print(f"[ClusterServer] 예상치 못한 키 (무시): {unexpected[:3]}")
+        # strict=True — 키가 하나라도 어긋나면 즉시 실패한다.
+        # strict=False 로 두면 임베딩이 랜덤인 채 서버가 정상 기동해
+        # 근거 없는 분류 결과를 내놓는다. 조용한 오작동이 가장 위험하다.
+        self.bert.load_state_dict(state, strict=True)
 
         self.bert.eval()
-        self.max_len = max_len
-        print(f"[ClusterServer] TransformerMLM 로드 완료 "
-              f"(d={embed_dim}, layers={num_layers}, nhead={nhead}, max_len={max_len})")
+        self.max_len = cfg["max_len"]
+
+        if cfg["vocab_size"] != len(self.vocab):
+            raise RuntimeError(
+                f"vocab 불일치: 체크포인트 {cfg['vocab_size']} vs "
+                f"cluster_meta.json {len(self.vocab)}. "
+                "artifacts를 같은 학습 실행에서 함께 export 했는지 확인하세요."
+            )
+
+        print(
+            f"[ClusterServer] SessionTransformerEncoder 로드 완료 "
+            f"(d={cfg['embed_dim']}, layers={cfg['num_layers']}, "
+            f"heads={cfg['num_heads']}, max_len={cfg['max_len']}, "
+            f"vocab={cfg['vocab_size']}, pooling={self.pooling})"
+        )
 
         # 중심점: (n_clusters, embed_dim) float32
         self.bert_centroids = torch.tensor(
@@ -339,22 +319,33 @@ class ClusterPredictor:
 
     # ── BERT 임베딩 ──────────────────────────────────────────────────────────
     def _embed_bert(self, token_ids: List[int]) -> np.ndarray:
+        """
+        prepare_transformer_input.encode_sequence 와 동일한 규칙으로 인코딩한다.
+          - [CLS] 를 맨 앞에 붙인다
+          - 길이 초과 시 뒤쪽(최근 행동)을 보존한다 (truncate_side="left")
+          - 오른쪽 패딩, attention_mask 는 실제 토큰만 1
+        인코딩 규칙이 학습과 다르면 임베딩이 다른 공간에 놓여
+        centroid 비교가 무의미해진다.
+        """
         import torch
         PAD = self.vocab.get("[PAD]", 0)
-        CLS = self.vocab.get("[CLS]", 2)
+        CLS = self.vocab.get("[CLS]", 3)
 
-        # [CLS] 앞에 추가 후 max_len-1 개 토큰 잘라내기
         ids = [CLS] + token_ids[-(self.max_len - 1):]
 
-        # 오른쪽 패딩 (Colab 학습 방식과 동일)
+        attn = [1] * len(ids)
         pad_len = self.max_len - len(ids)
-        ids = ids + [PAD] * pad_len
+        if pad_len > 0:
+            ids = ids + [PAD] * pad_len
+            attn = attn + [0] * pad_len
 
         id_t = torch.tensor([ids], dtype=torch.long, device=self.device)
-        mask = (id_t != PAD).long()
+        mask = torch.tensor([attn], dtype=torch.long, device=self.device)
 
         with torch.no_grad():
-            emb = self.bert(id_t, mask)   # (1, embed_dim)
+            # 학습 시 session_embeddings.npy 를 만든 것과 같은 pooling 을 써야
+            # centroid 와 같은 공간에 놓인다 (기본 mean).
+            emb = self.bert.encode(id_t, mask, pooling=getattr(self, "pooling", "mean"))
         return emb[0].cpu().numpy()
 
     # ── TF-IDF 벡터 ─────────────────────────────────────────────────────────
