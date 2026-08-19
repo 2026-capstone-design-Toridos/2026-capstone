@@ -674,7 +674,7 @@
       <select id="site-filter" aria-label="사이트 선택">
         <option value="">전체 사이트</option>
       </select>
-      <button class="secondary" id="rediscover-types">고객 유형 다시 찾기</button>
+      <button class="secondary" id="rediscover-types">최신 데이터로 다시 분류</button>
       <button id="download-report">주간 리포트 다운로드</button>
       <button class="secondary" id="expert-view">전문가 화면</button>
       <span class="live" id="status">연결 확인 중</span>
@@ -772,7 +772,7 @@
           <div class="card-head">
             <div>
               <div class="card-title">고객 유형 한눈에 보기</div>
-              <div class="card-sub">마지막으로 고객 유형 다시 찾기를 실행했을 때 확정된 유형을, 비슷한 세부 클러스터끼리 묶어 보여줍니다.</div>
+              <div class="card-sub">마지막으로 다시 분류를 실행했을 때의 결과입니다. 고객 유형 기준 자체는 개발자가 재학습할 때만 바뀝니다.</div>
               <div class="card-sub" id="cluster-snapshot-note">마지막 클러스터링 시점을 불러오는 중입니다.</div>
             </div>
           </div>
@@ -1465,16 +1465,16 @@
       `;
     }
 
-    // 클러스터 결과는 실시간이 아니라 마지막 "고객 유형 다시 찾기" 실행 시점 스냅샷이라는 걸 안내
+    // 클러스터 결과는 실시간이 아니라 마지막 "다시 분류" 실행 시점 스냅샷이라는 걸 안내
     function renderClusterSnapshotInfo(data = {}) {
       const meta = data.meta || {};
       const stamp = meta.last_retrain
         ? new Date(meta.last_retrain).toLocaleString("ko-KR")
         : "기록 없음";
       const note = data.source === "artifact_snapshot"
-        ? `선택한 사이트의 새 세션에 따라 바뀌지 않고, 마지막 고객 유형 다시 찾기 실행 시점(${stamp}) 기준으로 유지됩니다.`
+        ? `선택한 사이트의 새 세션에 따라 바뀌지 않고, 마지막 다시 분류 실행 시점(${stamp}) 기준으로 유지됩니다.`
         : data.source === "site_snapshot"
-          ? `현재 선택한 사이트 기준으로 마지막 고객 유형 다시 찾기 실행 시점(${stamp})에 저장한 결과입니다. 새 세션만으로는 바뀌지 않습니다.`
+          ? `현재 선택한 사이트 기준으로 마지막 다시 분류 실행 시점(${stamp})에 저장한 결과입니다. 새 세션만으로는 바뀌지 않습니다.`
         : `현재 클러스터 기준은 ${stamp}에 저장된 결과입니다.`;
       $("cluster-snapshot-note").textContent = note;
     }
@@ -1631,7 +1631,10 @@
         summary: state.analysis?.summary,
         action: state.analysis?.action,
         confidence: state.analysis?.confidence,
-        prefer_local: true,
+        // prefer_local을 여기서 고정하지 않는다.
+        // AI 요약 사용 여부는 서버가 판단한다 — GEMINI_API_KEY가 없거나
+        // 호출이 실패하면 서버가 알아서 로컬 문장으로 대체한다(fallback 필드로 표시).
+        // 화면이 강제하면 키를 넣어도 AI 리포트가 영영 안 쓰인다.
         events: state.selectedEvents.map((e) => ({
           event_type: e.event_type,
           page: eventPage(e),
@@ -1661,11 +1664,14 @@
       if (clusterId === undefined || clusterId === null || clusterId === "") return;
       $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
       try {
-        const params = new URLSearchParams({ prefer_local: "1" });
+        // prefer_local 고정 제거 — AI 사용 여부는 서버가 판단하고 실패 시 대체한다.
+        const params = new URLSearchParams();
         if (state.analysis?.persona) params.set("persona", state.analysis.persona);
         if (state.analysis?.completed) params.set("completed", "1");
-        const result = await api(`/api/report/cluster/${clusterId}?${params.toString()}`);
+        const query = params.toString();
+        const result = await api(`/api/report/cluster/${clusterId}${query ? `?${query}` : ""}`);
         $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
+        if (result.warning) $("report-box").textContent += `\n\n(${result.warning})`;
       } catch (err) {
         $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
       }
@@ -1759,28 +1765,30 @@
       }
     }
 
-    // "고객 유형 다시 찾기" 버튼 핸들러 - 클러스터링을 새로 돌리고 스냅샷으로 저장
+    // "최신 데이터로 다시 분류" 버튼 핸들러
+    // 재학습 없이 기존 기준으로 최신 세션만 다시 분류해 스냅샷으로 저장한다.
     async function rediscoverCustomerTypes() {
       const btn = $("rediscover-types");
       btn.disabled = true;
       const originalText = btn.textContent;
-      btn.textContent = "고객 유형 찾는 중";
-      setStatus(true, "고객 유형을 다시 찾는 중");
-      $("operator-advice").textContent = "누적된 고객 행동을 다시 묶어 새로운 고객 유형이 있는지 확인하고 있습니다. 잠시만 기다려주세요.";
+      btn.textContent = "다시 분류하는 중";
+      setStatus(true, "최신 데이터로 다시 분류하는 중");
+      $("operator-advice").textContent = "기존 고객 유형 기준으로 최근 방문 데이터를 다시 분류하고 있습니다. 잠시만 기다려주세요.";
       try {
+        // retrain은 보내지 않는다. 재학습은 개발자가 ml/ 파이프라인으로 수행한다.
         const result = await api("/api/clusters/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ full: true, origin: state.origin || "" }),
+          body: JSON.stringify({ origin: state.origin || "" }),
         });
         $("operator-advice").textContent = result.snapshot_saved
-          ? `고객 유형 찾기가 완료됐습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 세부 유형, ${fmt(result.snapshot_session_count)}개 세션 스냅샷을 저장했습니다.`
-          : `고객 유형 찾기가 완료됐습니다. 현재 ${fmt(result.n_clusters)}개 유형이 발견됐고, ${fmt(result.retrain_session_count)}개 세션을 반영했습니다.`;
-        $("advice-tag").textContent = "유형 갱신 완료";
+          ? `다시 분류를 완료했습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 유형, ${fmt(result.snapshot_session_count)}개 세션을 반영했습니다.`
+          : "다시 분류를 완료했습니다.";
+        $("advice-tag").textContent = "분류 갱신 완료";
         await refresh();
       } catch (err) {
-        $("operator-advice").textContent = `고객 유형 찾기에 실패했습니다: ${err.message}`;
-        setStatus(false, "유형 찾기 실패");
+        $("operator-advice").textContent = `다시 분류에 실패했습니다: ${err.message}`;
+        setStatus(false, "다시 분류 실패");
       } finally {
         btn.disabled = false;
         btn.textContent = originalText;

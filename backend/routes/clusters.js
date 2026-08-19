@@ -19,7 +19,10 @@ const { originCondition, normalizeOrigin } = require('../middleware/siteAccess')
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// API 키는 URL이 아니라 x-goog-api-key 헤더로 보낸다.
+// 쿼리 스트링에 실으면 서버 로그·프록시 로그·에러 메시지에 키가 그대로 남는다.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const META_PATH = path.resolve(
   __dirname, '../../ml/output/unsupervised_semantic/cluster_meta.json',
@@ -314,7 +317,10 @@ async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
   const res = await fetch(GEMINI_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': GEMINI_API_KEY,
+    },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.35, maxOutputTokens: 4096 },
@@ -690,7 +696,26 @@ router.post('/run', async (req, res) => {
 
     // 키 모드에서는 키가 정한 사이트로 고정한다. body의 origin은 신뢰하지 않는다.
     const requestedOrigin = req.siteOrigin || String(req.body?.origin || '').trim();
-    const result = await runPythonClustering({ full: req.body?.full !== false });
+
+    // 기본은 "재분류"다. 기존 인코더·centroid를 그대로 두고 최신 세션만 다시 분류한다.
+    //
+    // 재학습(retrain:true)을 기본으로 두면 안 되는 이유:
+    //   - CPU 학습에 수 분이 걸려 HTTP 요청 안에서 끝나지 않는다
+    //   - 누를 때마다 클러스터 정의가 바뀌어 어제 본 유형과 오늘 본 유형이 달라진다
+    //     운영자에게는 기준이 안정적인 쪽이 중요하다
+    //   - generateNlpLabels(meta, true)가 돌면서 규칙 기반 페르소나 이름을
+    //     Gemini 응답으로 덮어쓴다
+    // 재학습은 데이터가 쌓인 뒤 개발자가 ml/ 파이프라인으로 의도적으로 수행한다.
+    const retrain = req.body?.retrain === true;
+
+    const result = retrain
+      ? await runPythonClustering({ full: req.body?.full !== false })
+      : {
+        ok: true,
+        mode: 'reclassify',
+        message: '기존 고객 유형 기준으로 최신 데이터를 다시 분류했습니다.',
+      };
+
     if (requestedOrigin) {
       const meta = fs.existsSync(META_PATH)
         ? JSON.parse(fs.readFileSync(META_PATH, 'utf-8'))
