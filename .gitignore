@@ -1,1 +1,23 @@
 .DS_Store
+
+# Node
+node_modules/
+backend/node_modules/
+
+# Environment
+.env
+backend/.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ML runtime outputs / backups
+ml/output/unsupervised_semantic/*_backup_*.npy
+ml/output/unsupervised_semantic/*_backup_*.json
