@@ -86,6 +86,9 @@ def build_profiles(rows: List[dict], labels: np.ndarray, top_n: int = 8) -> Dict
                 if page:
                     pages[page] += 1
 
+        total_actions = sum(actions.values()) or 1
+        total_pages = sum(pages.values()) or 1
+
         profiles[str(cid)] = {
             "size": len(group),
             "avg_length": round(float(np.mean(lengths)), 2) if lengths else 0.0,
@@ -96,21 +99,109 @@ def build_profiles(rows: List[dict], labels: np.ndarray, top_n: int = 8) -> Dict
                 {"token": t, "count": c} for t, c in tokens.most_common(top_n)
             ],
             "page_dist": dict(pages.most_common(top_n)),
+            # 비율은 클러스터 크기와 무관하므로 규칙 판정에 쓴다.
+            "action_share": {a: c / total_actions for a, c in actions.items()},
+            "page_share": {a: c / total_pages for a, c in pages.items()},
         }
     return profiles
 
 
-def auto_label(profile: dict) -> str:
+# ── 페르소나 이름 부여 ───────────────────────────────────────
+#
+# 클러스터 id 는 재실행할 때마다 바뀐다. id 에 이름을 고정하면 다음 학습에서
+# 엉뚱한 유형에 붙는다. 따라서 **행동 비율로 판정**한다.
+#
+# 임계값은 2026-08-19 실측 기준으로 잡았다.
+#   C1 CHECK_PRICE 66% / C0 CATEGORY 56%·ADD_CART 0.2% /
+#   C3 EDIT_INPUT 6.2%·평균길이 75 / C2 PRODUCT 79%·리뷰+사이즈+확대 17%
+
+PERSONA_RULES = [
+    {
+        "id": "price_checker",
+        "name": "가격을 반복 확인하는 고객",
+        "description": "상품 페이지에서 가격 구간을 계속 오가며 확인합니다. 구매 의사는 있으나 가격에서 망설입니다.",
+        "suggestion": "할인 조건이나 무료배송 기준을 가격 근처에 함께 보여주세요.",
+        "test": lambda a, pg, prof: a.get("CHECK_PRICE", 0) >= 0.25,
+    },
+    {
+        "id": "size_checker",
+        "name": "사이즈를 확인하는 고객",
+        "description": "사이즈 표를 반복해서 봅니다. 치수 확신이 없어 결정을 미룹니다.",
+        "suggestion": "실측 사이즈와 모델 착용 정보를 사이즈 표 옆에 배치하세요.",
+        "test": lambda a, pg, prof: a.get("CHECK_SIZE", 0) >= 0.20,
+    },
+    {
+        "id": "review_reader",
+        "name": "리뷰를 찾아보는 고객",
+        "description": "리뷰 영역에 오래 머무릅니다. 다른 사람의 후기로 확신을 얻으려 합니다.",
+        "suggestion": "사진 리뷰를 상단으로 올리고 리뷰 수를 상품명 옆에 표시하세요.",
+        "test": lambda a, pg, prof: a.get("VIEW_REVIEW", 0) >= 0.20,
+    },
+    {
+        "id": "list_bouncer",
+        "name": "목록만 훑고 나가는 고객",
+        "description": "카테고리 목록을 스크롤하다 상품에 들어가지 않고 이탈합니다. 끌리는 상품을 못 찾았습니다.",
+        "suggestion": "목록 썸네일과 첫 화면 상품 구성을 점검하세요.",
+        "test": lambda a, pg, prof: pg.get("CATEGORY", 0) >= 0.40 and a.get("ADD_CART", 0) < 0.01,
+    },
+    {
+        "id": "active_buyer",
+        "name": "구매까지 진행하는 활발한 고객",
+        "description": "여러 화면을 오가며 장바구니에 담고 입력까지 진행합니다. 가장 오래 머무는 유형입니다.",
+        "suggestion": "이 경로에서 이탈이 생기면 손실이 가장 큽니다. 결제 단계를 우선 점검하세요.",
+        "test": lambda a, pg, prof: (
+            a.get("EDIT_INPUT", 0) >= 0.04
+            or (a.get("ADD_CART", 0) >= 0.03 and prof.get("avg_length", 0) >= 50)
+        ),
+    },
+    {
+        "id": "detail_reader",
+        "name": "상품 상세를 꼼꼼히 보는 고객",
+        "description": "상품 페이지를 천천히 내리며 이미지·리뷰·사이즈를 두루 봅니다.",
+        "suggestion": "상세 이미지 하단에 담기 버튼을 한 번 더 두면 이탈을 줄일 수 있습니다.",
+        "test": lambda a, pg, prof: (
+            pg.get("PRODUCT", 0) >= 0.60
+            and (a.get("VIEW_REVIEW", 0) + a.get("CHECK_SIZE", 0) + a.get("ZOOM_IMAGE", 0)) >= 0.10
+        ),
+    },
+]
+
+FALLBACK_PERSONA = {
+    "id": "browser",
+    "name": "둘러보는 고객",
+    "description": "뚜렷한 목적 행동 없이 여러 화면을 이동합니다.",
+    "suggestion": "관심을 끌 진입 지점이 있는지 확인하세요.",
+}
+
+
+def auto_label(profile: dict) -> dict:
+    """행동 비율 규칙으로 페르소나를 판정한다. 어디에도 안 걸리면 fallback."""
+    a = profile.get("action_share", {})
+    pg = profile.get("page_share", {})
+    for rule in PERSONA_RULES:
+        try:
+            if rule["test"](a, pg, profile):
+                return {
+                    "id": rule["id"],
+                    "name": rule["name"],
+                    "description": rule["description"],
+                    "suggestion": rule["suggestion"],
+                    "source": "rule",
+                }
+        except Exception:
+            continue
+    return {**FALLBACK_PERSONA, "source": "fallback"}
+
+
+def load_overrides(path: str) -> dict:
     """
-    NLP 라벨이 없을 때 쓰는 임시 이름.
-    상위 행동 2개 + 주요 페이지로 만든다. 사람이 읽을 수 있는 수준이면 충분하다.
+    규칙이 틀렸을 때 손으로 덮어쓰는 파일.
+    형식: {"1": {"name": "...", "description": "...", "suggestion": "..."}}
     """
-    top = [a["action"] for a in profile.get("top_actions", [])[:2]]
-    page_dist = profile.get("page_dist", {})
-    main_page = max(page_dist, key=lambda k: page_dist[k]) if page_dist else "?"
-    if not top:
-        return f"{main_page} 세션"
-    return f"{main_page}/{'+'.join(top)}"
+    if not path or not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 # ── 메인 ────────────────────────────────────────────────────
@@ -123,6 +214,11 @@ def main() -> None:
     ap.add_argument("--cluster-results", default=p("output", "clustering", "cluster_results.csv"))
     ap.add_argument("--cluster-metrics", default=p("output", "clustering", "cluster_metrics.json"))
     ap.add_argument("--out-dir", default=p("output", "unsupervised_semantic"))
+    ap.add_argument(
+        "--labels",
+        default=p("cluster_labels.json"),
+        help="페르소나 이름 수동 지정 파일 (규칙 판정보다 우선).",
+    )
     ap.add_argument("--no-backup", action="store_true", help="기존 artifacts 백업을 건너뛴다.")
     ap.add_argument("--dry-run", action="store_true", help="점검만 하고 파일을 쓰지 않는다.")
     args = ap.parse_args()
@@ -159,10 +255,22 @@ def main() -> None:
     ).astype(np.float32)
 
     profiles = build_profiles(rows, labels)
-    nlp_labels = {
-        str(cid): {"name": auto_label(profiles[str(cid)]), "source": "auto"}
-        for cid in cluster_ids
-    }
+    overrides = load_overrides(args.labels)
+
+    nlp_labels = {}
+    for cid in cluster_ids:
+        persona = auto_label(profiles[str(cid)])
+        ov = overrides.get(str(cid))
+        if ov:
+            persona = {**persona, **ov, "source": "manual"}
+        nlp_labels[str(cid)] = persona
+
+    dup_names = [n for n, c in Counter(
+        v["name"] for v in nlp_labels.values()
+    ).items() if c > 1]
+    if dup_names:
+        print(f"  ⚠ 같은 이름이 여러 클러스터에 붙었습니다: {dup_names}")
+        print(f"    {args.labels} 로 구분해 주세요.")
 
     metrics = {}
     if os.path.exists(args.cluster_metrics):
@@ -198,10 +306,15 @@ def main() -> None:
     print(f"  vocab          : {len(vocab)}")
     print(f"  centroid shape : {centroids.shape}")
     print(f"  silhouette     : {meta['silhouette']}")
-    print("  자동 라벨:")
+    print("  페르소나:")
     for cid in cluster_ids:
         cnt = meta["cluster_counts"][str(cid)]
-        print(f"    {cid}: {nlp_labels[str(cid)]['name']}  ({cnt}세션)")
+        lab = nlp_labels[str(cid)]
+        mark = "수동" if lab.get("source") == "manual" else (
+            "규칙" if lab.get("source") == "rule" else "미분류"
+        )
+        print(f"    {cid}: {lab['name']}  ({cnt}세션, {mark})")
+        print(f"       → {lab.get('suggestion', '')}")
 
     if args.dry_run:
         print("\n--dry-run: 파일을 쓰지 않았습니다.")
