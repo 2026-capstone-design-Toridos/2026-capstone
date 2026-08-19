@@ -31,7 +31,47 @@
  * ────────────────────────────────────────────────────────────────
  */
 
-let COLLECT_URL     = 'https://two026-capstone.onrender.com/collect';
+/**
+ * 수집 서버 주소를 스크립트 태그에서 알아낸다.
+ *
+ * gt.js를 내려준 서버가 곧 이벤트를 받을 서버다. 그래서 자기 자신이
+ * 어디서 왔는지 보면 수집 주소를 알 수 있다.
+ *
+ * 왜 이렇게 하나:
+ *   주소를 코드에 박아두면 서버를 옮길 때마다 SDK를 다시 빌드하고,
+ *   쇼핑몰마다 스크립트 태그를 일일이 고쳐야 한다. 실제로 서버를 옮겼는데
+ *   쇼핑몰이 옛 주소를 계속 보고 있어서 수집이 멈춘 적이 있다.
+ *   사장님 가게처럼 우리가 관리자 권한이 없는 곳은 고치기도 어렵다.
+ *
+ *   이제는 gt.js를 새 서버에서 서빙하기만 하면 수집 주소가 따라온다.
+ *   쇼핑몰의 <script> 태그는 그대로 둬도 된다.
+ *
+ * @returns {string|null} 알아내지 못하면 null (아래 기본값 사용)
+ */
+function _detectCollectUrl() {
+  try {
+    // 번들이 실행되는 시점에는 currentScript가 자기 자신을 가리킨다
+    const self = document.currentScript
+      || [...document.querySelectorAll('script[src]')]
+           .reverse()
+           .find((s) => /gt(\.min)?\.js/i.test(s.src));
+
+    if (!self || !self.src) return null;
+
+    // data-collect="https://..." 로 명시했으면 그것을 최우선으로 쓴다
+    const explicit = self.getAttribute?.('data-collect');
+    if (explicit) return explicit.trim();
+
+    return `${new URL(self.src, window.location.href).origin}/collect`;
+  } catch {
+    return null;
+  }
+}
+
+// 자동 감지 실패 시 쓰는 기본값 (로컬 테스트·인라인 삽입 등)
+const FALLBACK_COLLECT_URL = 'https://capstone-toridos.duckdns.org/collect';
+
+let COLLECT_URL     = _detectCollectUrl() || FALLBACK_COLLECT_URL;
 let FLUSH_INTERVAL  = 5_000; // 5초마다 자동 플러시
 let MAX_BUFFER_SIZE = 30;    // 버퍼 최대 크기 (초과 시 즉시 플러시)
 
