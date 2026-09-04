@@ -1,0 +1,72 @@
+name: Deploy GhostTracker to Oracle
+
+on:
+  push:
+    branches:
+      - main
+
+  # Actions 화면에서 수동 실행도 가능하게
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload latest source to Oracle
+        run: |
+          rsync -av \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='backend/node_modules/' \
+            --exclude='.env' \
+            --exclude='backend/.env' \
+            --exclude='ml/output/' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/opc/projects/2026-capstone/"
+
+      - name: Build and restart server
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
+
+            set -e
+
+            echo "===== GhostTracker deployment start ====="
+
+            cd /home/opc/projects/2026-capstone/backend
+
+            echo "1. Install dependencies"
+            npm install
+
+            echo "2. Build SDK"
+            npm run build
+
+            echo "3. Restart PM2"
+            pm2 restart all
+
+            echo "4. Check PM2"
+            pm2 status
+
+            echo "5. Check backend health"
+            sleep 5
+            curl --fail http://localhost:4000/health
+
+            echo ""
+            echo "===== Deployment complete ====="
+
+          EOF
