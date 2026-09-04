@@ -41,7 +41,7 @@ jobs:
 
       - name: Build and restart server
         run: |
-          ssh -i ~/.ssh/deploy_key \
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key \
             "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
 
             set -e
@@ -51,7 +51,7 @@ jobs:
             cd /home/opc/projects/2026-capstone/backend
 
             echo "1. Install dependencies"
-            npm install
+            timeout 120 npm install --no-audit --no-fund
 
             echo "2. Build SDK"
             npm run build
