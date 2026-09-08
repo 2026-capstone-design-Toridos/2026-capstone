@@ -17,8 +17,10 @@
 const express = require('express');
 const fs      = require('fs');
 const path    = require('path');
+const { execFile } = require('child_process');
 const router  = express.Router();
 const { normalizeOrigin } = require('../middleware/siteAccess');
+const clustersRouter = require('./clusters');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 // API 키는 URL이 아니라 x-goog-api-key 헤더로 보낸다.
@@ -35,6 +37,8 @@ const REPLACEMENT_TERM = '탐색 중지';
 
 // 인메모리 캐시 (서버 재시작 시 초기화)
 const reportCache = new Map();
+const reportGenerationJobs = new Map();
+const REPORT_INPUT_DIR = path.join(REPORTS_DIR, 'inputs');
 
 // ── 사이트 식별 ───────────────────────────────────────────────────────────────
 // origin을 파일명에 쓸 수 있는 형태로 바꾼다 (clusters.js의 snapshotKey와 같은 규칙)
@@ -44,6 +48,13 @@ function siteKey(origin = '') {
   return normalizeOrigin(origin)
     .replace(/^https?:\/\//, '')
     .replace(/[^a-z0-9._-]+/g, '_');
+}
+
+function localDateValue(date = new Date(), compact = false) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return compact ? `${year}${month}${day}` : `${year}-${month}-${day}`;
 }
 
 // ── 클러스터 메타 로드 ────────────────────────────────────────────────────────
@@ -127,15 +138,19 @@ function loadSiteProfiles(origin) {
  * 파일명 규칙: ghosttracker_report_{siteKey}_{YYYYMMDD}.pdf
  * (ml/report_html.py --origin 옵션이 이 규칙으로 저장한다)
  */
-function findLatestPdfReport(origin) {
+function findCurrentPdfReport(origin) {
   if (!fs.existsSync(REPORTS_DIR)) return null;
 
   const key = origin ? siteKey(origin) : '';
+  const stamp = localDateValue(new Date(), true);
+  const expectedName = key ? `ghosttracker_report_${key}_${stamp}.pdf` : '';
 
   const files = fs.readdirSync(REPORTS_DIR)
     .filter((name) => name.toLowerCase().endsWith('.pdf'))
-    // 사이트가 지정되면 그 사이트 파일만 후보로 둔다 (없으면 404가 맞다)
-    .filter((name) => (key ? name.toLowerCase().includes(key) : true))
+    // 당일 보고서만 재사용한다. 전날 파일을 '이번 주' 보고서로 내려주지 않는다.
+    .filter((name) => (key
+      ? name.toLowerCase() === expectedName.toLowerCase()
+      : name.includes(stamp) && !name.includes('.generating.')))
     .map((name) => {
       const fullPath = path.join(REPORTS_DIR, name);
       const stat = fs.statSync(fullPath);
@@ -144,6 +159,116 @@ function findLatestPdfReport(origin) {
     .sort((a, b) => b.mtimeMs - a.mtimeMs);
 
   return files[0] || null;
+}
+
+/**
+ * 사이트 전용 PDF가 없을 때 보고서 생성기를 한 번만 실행한다.
+ * execFile을 사용해 origin을 셸 문자열로 해석하지 않으며, 동일 사이트의
+ * 동시 요청은 같은 Promise를 공유해 중복 생성을 막는다.
+ */
+function csvCell(value) {
+  const text = typeof value === 'string' ? value : JSON.stringify(value ?? '');
+  return `"${String(text).replaceAll('"', '""')}"`;
+}
+
+function removeGeneratedArtifact(filePath) {
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (err) {
+    console.warn('[report/generate] 임시 파일 정리 실패:', err.message);
+  }
+}
+
+async function writeSiteResultCsv(origin) {
+  const result = await clustersRouter.buildSiteReportData(origin);
+  if (!result.total_sessions || !result.clusters?.length) {
+    throw new Error('이 쇼핑몰의 분석 가능한 고객 행동이 아직 없습니다. 고객 행동을 수집한 뒤 다시 시도해주세요.');
+  }
+
+  fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
+  const csvPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_result.csv`);
+  const headers = [
+    'origin', 'total_sessions', 'cluster_id', 'name', 'count',
+    'summary', 'action', 'top_actions_json', 'page_dist_json',
+  ];
+  const rows = result.clusters.map((cluster) => [
+    normalizeOrigin(origin), result.total_sessions, cluster.cluster, cluster.label,
+    cluster.count, cluster.summary || '', cluster.action || '',
+    cluster.top_actions || [], cluster.page_dist || {},
+  ].map(csvCell).join(','));
+  fs.writeFileSync(csvPath, [headers.join(','), ...rows].join('\n'), 'utf8');
+  return csvPath;
+}
+
+async function generatePdfReport(origin) {
+  const key = siteKey(origin);
+  if (!key) return Promise.reject(new Error('보고서를 생성할 사이트 정보가 없습니다.'));
+  if (reportGenerationJobs.has(key)) return reportGenerationJobs.get(key);
+
+  const scriptPath = path.join(__dirname, '../../ml/report_html.py');
+  const stamp = localDateValue(new Date(), true);
+  const outputPath = path.join(REPORTS_DIR, `ghosttracker_report_${key}_${stamp}.pdf`);
+  const stagingPath = path.join(REPORTS_DIR, `.ghosttracker_report_${key}_${stamp}_${process.pid}.generating.pdf`);
+  const stagingHtmlPath = stagingPath.replace(/\.pdf$/i, '.html');
+  const oraclePython = '/home/opc/ghosttracker-venv/bin/python3.11';
+  const pythonBin = process.env.PYTHON_BIN
+    || (fs.existsSync(oraclePython) ? oraclePython : (process.platform === 'win32' ? 'python' : 'python3'));
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - 6);
+  const dateValue = (date) => localDateValue(date);
+
+  fs.mkdirSync(REPORTS_DIR, { recursive: true });
+  const job = (async () => {
+    const resultCsv = await writeSiteResultCsv(origin);
+    return new Promise((resolve, reject) => {
+      execFile(
+        pythonBin,
+        [
+          scriptPath,
+          '--origin', normalizeOrigin(origin),
+          '--result-csv', resultCsv,
+          '--start', dateValue(startDate),
+          '--end', dateValue(endDate),
+          '--output', stagingPath,
+        ],
+        {
+          cwd: path.join(__dirname, '../../ml'),
+          timeout: 180000,
+          maxBuffer: 2 * 1024 * 1024,
+          // GEMINI_API_KEY를 그대로 전달해 사이트별 result.csv를 기반으로
+          // 보고서 문장을 생성한다. API 장애 시 Python 템플릿이 폴백한다.
+          env: { ...process.env },
+        },
+        (err, stdout, stderr) => {
+          if (err) {
+            console.error('[report/generate] 실패:', stderr || stdout || err.message);
+            removeGeneratedArtifact(stagingPath);
+            removeGeneratedArtifact(stagingHtmlPath);
+            reject(new Error('주간 보고서를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.'));
+            return;
+          }
+          if (!fs.existsSync(stagingPath)) {
+            removeGeneratedArtifact(stagingHtmlPath);
+            reject(new Error('보고서 생성은 완료됐지만 PDF 파일을 찾지 못했습니다.'));
+            return;
+          }
+          try {
+            fs.renameSync(stagingPath, outputPath);
+            removeGeneratedArtifact(stagingHtmlPath);
+            resolve(outputPath);
+          } catch (moveErr) {
+            removeGeneratedArtifact(stagingPath);
+            removeGeneratedArtifact(stagingHtmlPath);
+            reject(new Error('완성된 주간 보고서를 저장하지 못했습니다.'));
+          }
+        },
+      );
+    });
+  })().finally(() => reportGenerationJobs.delete(key));
+
+  reportGenerationJobs.set(key, job);
+  return job;
 }
 
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
@@ -638,22 +763,21 @@ router.get('/cache/clear', (req, res) => {
 });
 
 // ── GET /api/report/weekly/download ───────────────────────────────────────────
-router.get('/weekly/download', (req, res) => {
+router.get('/weekly/download', async (req, res) => {
   try {
     const origin = req.siteOrigin || null;
-    const report = findLatestPdfReport(origin);
+    let report = findCurrentPdfReport(origin);
 
     if (!report) {
-      // 사이트 전용 리포트가 없으면 404로 끝낸다.
-      // 예전처럼 "아무 PDF나" 내려주면 남의 쇼핑몰 리포트가 나간다.
-      return res.status(404).json({
-        error: origin
-          ? `${origin} 사이트의 PDF 리포트가 없습니다. ml/report_html.py --origin ${origin} 으로 먼저 생성하세요.`
-          : '다운로드할 PDF 리포트가 없습니다. ml/report_html.py로 리포트를 먼저 생성하세요.',
-      });
+      if (!origin) {
+        return res.status(400).json({ error: '보고서를 생성할 쇼핑몰을 먼저 선택해주세요.' });
+      }
+      await generatePdfReport(origin);
+      report = findCurrentPdfReport(origin);
+      if (!report) throw new Error('생성된 PDF 보고서를 찾지 못했습니다.');
     }
 
-    const datePart = new Date().toISOString().slice(0, 10);
+    const datePart = localDateValue();
     const filename = origin
       ? `ghosttracker_weekly_report_${siteKey(origin)}_${datePart}.pdf`
       : `ghosttracker_weekly_report_${datePart}.pdf`;

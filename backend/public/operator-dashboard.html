@@ -1802,10 +1802,43 @@
     // 전문가 화면도 같은 키를 써야 데이터가 보인다 (localStorage 공유라 최초 1회만 필요)
     $("expert-view").addEventListener("click", () => { window.location.href = withKey("/dashboard.html"); });
     $("rediscover-types").addEventListener("click", rediscoverCustomerTypes);
-    // 다운로드는 헤더를 못 붙이므로 키를 쿼리로 넘긴다
-    $("download-report").addEventListener("click", () => {
-      window.location.href = withKey("/api/report/weekly/download");
-    });
+    async function downloadWeeklyReport() {
+      const button = $("download-report");
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = "보고서 준비 중";
+      setStatus(true, "주간 보고서를 만드는 중");
+      try {
+        const headers = siteKey ? { "X-GT-Key": siteKey } : {};
+        const origin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
+        const response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || `보고서 다운로드 실패 (HTTP ${response.status})`);
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get("content-disposition") || "";
+        const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+        const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+        const filename = encoded ? decodeURIComponent(encoded) : (plain || "ghosttracker_weekly_report.pdf");
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        setStatus(true, "보고서 다운로드 완료");
+      } catch (err) {
+        setStatus(false, "보고서 생성 실패");
+        window.alert(`주간 보고서를 준비하지 못했습니다.\n${err.message}`);
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
+    }
+    $("download-report").addEventListener("click", downloadWeeklyReport);
     $("analyze-session").addEventListener("click", analyzeSession);
     $("cluster-report").addEventListener("click", () => loadClusterReport());
     $("session-report").addEventListener("click", loadSessionReport);

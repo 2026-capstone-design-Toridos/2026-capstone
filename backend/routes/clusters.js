@@ -544,35 +544,60 @@ async function classifySiteSessions(origin, profiles, labels) {
   }
 
   const body = await res.json();
-  const counts = new Map();
+  const sessionById = new Map(sessions.map((session) => [session.session_id, session]));
+  const siteStats = new Map();
   let noiseCount = 0;
-  for (const result of body.results || []) {
+  for (const [index, result] of (body.results || []).entries()) {
     const cid = Number(result.cluster_id);
     if (!Number.isFinite(cid) || cid < 0) {
       noiseCount += 1;
       continue;
     }
-    counts.set(cid, (counts.get(cid) || 0) + 1);
+    const stats = siteStats.get(cid) || {
+      count: 0,
+      actionCounts: new Map(),
+      pageCounts: new Map(),
+    };
+    stats.count += 1;
+
+    // 분류 결과의 세션과 원본 세션 순서를 연결해 해당 쇼핑몰에서 실제로
+    // 발생한 행동/페이지 분포를 result.csv에 담는다.
+    const session = sessionById.get(result.session_id) || sessions[index];
+    for (const event of session?.events || []) {
+      const action = String(event.event_type || '').trim();
+      const page = String(event.page || '').trim();
+      if (action) stats.actionCounts.set(action, (stats.actionCounts.get(action) || 0) + 1);
+      if (page) stats.pageCounts.set(page, (stats.pageCounts.get(page) || 0) + 1);
+    }
+    siteStats.set(cid, stats);
   }
 
-  const clusters = ensureUniqueClusterLabels([...counts.entries()]
+  const clusters = ensureUniqueClusterLabels([...siteStats.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([clusterId, count]) => {
+    .map(([clusterId, stats]) => {
       const profile = profiles[String(clusterId)] || {};
       const nlp = labels[String(clusterId)] || {};
+      const topActions = [...stats.actionCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 12)
+        .map(([action, count]) => ({ action, count }));
+      const pageDist = Object.fromEntries(
+        [...stats.pageCounts.entries()].sort((a, b) => b[1] - a[1]),
+      );
       return {
         cluster: clusterId,
         label: nlp.name || buildLabel(clusterId, profile, labels),
         summary: nlp.summary || '',
         action: nlp.action || '',
-        count,
+        // 이름이 어디서 왔는지 화면에 알려준다. 없으면 화면이 자체 규칙으로 다시 명명한다.
+        persona_source: nlp.source || (nlp.name ? 'meta' : null),
+        persona_id: nlp.id || null,
+        count: stats.count,
         // 번역은 서버에서 붙여 내려보낸다. 화면이 다시 번역하면 사전이 두 개가 된다.
-        top_actions: (profile.top_actions || []).map((a) => ({
-          ...a,
-          label: koAction(a.action),
-        })),
-        page_dist: profile.page_dist || {},
-        validation: clusterValidation(clusterId, profile, count, sessions.length, {}),
+        top_actions: (topActions.length ? topActions : (profile.top_actions || []))
+          .map((a) => ({ ...a, label: koAction(a.action) })),
+        page_dist: Object.keys(pageDist).length ? pageDist : (profile.page_dist || {}),
+        validation: clusterValidation(clusterId, profile, stats.count, sessions.length, {}),
       };
     }));
 
@@ -586,6 +611,19 @@ async function classifySiteSessions(origin, profiles, labels) {
     origin,
     sampled_sessions: sessions.length,
   };
+}
+
+// PDF 리포트처럼 사이트별 최신 분류 결과가 필요한 내부 기능에서 재사용한다.
+// 원본 이벤트는 외부로 노출하지 않고, 집계된 고객 유형 결과만 반환한다.
+async function buildSiteReportData(origin) {
+  if (!origin) throw new Error('사이트 origin이 필요합니다.');
+  if (!fs.existsSync(META_PATH)) {
+    throw new Error('cluster_meta.json not found. Run/export clustering artifacts first.');
+  }
+  const meta = JSON.parse(fs.readFileSync(META_PATH, 'utf-8'));
+  const profiles = meta.cluster_profiles || {};
+  const labels = await generateNlpLabels(meta, false);
+  return classifySiteSessions(origin, profiles, labels);
 }
 
 // ── GET /api/clusters ──────────────────────────────────────────
@@ -763,4 +801,5 @@ router.get('/sessions', (req, res) => {
   }
 });
 
+router.buildSiteReportData = buildSiteReportData;
 module.exports = router;
