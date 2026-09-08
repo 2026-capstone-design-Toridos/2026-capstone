@@ -1,0 +1,105 @@
+name: Deploy GhostTracker to Oracle
+
+on:
+  push:
+    branches:
+      - main
+
+  # Actions 화면에서 수동 실행도 가능하게
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload latest source to Oracle
+        run: |
+          # ml/output/ 은 대부분 재생성 가능한 중간 산출물이라 배포하지 않는다.
+          # 다만 분류 서버가 기동할 때 반드시 읽는 모델 파일 3개는 예외로 올린다.
+          # cluster_server.py 가 strict 모드로 가중치를 검증하므로,
+          # 이 파일들이 코드와 짝이 맞지 않으면 서버가 기동을 거부한다.
+          #
+          # rsync 필터는 먼저 매칭되는 규칙이 이긴다.
+          # 따라서 --include 를 --exclude='ml/output/**' 보다 앞에 둬야 한다.
+          # 상위 디렉터리도 함께 include 해야 rsync 가 그 안으로 들어간다.
+          #
+          # site_snapshots/ 는 서버가 운영 중에 만드는 파일이므로 올리지 않는다.
+          # 배포할 때마다 덮어쓰면 운영 중 쌓인 분석 결과가 사라진다.
+          rsync -av \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='backend/node_modules/' \
+            --exclude='.env' \
+            --exclude='backend/.env' \
+            --include='ml/' \
+            --include='ml/output/' \
+            --include='ml/output/unsupervised_semantic/' \
+            --include='ml/output/unsupervised_semantic/bert_encoder.pt' \
+            --include='ml/output/unsupervised_semantic/cluster_centroids.npy' \
+            --include='ml/output/unsupervised_semantic/cluster_meta.json' \
+            --exclude='ml/output/**' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/opc/projects/2026-capstone/"
+
+      - name: Build and restart server
+        run: |
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -i ~/.ssh/deploy_key \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
+
+            set -e
+
+            echo "===== GhostTracker deployment start ====="
+
+            cd /home/opc/projects/2026-capstone/backend
+
+            echo "1. Install dependencies"
+            timeout 120 npm install --no-audit --no-fund
+
+            echo "2. Build SDK"
+            npm run build
+
+            echo "3. Restart PM2"
+            pm2 restart all
+
+            echo "4. Check PM2"
+            pm2 status
+
+            echo "5. Check backend health"
+            sleep 5
+            curl --fail http://localhost:4000/health
+
+            echo ""
+            echo "6. Check cluster server health"
+            # 분류 서버는 모델 파일과 코드가 맞지 않으면 기동을 거부한다.
+            # 여기서 확인하지 않으면 "배포 성공"으로 뜬 뒤에야
+            # 운영자 화면에서 고객 유형 분석이 안 되는 걸 발견하게 된다.
+            if ! curl --fail --silent --max-time 10 http://127.0.0.1:5002/health; then
+              echo ""
+              echo "!! 분류 서버가 응답하지 않습니다."
+              echo "   확인할 것:"
+              echo "   - 파이썬 서버가 실행 중인지 (pm2 status 또는 ps)"
+              echo "   - ml/output/unsupervised_semantic/ 의 모델 파일 3개가 올라왔는지"
+              echo "   - 서버 기동 로그에 'BERT 모드로 시작합니다'가 있는지"
+              exit 1
+            fi
+            echo ""
+
+            echo ""
+            echo "===== Deployment complete ====="
+
+          EOF
