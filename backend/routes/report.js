@@ -23,7 +23,10 @@ const { normalizeOrigin } = require('../middleware/siteAccess');
 const clustersRouter = require('./clusters');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// API 키는 URL이 아니라 x-goog-api-key 헤더로 보낸다.
+// 쿼리 스트링에 실으면 서버 로그·프록시 로그·에러 메시지에 키가 그대로 남는다.
+const GEMINI_MODEL   = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 // cluster_meta.json 경로 (ml/output/unsupervised_semantic/)
 const META_PATH = path.join(__dirname, '../../ml/output/unsupervised_semantic/cluster_meta.json');
@@ -271,9 +274,31 @@ async function generatePdfReport(origin) {
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// "이탈"은 운영자에게 부정적으로 읽혀서 "탐색 중지"로 통일
+// "이탈"은 운영자에게 부정적으로 읽혀서 "탐색 중지"로 통일한다.
+//
+// 단순 치환은 조사를 깨뜨린다.
+// "이탈"은 받침이 있고 "중지"는 없어서 붙는 조사가 달라지기 때문이다.
+//   이탈이 → 탐색 중지이 (X)  → 탐색 중지가 (O)
+//   이탈을 → 탐색 중지을 (X)  → 탐색 중지를 (O)
+// 조사가 붙은 형태를 먼저 처리하고, 남은 것을 마지막에 바꾼다.
+// 반드시 긴 것부터. "이탈이나"가 "이탈이"에 먼저 걸리면 "탐색 중지가나"가 된다.
+const TERM_REPLACEMENTS = [
+  [`${BLOCKED_TERM}이나`, `${REPLACEMENT_TERM}나`],
+  [`${BLOCKED_TERM}이라`, `${REPLACEMENT_TERM}라`],
+  [`${BLOCKED_TERM}으로`, `${REPLACEMENT_TERM}로`],
+  [`${BLOCKED_TERM}이`, `${REPLACEMENT_TERM}가`],
+  [`${BLOCKED_TERM}을`, `${REPLACEMENT_TERM}를`],
+  [`${BLOCKED_TERM}은`, `${REPLACEMENT_TERM}는`],
+  [`${BLOCKED_TERM}과`, `${REPLACEMENT_TERM}와`],
+  [BLOCKED_TERM, REPLACEMENT_TERM],
+];
+
 function normalizeReportText(text) {
-  return String(text || '').replaceAll(BLOCKED_TERM, REPLACEMENT_TERM);
+  let value = String(text || '');
+  for (const [from, to] of TERM_REPLACEMENTS) {
+    value = value.replaceAll(from, to);
+  }
+  return value;
 }
 
 // Gemini 응답이 문장 중간에 끊겼는지 확인
@@ -288,10 +313,19 @@ function looksCompleteReport(text) {
 }
 
 // 재시도해볼 만한 Gemini 쪽 오류인지 판단
+// "Gemini를 못 쓰는 상황"인지 판정한다. true면 로컬 요약으로 조용히 대체한다.
+//
+// GEMINI_API_KEY 미설정을 여기 포함시키는 이유:
+// 키가 없는 환경(로컬 개발, 아직 환경변수를 못 넣은 배포)에서 이게 빠지면
+// 예외가 그대로 올라가 리포트 요청이 500으로 실패한다.
+// 리포트는 없어도 되는 부가 기능이므로, 못 만들면 로컬 문장으로 내려가야지
+// 화면 전체를 깨뜨리면 안 된다.
 function isGeminiUnavailable(err) {
   const message = String(err?.message || '');
-  return message.includes('503')
+  return message.includes('GEMINI_API_KEY')
+    || message.includes('503')
     || message.includes('429')
+    || message.includes('500')
     || message.includes('UNAVAILABLE')
     || message.includes('재시도 초과')
     || message.includes('incomplete');
@@ -424,7 +458,10 @@ async function callGemini(prompt, retries = 3) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const res = await fetch(GEMINI_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY,
+      },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
@@ -598,6 +635,9 @@ router.get('/cluster/:clusterId', async (req, res) => {
       res.json({ cluster_id: clusterId, report, cached: false, origin, profile_source: source });
     } catch (err) {
       if (!isGeminiUnavailable(err)) throw err;
+      // 왜 로컬로 내려갔는지 로그에 남긴다.
+      // 이게 없으면 키 미설정인지 API 장애인지 구분할 방법이 없다.
+      console.warn(`[report] Gemini 미사용 → 로컬 요약: ${err.message}`);
       const report = buildLocalClusterReport(clusterId, profile, labelInfo);
       res.json({
         cluster_id: clusterId, report, cached: false, fallback: true,
@@ -693,6 +733,9 @@ router.post('/session', async (req, res) => {
       }
     } catch (err) {
       if (!isGeminiUnavailable(err)) throw err;
+      // 왜 로컬로 내려갔는지 로그에 남긴다.
+      // 이게 없으면 키 미설정인지 API 장애인지 구분할 방법이 없다.
+      console.warn(`[report] Gemini 미사용 → 로컬 요약: ${err.message}`);
       report = buildLocalSessionReport(body, profile);
       fallback = true;
       warning = 'AI 리포트 서버가 혼잡해 자동 요약을 표시했습니다.';

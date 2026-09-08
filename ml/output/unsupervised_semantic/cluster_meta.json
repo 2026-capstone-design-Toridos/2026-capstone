@@ -1,876 +1,756 @@
 {
-  "base_path": "/content/drive/MyDrive/GhostTracker",
-  "export_dir": "/content/drive/MyDrive/GhostTracker/export_artifacts",
-  "num_clusters": 16,
+  "generated_at": "2026-08-19T16:15:03",
+  "generated_by": "export_cluster_artifacts.py",
+  "model_class": "SessionTransformerEncoder",
+  "num_clusters": 4,
   "cluster_ids": [
     0,
     1,
     2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15
+    3
   ],
-  "cluster_id_to_index": {
-    "0": 0,
-    "1": 1,
-    "2": 2,
-    "3": 3
-  },
   "embedding_dim": 64,
-  "model_class": "TransformerMLM",
   "vocab": {
     "[PAD]": 0,
     "[UNK]": 1,
-    "[CLS]": 2,
-    "[MASK]": 3,
+    "[MASK]": 2,
+    "[CLS]": 3,
     "HOME|SCROLL_HOME|NONE": 4,
-    "PRODUCT|VIEW_PRODUCT|NONE": 5,
-    "HOME|START_SESSION|NONE": 6,
-    "HOME|ENTER_HOME|NONE": 7,
-    "PRODUCT|ADD_CART|NONE": 8,
-    "PRODUCT|ENTER_PRODUCT|NONE": 9,
-    "PRODUCT|ZOOM_IMAGE|NONE": 10,
-    "PRODUCT|INACTIVE|NONE": 11,
-    "HOME|INACTIVE|NONE": 12,
-    "PRODUCT|RAGE_CLICK|NONE": 13,
-    "CART|REMOVE_CART|NONE": 14,
-    "PRODUCT|VIEW_PRODUCT|DWELL_LONG": 15,
-    "PRODUCT|SCROLL_PRODUCT|SCROLL_HIGH": 16,
-    "PRODUCT|VIEW_PRODUCT|DWELL_MEDIUM": 17,
-    "PRODUCT|SCROLL_PRODUCT|SCROLL_MID": 18,
-    "PRODUCT|VIEW_IMAGE|NONE": 19,
-    "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW": 20,
-    "PRODUCT|HOVER_ELEMENT|HOVER_SHORT": 21,
-    "PRODUCT|CLICK_ELEMENT|NONE": 22,
-    "PRODUCT|VIEW_PRODUCT|DWELL_SHORT": 23,
-    "CHECKOUT|CLICK_BUY|NONE": 24,
-    "PRODUCT|HOVER_ELEMENT|HOVER_LONG": 25,
-    "HOME|SCROLL_HOME|SCROLL_HIGH": 26,
-    "CART|ENTER_CART|NONE": 27,
-    "PRODUCT|TAB_OUT|NONE": 28,
-    "PRODUCT|TAB_RETURN|NONE": 29,
-    "HOME|SCROLL_HOME|SCROLL_LOW": 30,
-    "HOME|SCROLL_HOME|SCROLL_MID": 31,
-    "HOME|HOVER_ELEMENT|HOVER_SHORT": 32,
-    "HOME|CLICK_ELEMENT|NONE": 33,
-    "HOME|CHECK_PRICE|DWELL_SHORT": 34,
-    "PRODUCT|EXIT_SESSION|NONE": 35,
-    "PRODUCT|CHECK_SHIPPING|DWELL_SHORT": 36,
-    "PRODUCT|CHECK_SIZE|DWELL_MEDIUM": 37,
-    "PRODUCT|CHECK_SHIPPING|DWELL_MEDIUM": 38,
-    "PRODUCT|CHECK_SIZE|DWELL_SHORT": 39,
-    "PRODUCT|CHECK_SIZE|HOVER_LONG": 40,
-    "PRODUCT|CHANGE_QUANTITY|NONE": 41,
-    "PRODUCT|CHECK_SIZE|DWELL_LONG": 42,
-    "PRODUCT|CHANGE_OPTION|NONE": 43,
-    "PRODUCT|CHECK_SIZE|HOVER_SHORT": 44,
-    "PRODUCT|CHECK_PRICE|DWELL_MEDIUM": 45,
-    "PRODUCT|CHECK_PRICE|DWELL_SHORT": 46,
-    "PRODUCT|VIEW_REVIEW|DWELL_SHORT": 47,
-    "PRODUCT|VIEW_REVIEW|REVISIT_MULTI": 48,
-    "PRODUCT|VIEW_REVIEW|DWELL_MEDIUM": 49,
-    "PRODUCT|CHECK_PRICE|DWELL_LONG": 50,
-    "CART|CHECK_SHIPPING|DWELL_SHORT": 51,
-    "CART|CLICK_BUY|NONE": 52,
-    "PRODUCT|SCROLL_REVIEW|SCROLL_MID": 53,
-    "PRODUCT|VIEW_REVIEW|REVISIT_ONCE": 54,
-    "PRODUCT|VIEW_REVIEW|DWELL_LONG": 55,
-    "PRODUCT|EXPAND_REVIEW|NONE": 56,
-    "PRODUCT|SCROLL_REVIEW|SCROLL_HIGH": 57,
-    "PRODUCT|SCROLL_REVIEW|SCROLL_LOW": 58,
-    "PRODUCT|WATCH_VIDEO|NONE": 59,
-    "CHECKOUT|EDIT_INPUT|NONE": 60,
-    "CHECKOUT|ENTER_CHECKOUT|NONE": 61,
-    "CHECKOUT|START_INPUT|NONE": 62,
-    "CATEGORY|SEARCH_USE|NONE": 63,
-    "CATEGORY|ENTER_CATEGORY|NONE": 64,
-    "CATEGORY|SCROLL_PAGE|SCROLL_HIGH": 65,
-    "CATEGORY|SCROLL_PAGE|SCROLL_MID": 66,
-    "CATEGORY|CLICK_ELEMENT|NONE": 67,
-    "CATEGORY|SCROLL_PAGE|SCROLL_LOW": 68,
-    "HOME|SEARCH_USE|NONE": 69,
-    "CATEGORY|HOVER_ELEMENT|HOVER_SHORT": 70,
-    "CART|CHECK_PRICE|DWELL_MEDIUM": 71,
-    "CART|CHECK_SHIPPING|DWELL_MEDIUM": 72,
-    "PRODUCT|EXIT_BOUNCE|NONE": 73,
-    "CART|TAB_OUT|NONE": 74,
-    "CART|CHANGE_OPTION|NONE": 75,
-    "CHECKOUT|TAB_OUT|NONE": 76,
-    "CART|EXIT_SESSION|NONE": 77,
-    "CART|CHANGE_QUANTITY|NONE": 78,
-    "CART|INACTIVE|NONE": 79,
-    "HOME|EXIT_SESSION|NONE": 80,
-    "HOME|EXIT_BOUNCE|NONE": 81,
-    "CHECKOUT|EXIT_SESSION|NONE": 82,
-    "CHECKOUT|TAB_RETURN|NONE": 83,
-    "CHECKOUT|REMOVE_CART|NONE": 84,
-    "CHECKOUT|CHECK_PRICE|DWELL_MEDIUM": 85,
-    "CHECKOUT|INACTIVE|NONE": 86,
-    "CHECKOUT|SCROLL_PAGE|SCROLL_MID": 87
+    "HOME|HOVER_ELEMENT|NONE": 5,
+    "PRODUCT|HOVER_ELEMENT|NONE": 6,
+    "PRODUCT|CHECK_PRICE|SCROLL_HIGH": 7,
+    "PRODUCT|VIEW_PRODUCT|REVISIT_ONCE": 8,
+    "PRODUCT|ZOOM_IMAGE|NONE": 9,
+    "PRODUCT|SCROLL_PRODUCT|SCROLL_MID": 10,
+    "PRODUCT|ADD_CART|NONE": 11,
+    "PRODUCT|CHECK_PRICE|SCROLL_MID": 12,
+    "HOME|START_SESSION|NONE": 13,
+    "PRODUCT|CLICK_ELEMENT|NONE": 14,
+    "PRODUCT|CHECK_PRICE|DWELL_SHORT": 15,
+    "PRODUCT|CHECK_PRICE|SCROLL_LOW": 16,
+    "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW": 17,
+    "HOME|CLICK_ELEMENT|NONE": 18,
+    "PRODUCT|START_SESSION|NONE": 19,
+    "PRODUCT|VIEW_REVIEW|DWELL_SHORT": 20,
+    "PRODUCT|PRICE_REVIEW_EPISODE|STRONG": 21,
+    "PRODUCT|ENTER_PRODUCT|NONE": 22,
+    "HOME|ADD_CART|NONE": 23,
+    "PRODUCT|EDIT_INPUT|NONE": 24,
+    "PRODUCT|VIEW_REVIEW|NONE": 25,
+    "CATEGORY|VIEW_PRODUCT|REVISIT_ONCE": 26,
+    "PRODUCT|VIEW_REVIEW|REVISIT_ONCE": 27,
+    "PRODUCT|SCROLL_PRODUCT|SCROLL_HIGH": 28,
+    "PRODUCT|INACTIVE|NONE": 29,
+    "PRODUCT|START_INPUT|NONE": 30,
+    "PRODUCT|REVIEW_EXPLORATION_EPISODE|STRONG": 31,
+    "HOME|ENTER_HOME|NONE": 32,
+    "HOME|INACTIVE|NONE": 33,
+    "PRODUCT|VIEW_PRODUCT|NONE": 34,
+    "PRODUCT|DISTRACTED_EPISODE|REPEAT": 35,
+    "PRODUCT|SCROLL_PRODUCT|SCROLLED": 36,
+    "PRODUCT|CHECK_SHIPPING|DWELL_SHORT": 37,
+    "PRODUCT|CHECK_SIZE|HOVER_SHORT": 38,
+    "PRODUCT|CHECK_SIZE|SCROLL_MID": 39,
+    "PRODUCT|TAB_OUT|NONE": 40,
+    "PRODUCT|CHECK_SIZE|SCROLL_HIGH": 41,
+    "HOME|CHECK_SHIPPING|DWELL_SHORT": 42,
+    "CATEGORY|SCROLL_PRODUCT|SCROLL_LOW": 43,
+    "PRODUCT|CHECK_SHIPPING|NONE": 44,
+    "CART|HOVER_ELEMENT|NONE": 45,
+    "HOME|DISTRACTED_EPISODE|REPEAT": 46,
+    "PRODUCT|EXIT_SESSION|NONE": 47,
+    "CATEGORY|SCROLL_CATEGORY|NONE": 48,
+    "CART|CLICK_ELEMENT|NONE": 49,
+    "PRODUCT|CLICK_BUY|NONE": 50,
+    "HOME|TAB_OUT|NONE": 51,
+    "CHECKOUT|EDIT_INPUT|NONE": 52,
+    "PRODUCT|SIZE_CHECK_EPISODE|STRONG": 53,
+    "CART|ENTER_CART|NONE": 54,
+    "CATEGORY|SCROLL_PRODUCT|SCROLL_MID": 55,
+    "HOME|CHECK_PRICE|DWELL_SHORT": 56,
+    "CART|ADD_CART|NONE": 57,
+    "CHECKOUT|HOVER_ELEMENT|NONE": 58,
+    "CATEGORY|START_SESSION|NONE": 59,
+    "HOME|EDIT_INPUT|NONE": 60,
+    "CHECKOUT|SCROLL_PAGE|NONE": 61,
+    "PRODUCT|TAB_RETURN|NONE": 62,
+    "CART|SCROLL_PAGE|NONE": 63,
+    "PRODUCT|SCROLL_REVIEW|SCROLL_MID": 64,
+    "CART|CHECK_PRICE|DWELL_SHORT": 65,
+    "CHECKOUT|START_INPUT|NONE": 66,
+    "PRODUCT|EXIT_BOUNCE|NONE": 67,
+    "CART|START_SESSION|NONE": 68,
+    "PRODUCT|CHECK_SIZE|SCROLL_LOW": 69,
+    "HOME|TAB_RETURN|NONE": 70,
+    "CART|EDIT_INPUT|NONE": 71,
+    "HOME|EXIT_BOUNCE|NONE": 72,
+    "CATEGORY|HOVER_ELEMENT|NONE": 73,
+    "CATEGORY|EXIT_SESSION|NONE": 74,
+    "PRODUCT|SHIPPING_CHECK_EPISODE|STRONG": 75,
+    "HOME|VIEW_REVIEW|DWELL_SHORT": 76,
+    "CHECKOUT|CLICK_ELEMENT|NONE": 77,
+    "CART|CHECK_SHIPPING|DWELL_SHORT": 78,
+    "HOME|SEARCH_USE|NONE": 79,
+    "CATEGORY|CLICK_ELEMENT|NONE": 80,
+    "PRODUCT|CHECK_PRICE|NONE": 81,
+    "PRODUCT|CHECK_SIZE|NONE": 82,
+    "CHECKOUT|CLICK_BUY|NONE": 83,
+    "CART|INACTIVE|NONE": 84,
+    "CART|DISTRACTED_EPISODE|REPEAT": 85,
+    "CART|TAB_OUT|NONE": 86,
+    "PRODUCT|SEARCH_USE|NONE": 87,
+    "PRODUCT|SCROLL_REVIEW|SCROLL_HIGH": 88,
+    "CATEGORY|VIEW_PRODUCT|NONE": 89,
+    "CART|CHECK_SIZE|HOVER_SHORT": 90,
+    "HOME|START_INPUT|NONE": 91,
+    "CART|START_INPUT|NONE": 92,
+    "CART|PRICE_REVIEW_EPISODE|STRONG": 93,
+    "PRODUCT|RAGE_CLICK|NONE": 94,
+    "CART|REMOVE_CART|NONE": 95,
+    "PRODUCT|SCROLL_REVIEW|SCROLL_LOW": 96,
+    "CART|VIEW_REVIEW|DWELL_SHORT": 97,
+    "CART|VIEW_REVIEW|NONE": 98,
+    "CART|EXIT_SESSION|NONE": 99,
+    "HOME|SHIPPING_CHECK_EPISODE|STRONG": 100,
+    "HOME|CHECK_SIZE|HOVER_SHORT": 101,
+    "CATEGORY|ZOOM_IMAGE|NONE": 102,
+    "PRODUCT|CHANGE_QUANTITY|NONE": 103,
+    "HOME|CLICK_BUY|NONE": 104,
+    "PRODUCT|ABANDON_INPUT|NONE": 105,
+    "HOME|RAGE_CLICK|NONE": 106,
+    "CART|CLICK_BUY|NONE": 107,
+    "PRODUCT|CART_ABANDON|NONE": 108,
+    "UNKNOWN|START_SESSION|NONE": 109,
+    "UNKNOWN|VIEW_PRODUCT|REVISIT_ONCE": 110,
+    "MEMBER|START_SESSION|NONE": 111,
+    "HOME|PRICE_REVIEW_EPISODE|STRONG": 112,
+    "CART|TAB_RETURN|NONE": 113,
+    "HOME|EXIT_SESSION|NONE": 114,
+    "CART|REVIEW_EXPLORATION_EPISODE|STRONG": 115,
+    "PRODUCT|VIEW_SECTION|NONE": 116,
+    "CART|EXIT_BOUNCE|NONE": 117,
+    "UNKNOWN|VIEW_REVIEW|REVISIT_ONCE": 118,
+    "UNKNOWN|CHECK_SIZE|HOVER_SHORT": 119,
+    "MEMBER|EXIT_BOUNCE|NONE": 120,
+    "CATEGORY|EXIT_BOUNCE|NONE": 121,
+    "CHECKOUT|ENTER_CHECKOUT|NONE": 122,
+    "HOME|CHECK_SHIPPING|NONE": 123,
+    "CHECKOUT|CHECK_SHIPPING|DWELL_SHORT": 124,
+    "HOME|REVIEW_EXPLORATION_EPISODE|STRONG": 125,
+    "CART|CHECK_SIZE|SCROLL_LOW": 126,
+    "CART|CHECK_SIZE|SCROLL_MID": 127,
+    "CART|CHECK_PRICE|SCROLL_LOW": 128,
+    "UNKNOWN|TAB_OUT|NONE": 129,
+    "CART|SHIPPING_CHECK_EPISODE|STRONG": 130,
+    "UNKNOWN|ENTER_UNKNOWN|NONE": 131,
+    "CART|CHECK_PRICE|SCROLL_MID": 132,
+    "CART|SCROLL_REVIEW|SCROLL_LOW": 133,
+    "MEMBER|TAB_OUT|NONE": 134,
+    "MEMBER|INACTIVE|NONE": 135,
+    "MEMBER|CLICK_BUY|NONE": 136,
+    "UNKNOWN|EXIT_BOUNCE|NONE": 137,
+    "PRODUCT|CHECK_PRICE|DWELL_MEDIUM": 138,
+    "HOME|CHECK_SHIPPING|DWELL_MEDIUM": 139,
+    "CART|CHECK_PRICE|DWELL_MEDIUM": 140,
+    "CHECKOUT|ABANDON_INPUT|NONE": 141,
+    "PRODUCT|VIEW_REVIEW|DWELL_MEDIUM": 142,
+    "CATEGORY|TAB_OUT|NONE": 143,
+    "CATEGORY|TAB_RETURN|NONE": 144,
+    "UNKNOWN|SCROLL_PAGE|NONE": 145,
+    "MEMBER|HOVER_ELEMENT|NONE": 146,
+    "CART|ABANDON_INPUT|NONE": 147,
+    "HOME|CHECK_PRICE|NONE": 148,
+    "HOME|CHECK_PRICE|DWELL_MEDIUM": 149,
+    "PRODUCT|CHECK_PRICE|DWELL_LONG": 150,
+    "CHECKOUT|SHIPPING_CHECK_EPISODE|STRONG": 151,
+    "CHECKOUT|CHECK_SHIPPING|NONE": 152,
+    "HOME|SIZE_CHECK_EPISODE|STRONG": 153,
+    "CART|SIZE_CHECK_EPISODE|STRONG": 154,
+    "CART|VIEW_REVIEW|DWELL_MEDIUM": 155,
+    "CART|CHANGE_QUANTITY|NONE": 156,
+    "CART|SCROLL_REVIEW|SCROLL_MID": 157,
+    "UNKNOWN|SIZE_CHECK_EPISODE|STRONG": 158,
+    "CATEGORY|EDIT_INPUT|NONE": 159,
+    "MEMBER|TAB_RETURN|NONE": 160,
+    "MEMBER|CHECK_SIZE|HOVER_SHORT": 161,
+    "MEMBER|VIEW_PRODUCT|REVISIT_ONCE": 162,
+    "MEMBER|SCROLL_REVIEW|SCROLL_MID": 163,
+    "MEMBER|EXIT_SESSION|NONE": 164,
+    "UNKNOWN|HOVER_ELEMENT|NONE": 165,
+    "MYPAGE|HOVER_ELEMENT|NONE": 166,
+    "MYPAGE|SCROLL_PAGE|NONE": 167,
+    "MYPAGE|VIEW_REVIEW|NONE": 168,
+    "CATEGORY|SCROLL_PRODUCT|SCROLL_HIGH": 169,
+    "MEMBER|ENTER_MEMBER|NONE": 170,
+    "MEMBER|CLICK_ELEMENT|NONE": 171,
+    "MEMBER|START_INPUT|NONE": 172,
+    "MEMBER|EDIT_INPUT|NONE": 173,
+    "MEMBER|ABANDON_INPUT|NONE": 174,
+    "HOME|ABANDON_INPUT|NONE": 175,
+    "CHECKOUT|DISTRACTED_EPISODE|REPEAT": 176,
+    "CART|RAGE_CLICK|NONE": 177,
+    "CART|SEARCH_USE|NONE": 178,
+    "HOME|CHECK_PRICE|DWELL_LONG": 179,
+    "CHECKOUT|TAB_OUT|NONE": 180,
+    "CART|CHECK_PRICE|NONE": 181,
+    "HOME|CHECK_SIZE|NONE": 182,
+    "PRODUCT|REMOVE_CART|NONE": 183,
+    "UNKNOWN|DISTRACTED_EPISODE|REPEAT": 184,
+    "CART|CHECK_SHIPPING|DWELL_MEDIUM": 185,
+    "CART|CHECK_SHIPPING|NONE": 186,
+    "CART|VIEW_REVIEW|DWELL_LONG": 187,
+    "CART|CHECK_SHIPPING|DWELL_LONG": 188,
+    "UNKNOWN|REVIEW_EXPLORATION_EPISODE|STRONG": 189,
+    "UNKNOWN|SCROLL_PRODUCT|SCROLL_LOW": 190,
+    "UNKNOWN|ZOOM_IMAGE|NONE": 191,
+    "UNKNOWN|ADD_CART|NONE": 192,
+    "CATEGORY|DISTRACTED_EPISODE|REPEAT": 193,
+    "MEMBER|VIEW_REVIEW|REVISIT_ONCE": 194,
+    "MEMBER|SIZE_CHECK_EPISODE|STRONG": 195,
+    "MEMBER|SCROLL_REVIEW|SCROLL_LOW": 196,
+    "MEMBER|SCROLL_REVIEW|SCROLL_HIGH": 197,
+    "UNKNOWN|CHECK_SIZE|HOVER_LONG": 198,
+    "UNKNOWN|VIEW_REVIEW|DWELL_SHORT": 199,
+    "MYPAGE|START_SESSION|NONE": 200,
+    "MYPAGE|CHECK_PRICE|DWELL_SHORT": 201,
+    "MYPAGE|VIEW_REVIEW|DWELL_SHORT": 202,
+    "MYPAGE|REVIEW_EXPLORATION_EPISODE|STRONG": 203,
+    "MYPAGE|EXIT_SESSION|NONE": 204,
+    "CATEGORY|START_INPUT|NONE": 205,
+    "CATEGORY|VIEW_REVIEW|NONE": 206,
+    "CATEGORY|CHECK_SIZE|NONE": 207,
+    "CATEGORY|INACTIVE|NONE": 208,
+    "CATEGORY|ADD_CART|NONE": 209,
+    "PRODUCT|CHECK_SIZE|HOVER_LONG": 210,
+    "MEMBER|SCROLL_PAGE|NONE": 211,
+    "MEMBER|CHECK_SIZE|SCROLL_LOW": 212
   },
-  "vocab_size": 88,
-  "max_len": 64,
-  "special_tokens": {
-    "PAD_ID": 0,
-    "UNK_ID": 1,
-    "CLS_ID": 2,
-    "MASK_ID": 3
-  },
+  "vocab_size": 213,
   "cluster_counts": {
-    "0": 242,
-    "1": 183,
-    "2": 1075,
-    "3": 174
+    "0": 11,
+    "1": 40,
+    "2": 31,
+    "3": 18
   },
-  "noise_count": 48,
+  "noise_count": 32,
+  "session_count": 132,
   "cluster_profiles": {
     "0": {
-      "count": 4,
-      "top_actions": [],
-      "page_dist": {}
-    },
-    "1": {
       "count": 11,
+      "avg_length": 42.91,
       "top_actions": [
         {
-          "action": "HOVER_ELEMENT",
-          "count": 11
-        },
-        {
-          "action": "SCROLL_HOME",
-          "count": 1
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 11,
-        "HOME": 1
-      }
-    },
-    "2": {
-      "count": 3,
-      "top_actions": [
-        {
-          "action": "SCROLL_HOME",
-          "count": 4
-        }
-      ],
-      "page_dist": {
-        "HOME": 4
-      }
-    },
-    "3": {
-      "count": 6,
-      "top_actions": [
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 6
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 6
-        },
-        {
-          "action": "START_INPUT",
-          "count": 2
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 1
-        },
-        {
-          "action": "ENTER_CATEGORY",
-          "count": 1
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 7,
-        "CART": 6,
-        "CHECKOUT": 3
-      }
-    },
-    "4": {
-      "count": 5,
-      "top_actions": [
-        {
-          "action": "SCROLL_HOME",
-          "count": 93
+          "action": "VIEW_PRODUCT",
+          "count": 103
         },
         {
           "action": "SCROLL_PRODUCT",
-          "count": 69
+          "count": 92
         },
         {
-          "action": "ENTER_CATEGORY",
-          "count": 62
+          "action": "START_SESSION",
+          "count": 48
         },
         {
-          "action": "HOVER_ELEMENT",
-          "count": 55
-        },
-        {
-          "action": "ZOOM_IMAGE",
-          "count": 41
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 38
-        },
-        {
-          "action": "START_INPUT",
-          "count": 19
-        },
-        {
-          "action": "CHECK_SHIPPING",
-          "count": 17
-        },
-        {
-          "action": "SEARCH_USE",
-          "count": 10
-        },
-        {
-          "action": "CHECK_SIZE",
-          "count": 10
-        }
-      ],
-      "page_dist": {
-        "PRODUCT": 176,
-        "HOME": 93,
-        "CATEGORY": 72,
-        "CHECKOUT": 64,
-        "CART": 17
-      }
-    },
-    "5": {
-      "count": 5,
-      "top_actions": [
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 24
-        },
-        {
-          "action": "EXIT_BOUNCE",
-          "count": 19
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 8
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 2
-        },
-        {
-          "action": "SCROLL_HOME",
-          "count": 2
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 24,
-        "PRODUCT": 21,
-        "CART": 8,
-        "HOME": 2
-      }
-    },
-    "6": {
-      "count": 13,
-      "top_actions": [
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 52
-        },
-        {
-          "action": "EXIT_BOUNCE",
-          "count": 39
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 15
-        },
-        {
-          "action": "SCROLL_HOME",
-          "count": 4
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 52,
-        "PRODUCT": 39,
-        "CART": 15,
-        "HOME": 4
-      }
-    },
-    "7": {
-      "count": 5,
-      "top_actions": [
-        {
-          "action": "START_INPUT",
-          "count": 40
-        },
-        {
-          "action": "ENTER_CATEGORY",
-          "count": 34
-        },
-        {
-          "action": "EDIT_INPUT",
+          "action": "SCROLL_CATEGORY",
           "count": 33
         },
         {
-          "action": "ENTER_CHECKOUT",
-          "count": 24
-        },
-        {
           "action": "HOVER_ELEMENT",
-          "count": 10
+          "count": 30
         },
         {
-          "action": "SEARCH_USE",
-          "count": 9
-        }
-      ],
-      "page_dist": {
-        "CHECKOUT": 97,
-        "CATEGORY": 49,
-        "PRODUCT": 4
-      }
-    },
-    "8": {
-      "count": 12,
-      "top_actions": [
-        {
-          "action": "ENTER_CHECKOUT",
-          "count": 55
-        },
-        {
-          "action": "START_INPUT",
-          "count": 38
-        },
-        {
-          "action": "ENTER_CATEGORY",
+          "action": "EXIT_SESSION",
           "count": 24
         },
         {
-          "action": "EDIT_INPUT",
+          "action": "VIEW_REVIEW",
           "count": 22
         },
         {
-          "action": "SCROLL_HOME",
-          "count": 18
-        },
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 17
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 4
-        },
-        {
-          "action": "CHANGE_QUANTITY",
-          "count": 1
-        },
-        {
-          "action": "ZOOM_IMAGE",
-          "count": 1
+          "action": "CLICK_ELEMENT",
+          "count": 19
         }
       ],
-      "page_dist": {
-        "CHECKOUT": 115,
-        "CATEGORY": 38,
-        "HOME": 18,
-        "PRODUCT": 9
-      }
-    },
-    "9": {
-      "count": 3,
-      "top_actions": [
+      "top_tokens": [
         {
-          "action": "ENTER_CATEGORY",
-          "count": 171
+          "token": "CATEGORY|VIEW_PRODUCT|REVISIT_ONCE",
+          "count": 74
         },
         {
-          "action": "EDIT_INPUT",
-          "count": 73
+          "token": "CATEGORY|SCROLL_PRODUCT|SCROLL_LOW",
+          "count": 37
         },
         {
-          "action": "SCROLL_PRODUCT",
-          "count": 25
+          "token": "CATEGORY|SCROLL_CATEGORY|NONE",
+          "count": 33
         },
         {
-          "action": "HOVER_ELEMENT",
-          "count": 21
+          "token": "CATEGORY|SCROLL_PRODUCT|SCROLL_MID",
+          "count": 29
         },
         {
-          "action": "ENTER_CHECKOUT",
+          "token": "PRODUCT|VIEW_PRODUCT|REVISIT_ONCE",
+          "count": 22
+        },
+        {
+          "token": "CATEGORY|START_SESSION|NONE",
+          "count": 20
+        },
+        {
+          "token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW",
+          "count": 20
+        },
+        {
+          "token": "PRODUCT|VIEW_REVIEW|NONE",
           "count": 16
-        },
-        {
-          "action": "SCROLL_HOME",
-          "count": 10
-        },
-        {
-          "action": "ZOOM_IMAGE",
-          "count": 10
-        },
-        {
-          "action": "START_INPUT",
-          "count": 9
-        },
-        {
-          "action": "SEARCH_USE",
-          "count": 2
-        },
-        {
-          "action": "CHANGE_QUANTITY",
-          "count": 1
         }
       ],
       "page_dist": {
-        "CATEGORY": 175,
-        "CHECKOUT": 99,
-        "PRODUCT": 57,
-        "HOME": 10
+        "CATEGORY": 256,
+        "PRODUCT": 161,
+        "HOME": 39,
+        "CART": 5
+      },
+      "action_share": {
+        "START_SESSION": 0.10412147505422993,
+        "EXIT_BOUNCE": 0.03253796095444685,
+        "SCROLL_HOME": 0.013015184381778741,
+        "CLICK_ELEMENT": 0.04121475054229935,
+        "VIEW_REVIEW": 0.04772234273318872,
+        "REVIEW_EXPLORATION_EPISODE": 0.01735357917570499,
+        "EXIT_SESSION": 0.052060737527114966,
+        "VIEW_PRODUCT": 0.22342733188720174,
+        "TAB_OUT": 0.008676789587852495,
+        "TAB_RETURN": 0.004338394793926247,
+        "HOVER_ELEMENT": 0.0650759219088937,
+        "DISTRACTED_EPISODE": 0.006507592190889371,
+        "ZOOM_IMAGE": 0.021691973969631236,
+        "SCROLL_PRODUCT": 0.19956616052060738,
+        "ADD_CART": 0.0021691973969631237,
+        "INACTIVE": 0.004338394793926247,
+        "START_INPUT": 0.0021691973969631237,
+        "EDIT_INPUT": 0.0021691973969631237,
+        "CHECK_SIZE": 0.028199566160520606,
+        "SCROLL_CATEGORY": 0.07158351409978309,
+        "CHECK_PRICE": 0.03470715835140998,
+        "PRICE_REVIEW_EPISODE": 0.013015184381778741,
+        "SIZE_CHECK_EPISODE": 0.004338394793926247
+      },
+      "page_share": {
+        "HOME": 0.08459869848156182,
+        "PRODUCT": 0.3492407809110629,
+        "CATEGORY": 0.5553145336225597,
+        "CART": 0.010845986984815618
       }
     },
-    "10": {
-      "count": 4,
+    "1": {
+      "count": 40,
+      "avg_length": 20.65,
       "top_actions": [
         {
-          "action": "ENTER_CATEGORY",
-          "count": 234
+          "action": "CHECK_PRICE",
+          "count": 518
         },
         {
-          "action": "START_INPUT",
-          "count": 228
+          "action": "PRICE_REVIEW_EPISODE",
+          "count": 84
         },
         {
-          "action": "EDIT_INPUT",
-          "count": 215
+          "action": "START_SESSION",
+          "count": 51
         },
         {
-          "action": "SEARCH_USE",
-          "count": 148
+          "action": "ADD_CART",
+          "count": 51
         },
         {
-          "action": "ENTER_CHECKOUT",
-          "count": 28
-        },
-        {
-          "action": "HOVER_ELEMENT",
+          "action": "VIEW_REVIEW",
           "count": 14
         },
         {
-          "action": "SCROLL_PRODUCT",
-          "count": 6
+          "action": "TAB_OUT",
+          "count": 11
         },
         {
-          "action": "ZOOM_IMAGE",
-          "count": 2
-        },
-        {
-          "action": "SCROLL_HOME",
-          "count": 2
-        }
-      ],
-      "page_dist": {
-        "CHECKOUT": 471,
-        "CATEGORY": 389,
-        "PRODUCT": 15,
-        "HOME": 2
-      }
-    },
-    "11": {
-      "count": 3,
-      "top_actions": [
-        {
-          "action": "ENTER_CATEGORY",
-          "count": 105
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 22
-        },
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 18
-        },
-        {
-          "action": "EXIT_BOUNCE",
-          "count": 15
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 6
-        },
-        {
-          "action": "ENTER_CHECKOUT",
-          "count": 3
-        },
-        {
-          "action": "CHECK_SHIPPING",
-          "count": 3
-        },
-        {
-          "action": "START_INPUT",
-          "count": 2
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 123,
-        "CHECKOUT": 27,
-        "PRODUCT": 15,
-        "CART": 9
-      }
-    },
-    "12": {
-      "count": 14,
-      "top_actions": [
-        {
-          "action": "ENTER_CATEGORY",
-          "count": 5257
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 1178
-        },
-        {
-          "action": "ZOOM_IMAGE",
-          "count": 726
-        },
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 625
-        },
-        {
-          "action": "CHECK_SHIPPING",
-          "count": 545
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 321
-        },
-        {
-          "action": "CHECK_SIZE",
-          "count": 283
-        },
-        {
-          "action": "START_INPUT",
-          "count": 196
-        },
-        {
-          "action": "SEARCH_USE",
-          "count": 179
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 108
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 5551,
-        "PRODUCT": 2000,
-        "CHECKOUT": 1477,
-        "CART": 637,
-        "HOME": 125
-      }
-    },
-    "13": {
-      "count": 7,
-      "top_actions": [
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 306
-        },
-        {
-          "action": "ENTER_CATEGORY",
-          "count": 280
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 207
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 185
-        },
-        {
-          "action": "ZOOM_IMAGE",
-          "count": 112
-        },
-        {
-          "action": "START_INPUT",
-          "count": 52
-        },
-        {
-          "action": "SCROLL_HOME",
-          "count": 44
-        },
-        {
-          "action": "SEARCH_USE",
-          "count": 36
-        },
-        {
-          "action": "CHECK_SIZE",
-          "count": 31
-        },
-        {
-          "action": "ENTER_CHECKOUT",
-          "count": 24
-        }
-      ],
-      "page_dist": {
-        "PRODUCT": 672,
-        "CATEGORY": 338,
-        "CHECKOUT": 293,
-        "HOME": 50,
-        "CART": 30
-      }
-    },
-    "14": {
-      "count": 6,
-      "top_actions": [
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 62
-        },
-        {
-          "action": "EXIT_BOUNCE",
-          "count": 38
-        },
-        {
-          "action": "START_INPUT",
-          "count": 36
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 33
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 32
-        },
-        {
-          "action": "ENTER_CATEGORY",
-          "count": 32
-        },
-        {
-          "action": "CHECK_SHIPPING",
-          "count": 22
-        },
-        {
-          "action": "ENTER_CHECKOUT",
-          "count": 16
-        },
-        {
-          "action": "SCROLL_HOME",
+          "action": "VIEW_PRODUCT",
           "count": 10
         },
         {
-          "action": "SEARCH_USE",
-          "count": 9
+          "action": "INACTIVE",
+          "count": 10
+        }
+      ],
+      "top_tokens": [
+        {
+          "token": "PRODUCT|CHECK_PRICE|SCROLL_HIGH",
+          "count": 203
+        },
+        {
+          "token": "PRODUCT|CHECK_PRICE|SCROLL_MID",
+          "count": 139
+        },
+        {
+          "token": "PRODUCT|CHECK_PRICE|SCROLL_LOW",
+          "count": 101
+        },
+        {
+          "token": "PRODUCT|PRICE_REVIEW_EPISODE|STRONG",
+          "count": 84
+        },
+        {
+          "token": "PRODUCT|CHECK_PRICE|DWELL_SHORT",
+          "count": 64
+        },
+        {
+          "token": "PRODUCT|ADD_CART|NONE",
+          "count": 49
+        },
+        {
+          "token": "[CLS]",
+          "count": 40
+        },
+        {
+          "token": "HOME|START_SESSION|NONE",
+          "count": 34
         }
       ],
       "page_dist": {
-        "CATEGORY": 88,
-        "CHECKOUT": 85,
-        "PRODUCT": 63,
-        "CART": 55,
-        "HOME": 10
+        "PRODUCT": 740,
+        "HOME": 46
+      },
+      "action_share": {
+        "START_SESSION": 0.0648854961832061,
+        "CHECK_PRICE": 0.6590330788804071,
+        "PRICE_REVIEW_EPISODE": 0.10687022900763359,
+        "ADD_CART": 0.0648854961832061,
+        "CHECK_SHIPPING": 0.005089058524173028,
+        "VIEW_REVIEW": 0.017811704834605598,
+        "REVIEW_EXPLORATION_EPISODE": 0.003816793893129771,
+        "VIEW_PRODUCT": 0.01272264631043257,
+        "CHECK_SIZE": 0.005089058524173028,
+        "CLICK_ELEMENT": 0.001272264631043257,
+        "HOVER_ELEMENT": 0.005089058524173028,
+        "DISTRACTED_EPISODE": 0.005089058524173028,
+        "SIZE_CHECK_EPISODE": 0.001272264631043257,
+        "TAB_RETURN": 0.010178117048346057,
+        "TAB_OUT": 0.013994910941475827,
+        "INACTIVE": 0.01272264631043257,
+        "START_INPUT": 0.002544529262086514,
+        "EDIT_INPUT": 0.001272264631043257,
+        "ABANDON_INPUT": 0.001272264631043257,
+        "SCROLL_PRODUCT": 0.002544529262086514,
+        "EXIT_BOUNCE": 0.002544529262086514
+      },
+      "page_share": {
+        "HOME": 0.058524173027989825,
+        "PRODUCT": 0.9414758269720102
       }
     },
-    "15": {
-      "count": 6,
+    "2": {
+      "count": 31,
+      "avg_length": 32.87,
       "top_actions": [
         {
-          "action": "HOVER_ELEMENT",
-          "count": 104
+          "action": "SCROLL_PRODUCT",
+          "count": 181
         },
         {
-          "action": "START_INPUT",
+          "action": "HOVER_ELEMENT",
+          "count": 135
+        },
+        {
+          "action": "VIEW_REVIEW",
           "count": 77
         },
         {
-          "action": "ENTER_CATEGORY",
-          "count": 69
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 68
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 57
-        },
-        {
-          "action": "EXIT_BOUNCE",
+          "action": "START_SESSION",
           "count": 55
         },
         {
-          "action": "CHECK_SHIPPING",
+          "action": "CHECK_SIZE",
+          "count": 54
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 47
+        },
+        {
+          "action": "CLICK_ELEMENT",
           "count": 45
         },
         {
-          "action": "ENTER_CHECKOUT",
+          "action": "CHECK_PRICE",
+          "count": 39
+        }
+      ],
+      "top_tokens": [
+        {
+          "token": "PRODUCT|HOVER_ELEMENT|NONE",
+          "count": 102
+        },
+        {
+          "token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID",
+          "count": 80
+        },
+        {
+          "token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW",
+          "count": 46
+        },
+        {
+          "token": "PRODUCT|ZOOM_IMAGE|NONE",
+          "count": 37
+        },
+        {
+          "token": "PRODUCT|VIEW_REVIEW|DWELL_SHORT",
+          "count": 35
+        },
+        {
+          "token": "PRODUCT|VIEW_PRODUCT|REVISIT_ONCE",
+          "count": 35
+        },
+        {
+          "token": "HOME|SCROLL_HOME|NONE",
           "count": 33
         },
         {
-          "action": "SEARCH_USE",
-          "count": 18
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 9
+          "token": "PRODUCT|CLICK_ELEMENT|NONE",
+          "count": 32
         }
       ],
       "page_dist": {
-        "CHECKOUT": 178,
-        "CATEGORY": 157,
-        "CART": 102,
-        "PRODUCT": 102
+        "PRODUCT": 785,
+        "HOME": 116,
+        "CART": 50,
+        "CATEGORY": 14,
+        "MEMBER": 12,
+        "CHECKOUT": 11
+      },
+      "action_share": {
+        "START_SESSION": 0.05566801619433198,
+        "ENTER_HOME": 0.010121457489878543,
+        "DISTRACTED_EPISODE": 0.02631578947368421,
+        "ENTER_PRODUCT": 0.024291497975708502,
+        "CLICK_ELEMENT": 0.04554655870445344,
+        "HOVER_ELEMENT": 0.13663967611336034,
+        "CHECK_PRICE": 0.039473684210526314,
+        "SCROLL_HOME": 0.03340080971659919,
+        "PRICE_REVIEW_EPISODE": 0.008097165991902834,
+        "SCROLL_PRODUCT": 0.18319838056680163,
+        "CHECK_SHIPPING": 0.027327935222672066,
+        "SHIPPING_CHECK_EPISODE": 0.005060728744939271,
+        "INACTIVE": 0.01720647773279352,
+        "TAB_OUT": 0.020242914979757085,
+        "VIEW_PRODUCT": 0.04757085020242915,
+        "VIEW_REVIEW": 0.07793522267206478,
+        "TAB_RETURN": 0.008097165991902834,
+        "ADD_CART": 0.032388663967611336,
+        "ZOOM_IMAGE": 0.03744939271255061,
+        "REVIEW_EXPLORATION_EPISODE": 0.019230769230769232,
+        "ENTER_CART": 0.006072874493927126,
+        "REMOVE_CART": 0.006072874493927126,
+        "CHECK_SIZE": 0.05465587044534413,
+        "ENTER_CHECKOUT": 0.0010121457489878543,
+        "CLICK_BUY": 0.008097165991902834,
+        "START_INPUT": 0.0010121457489878543,
+        "EDIT_INPUT": 0.0010121457489878543,
+        "ABANDON_INPUT": 0.0010121457489878543,
+        "SIZE_CHECK_EPISODE": 0.013157894736842105,
+        "EXIT_BOUNCE": 0.005060728744939271,
+        "SCROLL_PAGE": 0.0020242914979757085,
+        "SCROLL_REVIEW": 0.030364372469635626,
+        "EXIT_SESSION": 0.008097165991902834,
+        "VIEW_SECTION": 0.005060728744939271,
+        "CART_ABANDON": 0.0010121457489878543,
+        "SCROLL_CATEGORY": 0.0010121457489878543
+      },
+      "page_share": {
+        "HOME": 0.11740890688259109,
+        "PRODUCT": 0.7945344129554656,
+        "CART": 0.05060728744939271,
+        "CHECKOUT": 0.011133603238866396,
+        "MEMBER": 0.012145748987854251,
+        "CATEGORY": 0.01417004048582996
+      }
+    },
+    "3": {
+      "count": 18,
+      "avg_length": 74.56,
+      "top_actions": [
+        {
+          "action": "HOVER_ELEMENT",
+          "count": 193
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 161
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 113
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 93
+        },
+        {
+          "action": "CLICK_ELEMENT",
+          "count": 89
+        },
+        {
+          "action": "EDIT_INPUT",
+          "count": 82
+        },
+        {
+          "action": "ZOOM_IMAGE",
+          "count": 74
+        },
+        {
+          "action": "ADD_CART",
+          "count": 59
+        }
+      ],
+      "top_tokens": [
+        {
+          "token": "HOME|SCROLL_HOME|NONE",
+          "count": 161
+        },
+        {
+          "token": "HOME|HOVER_ELEMENT|NONE",
+          "count": 117
+        },
+        {
+          "token": "PRODUCT|VIEW_PRODUCT|REVISIT_ONCE",
+          "count": 91
+        },
+        {
+          "token": "PRODUCT|HOVER_ELEMENT|NONE",
+          "count": 74
+        },
+        {
+          "token": "PRODUCT|ZOOM_IMAGE|NONE",
+          "count": 74
+        },
+        {
+          "token": "PRODUCT|EDIT_INPUT|NONE",
+          "count": 57
+        },
+        {
+          "token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID",
+          "count": 49
+        },
+        {
+          "token": "HOME|CLICK_ELEMENT|NONE",
+          "count": 44
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 773,
+        "HOME": 540,
+        "CART": 11
+      },
+      "action_share": {
+        "START_SESSION": 0.024924471299093656,
+        "SCROLL_HOME": 0.1216012084592145,
+        "DISTRACTED_EPISODE": 0.015861027190332326,
+        "CLICK_ELEMENT": 0.06722054380664652,
+        "HOVER_ELEMENT": 0.14577039274924472,
+        "ADD_CART": 0.0445619335347432,
+        "START_INPUT": 0.03625377643504532,
+        "EDIT_INPUT": 0.061933534743202415,
+        "CLICK_BUY": 0.015861027190332326,
+        "TAB_OUT": 0.011329305135951661,
+        "INACTIVE": 0.00906344410876133,
+        "ENTER_PRODUCT": 0.009818731117824773,
+        "SCROLL_PRODUCT": 0.08534743202416918,
+        "VIEW_REVIEW": 0.03700906344410876,
+        "ZOOM_IMAGE": 0.055891238670694864,
+        "CHECK_SHIPPING": 0.03700906344410876,
+        "CHECK_PRICE": 0.0256797583081571,
+        "PRICE_REVIEW_EPISODE": 0.0037764350453172208,
+        "SHIPPING_CHECK_EPISODE": 0.00906344410876133,
+        "ENTER_HOME": 0.012084592145015106,
+        "ENTER_CART": 0.0007552870090634441,
+        "TAB_RETURN": 0.0030211480362537764,
+        "SEARCH_USE": 0.0188821752265861,
+        "VIEW_PRODUCT": 0.0702416918429003,
+        "ABANDON_INPUT": 0.004531722054380665,
+        "CHECK_SIZE": 0.04003021148036254,
+        "REVIEW_EXPLORATION_EPISODE": 0.0075528700906344415,
+        "SCROLL_REVIEW": 0.006042296072507553,
+        "SIZE_CHECK_EPISODE": 0.006797583081570997,
+        "REMOVE_CART": 0.0007552870090634441,
+        "EXIT_SESSION": 0.006042296072507553,
+        "EXIT_BOUNCE": 0.005287009063444109
+      },
+      "page_share": {
+        "HOME": 0.4078549848942598,
+        "PRODUCT": 0.5838368580060423,
+        "CART": 0.008308157099697885
       }
     }
   },
-  "last_retrain": "2026-06-16T22:11:11.172553",
-  "retrain_session_count": 155,
   "nlp_labels": {
     "0": {
-      "name": "행동 데이터 부족 고객",
-      "summary": "세션은 확인됐지만 대표 행동이나 방문 화면 정보가 부족해 패턴을 명확히 해석하기 어렵습니다.",
-      "action": "SDK 수집 상태와 페이지별 이벤트 매핑을 먼저 점검해 행동 데이터가 충분히 쌓이도록 보완하세요.",
-      "source": "fallback"
+      "id": "list_bouncer",
+      "name": "목록만 훑고 나가는 고객",
+      "summary": "카테고리 목록을 스크롤하다 상품에 들어가지 않고 이탈합니다. 끌리는 상품을 못 찾았습니다.",
+      "action": "목록 썸네일과 첫 화면 상품 구성을 점검하세요.",
+      "source": "rule"
     },
     "1": {
-      "name": "페이지를 훑어보는 고객",
-      "summary": "요소 위에 머무름, 홈 화면 스크롤 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
+      "id": "price_checker",
+      "name": "가격을 반복 확인하는 고객",
+      "summary": "상품 페이지에서 가격 구간을 계속 오가며 확인합니다. 구매 의사는 있으나 가격에서 망설입니다.",
+      "action": "할인 조건이나 무료배송 기준을 가격 근처에 함께 보여주세요.",
+      "source": "rule"
     },
     "2": {
-      "name": "페이지를 훑어보는 고객",
-      "summary": "홈 화면 스크롤 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
+      "id": "detail_reader",
+      "name": "상품 상세를 꼼꼼히 보는 고객",
+      "summary": "상품 페이지를 천천히 내리며 이미지·리뷰·사이즈를 두루 봅니다.",
+      "action": "상세 이미지 하단에 담기 버튼을 한 번 더 두면 이탈을 줄일 수 있습니다.",
+      "source": "rule"
     },
     "3": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "요소 위에 머무름, 가격 확인, 입력 시작 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "4": {
-      "name": "상품을 찾고 비교하는 고객",
-      "summary": "홈 화면 스크롤, 상품 페이지 스크롤, 카테고리 진입 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "5": {
-      "name": "탐색을 빠르게 멈추는 고객",
-      "summary": "요소 위에 머무름, 빠른 탐색 중지, 가격 확인 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "6": {
-      "name": "탐색을 빠르게 멈추는 고객",
-      "summary": "요소 위에 머무름, 빠른 탐색 중지, 가격 확인 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "7": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "입력 시작, 카테고리 진입, 입력 수정 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "8": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "결제 화면 진입, 입력 시작, 카테고리 진입 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "9": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "카테고리 진입, 입력 수정, 상품 페이지 스크롤 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "10": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "카테고리 진입, 입력 시작, 입력 수정 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "11": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "카테고리 진입, 입력 수정, 요소 위에 머무름 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "12": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "카테고리 진입, 입력 수정, 상품 이미지 확대 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "13": {
-      "name": "상품을 찾고 비교하는 고객",
-      "summary": "요소 위에 머무름, 카테고리 진입, 상품 페이지 스크롤 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "14": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "요소 위에 머무름, 빠른 탐색 중지, 입력 시작 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
-    },
-    "15": {
-      "name": "결제 단계에서 망설이는 고객",
-      "summary": "요소 위에 머무름, 입력 시작, 카테고리 진입 중심으로 묶인 고객 유형입니다.",
-      "action": "이 유형의 주요 행동이 많은 화면을 점검하고, 다음 행동으로 이어지는 안내 문구를 보강하세요.",
-      "source": "fallback"
+      "id": "active_buyer",
+      "name": "구매까지 진행하는 활발한 고객",
+      "summary": "여러 화면을 오가며 장바구니에 담고 입력까지 진행합니다. 가장 오래 머무는 유형입니다.",
+      "action": "이 경로에서 이탈이 생기면 손실이 가장 큽니다. 결제 단계를 우선 점검하세요.",
+      "source": "rule"
     }
   },
-  "nlp_labels_updated_at": "2026-06-16T13:11:16.522Z",
-  "nlp_labels_error": "Gemini API 오류 (503): {\"error\":{\"code\":503,\"message\":\"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\"status\":\"UNAVAILABLE\"}}",
-  "silhouette": 0.48,
-  "davies_bouldin": 0.8351,
+  "silhouette": 0.4597,
+  "davies_bouldin": 1.0331,
+  "calinski_harabasz": 83.06,
+  "noise_ratio": 0.2424,
+  "duplicate_sequence_ratio": 0.1136,
   "cluster_quality": {
-    "sample_count": 155,
-    "clustered_session_count": 107,
-    "noise_count": 48,
-    "noise_rate": 0.3097,
-    "silhouette": 0.48,
-    "davies_bouldin": 0.8351,
-    "metrics_note": "",
-    "stability": {
-      "avg_profile_stability": 0.9818,
-      "per_cluster": {
-        "0": null,
-        "1": 1,
-        "2": 1,
-        "3": 1,
-        "4": 1,
-        "5": 1,
-        "6": 1,
-        "7": 1,
-        "8": 1,
-        "9": 0.7273,
-        "10": 1,
-        "11": 1,
-        "12": 1,
-        "13": 1,
-        "14": 1,
-        "15": 1
-      },
-      "method": "top_actions/page_dist Jaccard similarity against previous run"
-    }
+    "n_sessions": 132,
+    "n_clusters": 4,
+    "n_noise": 32,
+    "noise_ratio": 0.2424,
+    "cluster_sizes": {
+      "0": 11,
+      "1": 40,
+      "2": 31,
+      "3": 18
+    },
+    "min_cluster_size_observed": 11,
+    "max_cluster_size_observed": 40,
+    "silhouette": 0.4597,
+    "davies_bouldin": 1.0331,
+    "calinski_harabasz": 83.06,
+    "duplicate_sequence_ratio": 0.1136,
+    "unique_sequences": 123,
+    "generated_at": "2026-08-19T15:37:54",
+    "params": {
+      "min_cluster_size": 8,
+      "min_samples": 2,
+      "l2_normalized": true
+    },
+    "sample_count": 132,
+    "noise_count": 32,
+    "noise_rate": 0.2424
   }
 }

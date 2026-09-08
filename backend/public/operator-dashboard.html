@@ -1,9 +1,13 @@
-/*
- * 운영자 화면 전용 HTML 파일
- * - SDK가 보내는 이벤트를 실시간으로 수집하고, 요약/분석하여 운영자에게 보여줌
- * - 운영자가 쉽게 이해할 수 있는 언어로 번역된 인사이트와 액션을 제공
- */
 <!DOCTYPE html>
+<!--
+  운영자 화면 전용 HTML 파일
+  - SDK가 보내는 이벤트를 실시간으로 수집하고, 요약/분석하여 운영자에게 보여줌
+  - 운영자가 쉽게 이해할 수 있는 언어로 번역된 인사이트와 액션을 제공
+
+  주의: 이 주석은 반드시 <!DOCTYPE html> 뒤에 와야 한다.
+  DOCTYPE 앞에 문자가 있으면 브라우저가 quirks mode로 렌더링하고,
+  JS 스타일 /* */ 주석은 HTML에서 그냥 텍스트라 화면 상단에 그대로 출력된다.
+-->
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -670,7 +674,7 @@
       <select id="site-filter" aria-label="사이트 선택">
         <option value="">전체 사이트</option>
       </select>
-      <button class="secondary" id="rediscover-types">고객 유형 다시 찾기</button>
+      <button class="secondary" id="rediscover-types">최신 데이터로 다시 분류</button>
       <button id="download-report">주간 리포트 다운로드</button>
       <button class="secondary" id="expert-view">전문가 화면</button>
       <span class="live" id="status">연결 확인 중</span>
@@ -768,7 +772,7 @@
           <div class="card-head">
             <div>
               <div class="card-title">고객 유형 한눈에 보기</div>
-              <div class="card-sub">마지막으로 고객 유형 다시 찾기를 실행했을 때 확정된 유형을, 비슷한 세부 클러스터끼리 묶어 보여줍니다.</div>
+              <div class="card-sub">마지막으로 다시 분류를 실행했을 때의 결과입니다. 고객 유형 기준 자체는 개발자가 재학습할 때만 바뀝니다.</div>
               <div class="card-sub" id="cluster-snapshot-note">마지막 클러스터링 시점을 불러오는 중입니다.</div>
             </div>
           </div>
@@ -946,6 +950,11 @@
       const actions = (cluster.top_actions || []).map((a) => a.action);
       const label = cluster.label || "";
       const top3 = actions.slice(0, 3);
+
+      // 서버(cluster_meta.json의 nlp_labels)가 이름을 주면 그대로 쓴다.
+      // 명명 규칙이 서버와 화면 양쪽에 있으면 반드시 어긋난다.
+      // 아래 규칙들은 label이 없는 옛 artifacts를 위한 하위 호환용이다.
+      if (cluster.persona_source) return label || `고객 유형 ${cluster.cluster}`;
       if (label.includes("행동 데이터 부족")) return "행동 데이터 부족 고객";
       if (label.includes("결제 단계에서 망설이는 고객")) return "결제 단계에서 망설이는 고객";
       if (label.includes("탐색을 빠르게 멈추는 고객")) return "탐색을 빠르게 멈추는 고객";
@@ -1056,15 +1065,18 @@
     // 그룹에 속한 세부 클러스터들의 top_actions를 합쳐서 상위 3개만
     function aggregateTopActions(clusters) {
       const counts = new Map();
+      const labels = new Map();
       clusters.forEach((cluster) => {
         (cluster.top_actions || []).forEach((action) => {
           counts.set(action.action, (counts.get(action.action) || 0) + (action.count || 0));
+          // 서버가 붙여준 한글 라벨을 합치는 과정에서 잃지 않도록 보존한다.
+          if (action.label) labels.set(action.action, action.label);
         });
       });
       return [...counts.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
-        .map(([action, count]) => ({ action, count }));
+        .map(([action, count]) => ({ action, count, label: labels.get(action) }));
     }
 
     // 그룹 안에서 가장 낮은 검증 상태를 대표값으로 사용
@@ -1081,12 +1093,23 @@
       const groups = new Map();
       clusters.forEach((cluster) => {
         const baseName = friendlyClusterName(cluster);
-        const meta = operatorClusterMeta(baseName);
+        // 서버가 이름을 준 경우 operatorClusterMeta의 재명명을 건너뛴다.
+        // 예: "상품 상세를 꼼꼼히 보는 고객"이 "꼼꼼히"에 걸려
+        //     "상품을 찾고 비교하는 고객"으로 덮어써지던 문제.
+        const meta = cluster.persona_source
+          ? {
+              key: `persona-${cluster.persona_id || baseName}`,
+              name: baseName,
+              summary: cluster.summary || "",
+              action: cluster.action || "",
+            }
+          : operatorClusterMeta(baseName);
         const row = groups.get(meta.key) || {
           key: meta.key,
           label: meta.name,
-          summary: meta.summary,
-          action: meta.action,
+          // 서버가 요약·추천을 주면 그것을 쓴다. 화면 문구는 fallback.
+          summary: cluster.summary || meta.summary,
+          action: cluster.action || meta.action,
           count: 0,
           members: [],
         };
@@ -1114,7 +1137,12 @@
         .slice(0, 4);
     }
 
-    // 이벤트 액션 코드를 쉬운 말로 바꾸는 표
+    // 행동 코드 → 쉬운 말 (fallback 전용).
+    //
+    // 정식 사전은 backend/routes/clusters.js 의 koAction() 이고,
+    // 서버가 top_actions[].label 로 번역을 실어 보낸다.
+    // 이 표는 label이 없는 옛 응답을 위한 하위 호환용이므로 확장하지 않는다.
+    // 새 행동 코드는 koAction() 에 추가할 것.
     function friendlyAction(action) {
       const labels = {
         START_SESSION: "쇼핑몰 방문",
@@ -1437,16 +1465,16 @@
       `;
     }
 
-    // 클러스터 결과는 실시간이 아니라 마지막 "고객 유형 다시 찾기" 실행 시점 스냅샷이라는 걸 안내
+    // 클러스터 결과는 실시간이 아니라 마지막 "다시 분류" 실행 시점 스냅샷이라는 걸 안내
     function renderClusterSnapshotInfo(data = {}) {
       const meta = data.meta || {};
       const stamp = meta.last_retrain
         ? new Date(meta.last_retrain).toLocaleString("ko-KR")
         : "기록 없음";
       const note = data.source === "artifact_snapshot"
-        ? `선택한 사이트의 새 세션에 따라 바뀌지 않고, 마지막 고객 유형 다시 찾기 실행 시점(${stamp}) 기준으로 유지됩니다.`
+        ? `선택한 사이트의 새 세션에 따라 바뀌지 않고, 마지막 다시 분류 실행 시점(${stamp}) 기준으로 유지됩니다.`
         : data.source === "site_snapshot"
-          ? `현재 선택한 사이트 기준으로 마지막 고객 유형 다시 찾기 실행 시점(${stamp})에 저장한 결과입니다. 새 세션만으로는 바뀌지 않습니다.`
+          ? `현재 선택한 사이트 기준으로 마지막 다시 분류 실행 시점(${stamp})에 저장한 결과입니다. 새 세션만으로는 바뀌지 않습니다.`
         : `현재 클러스터 기준은 ${stamp}에 저장된 결과입니다.`;
       $("cluster-snapshot-note").textContent = note;
     }
@@ -1481,7 +1509,7 @@
 
       $("customer-types").innerHTML = clusters.map((c, idx) => {
         const pct = total ? Math.round(c.count / total * 100) : 0;
-        const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${friendlyAction(a.action)}</span>`).join("");
+        const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${a.label || friendlyAction(a.action)}</span>`).join("");
         return `
           <div class="type-card ${typeTone(c)}" data-cluster="${c.representative_cluster ?? c.cluster}">
             <div class="type-top">
@@ -1603,7 +1631,10 @@
         summary: state.analysis?.summary,
         action: state.analysis?.action,
         confidence: state.analysis?.confidence,
-        prefer_local: true,
+        // prefer_local을 여기서 고정하지 않는다.
+        // AI 요약 사용 여부는 서버가 판단한다 — GEMINI_API_KEY가 없거나
+        // 호출이 실패하면 서버가 알아서 로컬 문장으로 대체한다(fallback 필드로 표시).
+        // 화면이 강제하면 키를 넣어도 AI 리포트가 영영 안 쓰인다.
         events: state.selectedEvents.map((e) => ({
           event_type: e.event_type,
           page: eventPage(e),
@@ -1633,11 +1664,14 @@
       if (clusterId === undefined || clusterId === null || clusterId === "") return;
       $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
       try {
-        const params = new URLSearchParams({ prefer_local: "1" });
+        // prefer_local 고정 제거 — AI 사용 여부는 서버가 판단하고 실패 시 대체한다.
+        const params = new URLSearchParams();
         if (state.analysis?.persona) params.set("persona", state.analysis.persona);
         if (state.analysis?.completed) params.set("completed", "1");
-        const result = await api(`/api/report/cluster/${clusterId}?${params.toString()}`);
+        const query = params.toString();
+        const result = await api(`/api/report/cluster/${clusterId}${query ? `?${query}` : ""}`);
         $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
+        if (result.warning) $("report-box").textContent += `\n\n(${result.warning})`;
       } catch (err) {
         $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
       }
@@ -1731,28 +1765,30 @@
       }
     }
 
-    // "고객 유형 다시 찾기" 버튼 핸들러 - 클러스터링을 새로 돌리고 스냅샷으로 저장
+    // "최신 데이터로 다시 분류" 버튼 핸들러
+    // 재학습 없이 기존 기준으로 최신 세션만 다시 분류해 스냅샷으로 저장한다.
     async function rediscoverCustomerTypes() {
       const btn = $("rediscover-types");
       btn.disabled = true;
       const originalText = btn.textContent;
-      btn.textContent = "고객 유형 찾는 중";
-      setStatus(true, "고객 유형을 다시 찾는 중");
-      $("operator-advice").textContent = "누적된 고객 행동을 다시 묶어 새로운 고객 유형이 있는지 확인하고 있습니다. 잠시만 기다려주세요.";
+      btn.textContent = "다시 분류하는 중";
+      setStatus(true, "최신 데이터로 다시 분류하는 중");
+      $("operator-advice").textContent = "기존 고객 유형 기준으로 최근 방문 데이터를 다시 분류하고 있습니다. 잠시만 기다려주세요.";
       try {
+        // retrain은 보내지 않는다. 재학습은 개발자가 ml/ 파이프라인으로 수행한다.
         const result = await api("/api/clusters/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ full: true, origin: state.origin || "" }),
+          body: JSON.stringify({ origin: state.origin || "" }),
         });
         $("operator-advice").textContent = result.snapshot_saved
-          ? `고객 유형 찾기가 완료됐습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 세부 유형, ${fmt(result.snapshot_session_count)}개 세션 스냅샷을 저장했습니다.`
-          : `고객 유형 찾기가 완료됐습니다. 현재 ${fmt(result.n_clusters)}개 유형이 발견됐고, ${fmt(result.retrain_session_count)}개 세션을 반영했습니다.`;
-        $("advice-tag").textContent = "유형 갱신 완료";
+          ? `다시 분류를 완료했습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 유형, ${fmt(result.snapshot_session_count)}개 세션을 반영했습니다.`
+          : "다시 분류를 완료했습니다.";
+        $("advice-tag").textContent = "분류 갱신 완료";
         await refresh();
       } catch (err) {
-        $("operator-advice").textContent = `고객 유형 찾기에 실패했습니다: ${err.message}`;
-        setStatus(false, "유형 찾기 실패");
+        $("operator-advice").textContent = `다시 분류에 실패했습니다: ${err.message}`;
+        setStatus(false, "다시 분류 실패");
       } finally {
         btn.disabled = false;
         btn.textContent = originalText;

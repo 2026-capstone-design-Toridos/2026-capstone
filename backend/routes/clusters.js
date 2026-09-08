@@ -19,7 +19,10 @@ const { originCondition, normalizeOrigin } = require('../middleware/siteAccess')
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// API 키는 URL이 아니라 x-goog-api-key 헤더로 보낸다.
+// 쿼리 스트링에 실으면 서버 로그·프록시 로그·에러 메시지에 키가 그대로 남는다.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const META_PATH = path.resolve(
   __dirname, '../../ml/output/unsupervised_semantic/cluster_meta.json',
@@ -81,32 +84,76 @@ function normalizeText(text) {
 }
 
 // 내부 semantic action 코드를 대시보드/리포트용 한국어 라벨로 바꾼다
+// 행동 코드 → 운영자가 읽는 말.
+//
+// 이 사전이 유일한 출처다. 화면에서 다시 번역하지 않는다.
+// (예전에는 대시보드에도 friendlyAction() 사전이 따로 있어
+//  같은 코드가 화면마다 다른 말로 나오거나 영어로 남았다.)
+// semantic_event_mapper.py 가 만들 수 있는 모든 SEMANTIC 값을 덮어야 한다.
 function koAction(action) {
   const labels = {
-    SCROLL_HOME: '홈 화면 스크롤',
-    SCROLL_PRODUCT: '상품 페이지 스크롤',
-    SCROLL_PAGE: '페이지 스크롤',
-    ENTER_CATEGORY: '카테고리 진입',
+    // 진입
+    START_SESSION: '쇼핑몰 방문',
+    ENTER_HOME: '첫 화면 진입',
     ENTER_PRODUCT: '상품 상세 진입',
+    ENTER_CATEGORY: '카테고리 진입',
+    ENTER_CART: '장바구니 진입',
     ENTER_CHECKOUT: '결제 화면 진입',
-    VIEW_PRODUCT: '상품 확인',
+    ENTER_MEMBER: '회원 화면 진입',
+    ENTER_UNKNOWN: '기타 화면 진입',
+
+    // 열람
+    VIEW_PRODUCT: '상품 살펴봄',
     VIEW_DETAIL: '상세정보 확인',
     VIEW_REVIEW: '리뷰 확인',
     VIEW_QNA: '상품 문의 확인',
+    VIEW_IMAGE: '이미지 확인',
+    VIEW_SECTION: '특정 영역 확인',
     ZOOM_IMAGE: '상품 이미지 확대',
-    HOVER_ELEMENT: '요소 위에 머무름',
-    CLICK_ELEMENT: '버튼 또는 메뉴 클릭',
-    SEARCH_USE: '검색 사용',
+
+    // 확인
     CHECK_PRICE: '가격 확인',
     CHECK_SIZE: '사이즈 확인',
     CHECK_SHIPPING: '배송 정보 확인',
+
+    // 스크롤
+    SCROLL_HOME: '첫 화면 스크롤',
+    SCROLL_PRODUCT: '상품 페이지 스크롤',
+    SCROLL_CATEGORY: '카테고리 스크롤',
+    SCROLL_REVIEW: '리뷰 스크롤',
+    SCROLL_PAGE: '페이지 스크롤',
+
+    // 조작
+    HOVER_ELEMENT: '요소 위에 머무름',
+    CLICK_ELEMENT: '버튼 또는 메뉴 클릭',
+    CLICK_BUY: '구매 버튼 클릭',
+    SEARCH_USE: '상품 검색',
+
+    // 장바구니
+    ADD_CART: '장바구니 담기',
+    REMOVE_CART: '장바구니에서 제거',
+    CHANGE_QUANTITY: '수량 변경',
+    CART_ABANDON: '장바구니 두고 나감',
+
+    // 입력
     START_INPUT: '입력 시작',
     EDIT_INPUT: '입력 수정',
-    EXIT_BOUNCE: '빠른 탐색 중지',
-    EXIT_SESSION: '탐색 중지',
+    ABANDON_INPUT: '입력 중단',
+
+    // 이탈 / 주의
+    TAB_OUT: '다른 탭으로 이동',
+    TAB_RETURN: '탭으로 돌아옴',
     INACTIVE: '움직임 없음',
     RAGE_CLICK: '반복 클릭',
-    CHANGE_QUANTITY: '수량 변경',
+    EXIT_SESSION: '탐색 중지',
+    EXIT_BOUNCE: '빠른 탐색 중지',
+
+    // 에피소드 — 같은 의도가 짧은 구간에 반복될 때 승격되는 신호
+    PRICE_REVIEW_EPISODE: '가격을 반복 확인',
+    SIZE_CHECK_EPISODE: '사이즈를 반복 확인',
+    SHIPPING_CHECK_EPISODE: '배송 정보를 반복 확인',
+    REVIEW_EXPLORATION_EPISODE: '리뷰를 집중해서 확인',
+    DISTRACTED_EPISODE: '주의가 흩어짐',
   };
   return labels[action] || String(action || '').replaceAll('_', ' ').toLowerCase();
 }
@@ -270,7 +317,10 @@ async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
   const res = await fetch(GEMINI_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': GEMINI_API_KEY,
+    },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.35, maxOutputTokens: 4096 },
@@ -539,8 +589,13 @@ async function classifySiteSessions(origin, profiles, labels) {
         label: nlp.name || buildLabel(clusterId, profile, labels),
         summary: nlp.summary || '',
         action: nlp.action || '',
+        // 이름이 어디서 왔는지 화면에 알려준다. 없으면 화면이 자체 규칙으로 다시 명명한다.
+        persona_source: nlp.source || (nlp.name ? 'meta' : null),
+        persona_id: nlp.id || null,
         count: stats.count,
-        top_actions: topActions.length ? topActions : (profile.top_actions || []),
+        // 번역은 서버에서 붙여 내려보낸다. 화면이 다시 번역하면 사전이 두 개가 된다.
+        top_actions: (topActions.length ? topActions : (profile.top_actions || []))
+          .map((a) => ({ ...a, label: koAction(a.action) })),
         page_dist: Object.keys(pageDist).length ? pageDist : (profile.page_dist || {}),
         validation: clusterValidation(clusterId, profile, stats.count, sessions.length, {}),
       };
@@ -596,8 +651,17 @@ router.get('/', async (req, res) => {
         label: nlp.name || buildLabel(clusterId, profile, meta.cluster_labels || {}),
         summary: nlp.summary || '',
         action: nlp.action || '',
+        // 이름이 어디서 왔는지 화면에 알려준다.
+        // 화면은 자체 명명 규칙을 갖고 있어, 서버가 준 이름이 있으면
+        // 그쪽을 우선해야 두 규칙이 어긋나지 않는다.
+        persona_source: nlp.source || (nlp.name ? 'meta' : null),
+        persona_id: nlp.id || null,
         count,
-        top_actions: profile.top_actions || [],
+        // 번역은 서버에서 붙여 내려보낸다. 화면이 다시 번역하면 사전이 두 개가 된다.
+        top_actions: (profile.top_actions || []).map((a) => ({
+          ...a,
+          label: koAction(a.action),
+        })),
         page_dist: profile.page_dist || {},
         validation: clusterValidation(clusterId, profile, count, totalSessions, meta),
       };
@@ -670,7 +734,26 @@ router.post('/run', async (req, res) => {
 
     // 키 모드에서는 키가 정한 사이트로 고정한다. body의 origin은 신뢰하지 않는다.
     const requestedOrigin = req.siteOrigin || String(req.body?.origin || '').trim();
-    const result = await runPythonClustering({ full: req.body?.full !== false });
+
+    // 기본은 "재분류"다. 기존 인코더·centroid를 그대로 두고 최신 세션만 다시 분류한다.
+    //
+    // 재학습(retrain:true)을 기본으로 두면 안 되는 이유:
+    //   - CPU 학습에 수 분이 걸려 HTTP 요청 안에서 끝나지 않는다
+    //   - 누를 때마다 클러스터 정의가 바뀌어 어제 본 유형과 오늘 본 유형이 달라진다
+    //     운영자에게는 기준이 안정적인 쪽이 중요하다
+    //   - generateNlpLabels(meta, true)가 돌면서 규칙 기반 페르소나 이름을
+    //     Gemini 응답으로 덮어쓴다
+    // 재학습은 데이터가 쌓인 뒤 개발자가 ml/ 파이프라인으로 의도적으로 수행한다.
+    const retrain = req.body?.retrain === true;
+
+    const result = retrain
+      ? await runPythonClustering({ full: req.body?.full !== false })
+      : {
+        ok: true,
+        mode: 'reclassify',
+        message: '기존 고객 유형 기준으로 최신 데이터를 다시 분류했습니다.',
+      };
+
     if (requestedOrigin) {
       const meta = fs.existsSync(META_PATH)
         ? JSON.parse(fs.readFileSync(META_PATH, 'utf-8'))
