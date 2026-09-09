@@ -446,6 +446,9 @@ def map_event_to_semantic_token(
     if event_type == "purchase_click":
         return make_token(page, "CLICK_BUY")
 
+    if event_type == "guest_purchase":
+        return make_token(page, "CLICK_BUY")
+
     if event_type == "cart_abandon_flag":
         return make_token(page, "CART_ABANDON")
 

@@ -170,6 +170,9 @@ function buildSessionPipeline(filter = {}) {
             $cond: [
               {
                 $or: [
+                  // 주문 완료 SDK를 심을 수 없는 Cafe24 스킨의 전환 대리 기준
+                  { $eq: ['$event_type', 'guest_purchase'] },
+
                   // 1순위 — 플랫폼이 알려준 확정값
                   { $eq: ['$page_type', 'ORDER_SUCCESS'] },
 

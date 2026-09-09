@@ -611,6 +611,58 @@ function _initSubsectionTracking(handleRawEvent) {
 function _initEcommerceTracking(handleRawEvent) {
   // option_change: 동일 select 반복 변경 추적
   const optionChangeCounts = new WeakMap();
+  const PENDING_PRODUCT_KEY = 'gt_pending_purchase_product';
+  const GUEST_PURCHASE_KEY = 'gt_guest_purchase_conversion';
+  const PURCHASE_CONTEXT_TTL_MS = 30 * 60 * 1000;
+
+  function readStoredJson(key) {
+    try {
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeStoredJson(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      /* storage가 막힌 환경에서는 상품 연결·중복 방지만 생략한다 */
+    }
+  }
+
+  function currentSessionId() {
+    try {
+      return localStorage.getItem('gt_sid') || '';
+    } catch {
+      return '';
+    }
+  }
+
+  function rememberPendingProduct(data = {}) {
+    const previous = readStoredJson(PENDING_PRODUCT_KEY) || {};
+    const productId = data.product_id || previous.product_id || null;
+    const productName = data.product_name || previous.product_name || null;
+    if (!productId && !productName) return;
+
+    writeStoredJson(PENDING_PRODUCT_KEY, {
+      session_id: currentSessionId(),
+      product_id: productId,
+      product_name: productName,
+      saved_at: Date.now(),
+    });
+  }
+
+  function pendingProduct() {
+    const saved = readStoredJson(PENDING_PRODUCT_KEY);
+    if (!saved || !Number.isFinite(saved.saved_at)) return null;
+    if (Date.now() - saved.saved_at > PURCHASE_CONTEXT_TTL_MS) return null;
+
+    const sessionId = currentSessionId();
+    if (saved.session_id && sessionId && saved.session_id !== sessionId) return null;
+    return saved;
+  }
 
   // ── 휴리스틱 유틸 ─────────────────────────────────────────
   const ADD_TO_CART_TEXT = [
@@ -803,6 +855,41 @@ function _initEcommerceTracking(handleRawEvent) {
     return patterns.some((p) => candidates.some((text) => p.test(text)));
   }
 
+  // Cafe24 로그인 화면의 실제 전환 대리 기준.
+  // 정확한 문구 + 실제 버튼 요소 + 로그인 경로를 모두 만족해야 하므로
+  // "비회원 주문조회"나 페이지 전체 텍스트는 전환으로 잡지 않는다.
+  function isGuestPurchaseButton(el) {
+    if (!(el instanceof Element)) return false;
+    if (!/^\/member\/login(?:\.html)?\/?$/i.test(window.location.pathname)) return false;
+    if (!['A', 'BUTTON', 'INPUT'].includes(el.tagName)) return false;
+
+    return textCandidates(el).some((text) => /^비회원\s*(구매|주문)$/i.test(text));
+  }
+
+  function emitGuestPurchase(el) {
+    const sessionId = currentSessionId();
+    const previous = readStoredJson(GUEST_PURCHASE_KEY);
+
+    // 같은 세션에서 더블클릭·이벤트 재등록으로 구매 수가 부풀지 않게 한다.
+    if (previous && previous.session_id && previous.session_id === sessionId) return;
+
+    const product = pendingProduct();
+    const data = {
+      checkout_type: 'guest',
+      product_id: product?.product_id || null,
+      product_name: product?.product_name || null,
+      click_text: textCandidates(el).find((text) => /^비회원\s*(구매|주문)$/i.test(text)) || '비회원 구매',
+      click_target: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/).join('.')}` : ''}`,
+      evidence: 'member_login_exact_guest_purchase_button',
+      inferred: false,
+    };
+
+    // 기존 구매 의도 지표와 호환하면서, guest_purchase만 전환으로 집계한다.
+    handleRawEvent('purchase_click', { ...data, proxy_conversion: true });
+    handleRawEvent('guest_purchase', data);
+    writeStoredJson(GUEST_PURCHASE_KEY, { session_id: sessionId, recorded_at: Date.now() });
+  }
+
   function hasClass(el, keywords) {
     const cls = (typeof el?.className === 'string' ? el.className : '').toLowerCase();
     return keywords.some((k) => cls.includes(k));
@@ -880,6 +967,15 @@ function _initEcommerceTracking(handleRawEvent) {
         || null;
   }
 
+  function inferProductName(el) {
+    return (
+      el?.closest?.('[data-product-name]')?.dataset?.productName ||
+      document.querySelector?.('[itemprop="name"]')?.textContent?.trim() ||
+      document.querySelector?.('h1')?.textContent?.trim() ||
+      null
+    )?.slice(0, 120) || null;
+  }
+
   // 클릭된 엘리먼트로부터 이커머스 이벤트 추론
   function inferEcommerceEvent(target) {
     if (!(target instanceof Element)) return null;
@@ -926,7 +1022,11 @@ function _initEcommerceTracking(handleRawEvent) {
     ) {
       return {
         type: 'purchase_click',
-        data: { product_id: inferProductId(el), inferred: true },
+        data: {
+          product_id: inferProductId(el),
+          product_name: inferProductName(el),
+          inferred: true,
+        },
       };
     }
 
@@ -978,6 +1078,13 @@ function _initEcommerceTracking(handleRawEvent) {
 
   // ── click 이벤트 (위임) ───────────────────────────────────
   document.addEventListener('click', (e) => {
+    // 버튼 내부의 span/img를 눌러도 실제 클릭 가능한 부모를 기준으로 판별한다.
+    const clickableEl = e.target?.closest?.('a, button, input') || e.target;
+    if (isGuestPurchaseButton(clickableEl)) {
+      emitGuestPurchase(clickableEl);
+      return;
+    }
+
     // Layer 1: 명시적 마킹 (확정 이벤트)
     const el = e.target?.closest('[data-ghost-role]');
     if (el) {
@@ -987,11 +1094,15 @@ function _initEcommerceTracking(handleRawEvent) {
       switch (role) {
         case 'product-card':
         case 'product-link':
-          handleRawEvent('product_click', {
-            product_id:   productId,
-            product_name: el.dataset.productName || el.textContent?.trim().slice(0, 80) || null,
-            ghost_role:   role,
-          });
+          {
+            const data = {
+              product_id:   productId,
+              product_name: el.dataset.productName || el.textContent?.trim().slice(0, 80) || null,
+              ghost_role:   role,
+            };
+            rememberPendingProduct(data);
+            handleRawEvent('product_click', data);
+          }
           return;
 
         case 'add-to-cart':
@@ -1010,7 +1121,11 @@ function _initEcommerceTracking(handleRawEvent) {
           return;
 
         case 'purchase-btn':
-          handleRawEvent('purchase_click', { product_id: productId });
+          {
+            const data = { product_id: productId, product_name: el.dataset.productName || inferProductName(el) };
+            rememberPendingProduct(data);
+            handleRawEvent('purchase_click', data);
+          }
           return;
       }
     }
@@ -1018,6 +1133,9 @@ function _initEcommerceTracking(handleRawEvent) {
     // Layer 2: 휴리스틱 추론 fallback (inferred: true)
     const inferred = inferEcommerceEvent(e.target);
     if (inferred) {
+      if (inferred.type === 'product_click' || inferred.type === 'purchase_click') {
+        rememberPendingProduct(inferred.data);
+      }
       handleRawEvent(inferred.type, inferred.data);
     }
   });

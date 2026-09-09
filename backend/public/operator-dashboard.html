@@ -1175,6 +1175,7 @@
         case "product_click": return "상품을 눌러 자세히 봤습니다.";
         case "add_to_cart": return "장바구니에 상품을 담았습니다.";
         case "purchase_click": return "구매 또는 결제 버튼을 눌렀습니다.";
+        case "guest_purchase": return "비회원 구매 버튼을 눌러 구매 진행으로 집계했습니다.";
         case "tab_exit": return "쇼핑몰 탭을 벗어났습니다.";
         case "tab_return": return "쇼핑몰 탭으로 돌아왔습니다.";
         case "inactivity": return "고객 움직임이 멈췄습니다.";
@@ -1190,6 +1191,7 @@
 
     // 별도 "주문 완료" 이벤트가 없어서 클릭/호버 텍스트로 주문 성공 여부를 추정
     function isOrderSuccessEvent(e) {
+      if (e.event_type === "guest_purchase") return true;
       const d = e.data || {};
       const text = `${d.hover_text || ""} ${d.click_text || ""}`;
       const target = `${d.hover_target || ""} ${d.click_target || ""}`.toLowerCase();
@@ -1216,6 +1218,7 @@
         product_click: "상품 클릭",
         add_to_cart: "장바구니 담기",
         purchase_click: "주문 클릭",
+        guest_purchase: "비회원 구매 전환",
         tab_exit: "탭 떠남",
         tab_return: "탭 돌아옴",
         inactivity: "움직임 없음",
@@ -1238,6 +1241,7 @@
         "product_click",
         "add_to_cart",
         "purchase_click",
+        "guest_purchase",
         "input_change",
         "field_focus",
         "field_blur",

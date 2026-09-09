@@ -84,6 +84,7 @@ const EVENT_VOCAB = Object.freeze({
   cart_abandon_flag:       85,  // A 파생
   quantity_change:         86,  // C: 수량 변경
   option_change:           87,  // C: 동일 옵션 반복 변경
+  guest_purchase:          88,  // 비회원 구매 버튼 클릭 기반 전환 대리 지표
 
   // Review (C)
   review_click:            94,  // C: 리뷰 아이템 클릭
@@ -223,7 +224,7 @@ function emit(eventType, data = {}) {
     _cartItemCount += 1;
   } else if (eventType === 'remove_from_cart') {
     _cartItemCount = Math.max(0, _cartItemCount - 1);
-  } else if (eventType === 'purchase_click') {
+  } else if (eventType === 'purchase_click' || eventType === 'guest_purchase') {
     _cartItemCount = 0;
   }
 

@@ -46,6 +46,7 @@ function inferElementSection(doc = {}) {
 
 // 주문완료 이벤트가 따로 없어 클릭/호버 문구로 주문 성공 여부를 판별
 function isOrderSuccessDoc(doc = {}) {
+  if (doc.event_type === 'guest_purchase') return true;
   const text = `${doc.data?.hover_text || ''} ${doc.data?.click_text || ''}`;
   const target = `${doc.data?.hover_target || ''} ${doc.data?.click_target || ''}`.toLowerCase();
   return text.includes('주문이 완료') || target.includes('complete');
