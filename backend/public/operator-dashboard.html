@@ -677,6 +677,8 @@
       <button class="secondary" id="rediscover-types">최신 데이터로 다시 분류</button>
       <button id="download-report">주간 리포트 다운로드</button>
       <button class="secondary" id="expert-view">전문가 화면</button>
+      <button class="secondary" id="open-help">도움말</button>
+      <button class="secondary" id="sign-out">다른 키로 열기</button>
       <span class="live" id="status">연결 확인 중</span>
     </div>
   </header>
@@ -922,6 +924,24 @@
       },
     });
 
+    /* ── 접근 키 문제 처리 ───────────────────────────────────────────
+       refresh()가 API를 6개씩 병렬로 부르고 2.5초마다 반복하므로,
+       키가 없거나 폐기되면 실패가 한꺼번에 쏟아진다.
+       한 번만 로그인 화면으로 보내고 나머지는 무시한다.            */
+    let authBounced = false;
+    let pollTimer   = null;   // 2.5초 갱신 타이머 (아래 초기화 블록에서 채운다)
+
+    function bounceToLogin(reason) {
+      if (authBounced) return;
+      authBounced = true;
+
+      // 못 쓰는 키를 남겨두면 로그인 화면에 돌아와도 같은 실패를 반복한다
+      try { localStorage.removeItem(SITE_KEY_STORAGE); } catch {}
+
+      if (pollTimer) clearInterval(pollTimer);
+      location.replace("/login.html?reason=" + encodeURIComponent(reason));
+    }
+
     // fetch 감싸서 에러 응답이면 메시지 같이 던져줌 (모든 요청에 사이트 키를 붙임)
     async function api(path, options = {}) {
       const headers = { ...(options.headers || {}) };
@@ -929,6 +949,16 @@
 
       const res = await fetch(path, { ...options, headers });
       const body = await res.json().catch(() => ({}));
+
+      // 키 문제는 상태 코드로 판단한다.
+      // 예전에는 서버가 보낸 한국어 메시지에 정규식을 걸었는데,
+      // 문구만 바뀌어도 조용히 깨지는 구조였다.
+      //   401 = 키를 아예 안 보냄, 403 = 보냈지만 무효(폐기·오타)
+      if (res.status === 401 || res.status === 403) {
+        bounceToLogin(res.status === 401 ? "missing" : "invalid");
+        throw new Error(body.error || "접근 키를 확인할 수 없습니다.");
+      }
+
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       return body;
     }
@@ -1730,12 +1760,11 @@
         state.origin = $("site-filter").value;
       } catch (err) {
         state.origin = "";
-        // 401/403이면 키 문제 — 조용히 넘어가면 원인을 못 찾는다
-        if (/키/.test(err.message)) {
-          setStatus(false, err.message);
-          $("site-filter").innerHTML = `<option value="">접근 불가</option>`;
-          $("site-filter").disabled = true;
-        }
+        // 키 문제(401/403)는 api()가 이미 로그인 화면으로 보냈다.
+        // 여기 오는 건 그 외의 실패이므로 화면에 그대로 드러낸다.
+        setStatus(false, err.message);
+        $("site-filter").innerHTML = `<option value="">접근 불가</option>`;
+        $("site-filter").disabled = true;
       }
     }
 
@@ -1807,7 +1836,18 @@
       refresh();
     });
     // 전문가 화면도 같은 키를 써야 데이터가 보인다 (localStorage 공유라 최초 1회만 필요)
+    // withKey를 붙이는 이유: 시크릿 모드처럼 localStorage 쓰기가 막힌 브라우저에서는
+    // 전문가 화면이 저장소에서 키를 못 읽는다. 쿼리로 넘겨야 그런 경우에도 이어진다.
     $("expert-view").addEventListener("click", () => { window.location.href = withKey("/dashboard.html"); });
+    $("open-help").addEventListener("click", () => { window.location.href = "/help.html"; });
+
+    // 담당자가 여러 쇼핑몰을 번갈아 볼 때 쓰는 버튼.
+    // 이게 없으면 키를 바꾸려고 localStorage를 직접 지우는 수밖에 없었다.
+    $("sign-out").addEventListener("click", () => {
+      try { localStorage.removeItem(SITE_KEY_STORAGE); } catch {}
+      if (pollTimer) clearInterval(pollTimer);
+      window.location.href = "/login.html";
+    });
     $("rediscover-types").addEventListener("click", rediscoverCustomerTypes);
     async function downloadWeeklyReport() {
       const button = $("download-report");
@@ -1861,7 +1901,7 @@
       await loadSites();
       await refresh();
       if (state.sessions[0]) selectSession(state.sessions[0].session_id);
-      setInterval(refresh, 2500);
+      pollTimer = setInterval(refresh, 2500);
     })();
   </script>
 </body>

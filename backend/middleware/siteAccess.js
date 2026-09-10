@@ -126,6 +126,18 @@ const _keyCache = new Map();   // key → { origin | null, expires }
 function invalidateKeyCache(key) {
   if (key) _keyCache.delete(key);
   else _keyCache.clear();
+
+  // 개방 모드 판정 캐시(_anyKeyCache)도 함께 비운다.
+  //
+  // 이게 없으면 배포 직후 첫 키를 발급해도 최대 60초 동안 서버가 계속
+  // 개방 모드로 동작한다. _hasAnyDbKey()가 "키 없음(false)"을 캐시한 채로
+  // 남아 있어서, resolveOrigin()이 키를 요구하지 않고 통과시키기 때문이다.
+  // 하필 그 60초가 "키를 막 발급한 직후" = 사람들이 링크를 눌러보는 순간이다.
+  _anyKeyCache = { value: false, expires: 0 };
+
+  // 수집 허용 origin 목록도 같이 비운다.
+  // 새 쇼핑몰에 키를 발급하면 그 즉시 그 사이트의 이벤트를 받아야 한다.
+  _knownOrigins = { set: null, expires: 0 };
 }
 
 // last_used_at을 매 요청마다 쓰면 DB 쓰기가 과해진다. 5분에 한 번만 갱신.
@@ -199,6 +211,60 @@ async function resolveOrigin(req) {
   if (fromDb) return { ok: true, origin: fromDb, openMode: false };
 
   return { ok: false, status: 403, error: '유효하지 않은 접근 키입니다.' };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  수집 허용 origin (POST /collect 용)
+// ══════════════════════════════════════════════════════════════
+//
+// /collect은 접근 키를 요구하지 않는다. 쇼핑몰 페이지에서 직접 호출되므로
+// 키를 심으면 그 키가 페이지 소스에 그대로 공개되기 때문이다.
+//
+// 대신 "우리가 키를 발급한 적 있는 쇼핑몰인지"만 본다.
+// Origin 헤더는 브라우저가 붙이는 값이라 웹페이지는 위조할 수 없지만,
+// curl 한 줄이면 아무 origin이나 달 수 있다. 확인하지 않으면 남의 가게
+// 통계에 가짜 이벤트를 섞어 넣을 수 있다.
+
+const KNOWN_ORIGIN_TTL_MS = 60 * 1000;
+let _knownOrigins = { set: null, expires: 0 };
+
+async function _loadKnownOrigins() {
+  if (_knownOrigins.set && _knownOrigins.expires > Date.now()) return _knownOrigins.set;
+
+  // 한 쇼핑몰이 여러 도메인으로 열린다.
+  //   카페24 기본(hshh2020.cafe24.com) / 독립 도메인(dignolucir.co.kr)
+  //   www 붙은 것 / API 도메인(cafe24api.com)
+  // 키는 대표 origin 하나에만 발급하므로 여기서 alias 전체로 펼쳐야 한다.
+  // 펼치지 않으면 손님이 실제로 쓰는 도메인에서 온 이벤트가 조용히 버려진다.
+  // (조회 경로는 이미 originVariants를 쓴다. 읽기와 쓰기가 같은 기준이어야 한다.)
+  const set = new Set();
+  for (const o of SITE_KEY_MAP.values()) {
+    originVariants(o).forEach((v) => set.add(v));
+  }
+
+  try {
+    const docs = await require('../models/SiteKey')
+      .find({ revoked: false }, { origin: 1 })
+      .lean();
+    docs.forEach((d) => originVariants(d.origin).forEach((v) => set.add(v)));
+  } catch {
+    // DB를 못 읽는 상황에서 수집까지 막으면 장애 시간만큼 데이터가 통째로 사라진다.
+    // 조회(requireSite)는 안전한 쪽으로 닫지만, 수집은 열어두는 편이 손실이 적다.
+    return null;
+  }
+
+  _knownOrigins = { set, expires: Date.now() + KNOWN_ORIGIN_TTL_MS };
+  return set;
+}
+
+/**
+ * 이 origin으로 들어온 이벤트를 저장해도 되는지 판단한다.
+ * 등록된 쇼핑몰이 하나도 없으면(개방 모드/로컬 개발) 전부 허용한다.
+ */
+async function isCollectableOrigin(origin) {
+  const known = await _loadKnownOrigins();
+  if (!known || known.size === 0) return true;   // 판정 불가 또는 개방 모드
+  return known.has(normalizeOrigin(origin));
 }
 
 // DB에 유효한 키가 하나라도 있는지 (개방 모드 판정용). 짧게 캐시한다.
@@ -356,6 +422,7 @@ module.exports = {
   requireSite,
   requireAdmin,
   isAdminEnabled,
+  isCollectableOrigin,
   migrateEnvKeysToDb,
   invalidateKeyCache,
   resolveOrigin,

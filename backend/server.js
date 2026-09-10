@@ -81,7 +81,10 @@ app.use((req, res, next) => {
 // "이 요청이 볼 수 있는 쇼핑몰"이 고정된다. 클라이언트가 origin을 못 바꾼다.
 app.use('/collect', collectRouter);
 app.use('/api/logs',     requireSite, logsRouter);
-app.use('/api/predict',  predictRouter);
+// predict는 DB를 읽지 않고 요청 body를 Python 분류 서버로 넘기기만 한다.
+// 그래서 남의 데이터가 새지는 않지만, 키가 없으면 인터넷 아무나 내부 분류 서버를
+// 호출할 수 있는 무인증 프록시가 된다. 다른 조회 API와 같은 기준을 적용한다.
+app.use('/api/predict',  requireSite, predictRouter);
 app.use('/api/clusters', requireSite, clustersRouter);
 app.use('/api/classify', requireSite, classifyRouter);
 app.use('/api/report',   requireSite, reportRouter);
