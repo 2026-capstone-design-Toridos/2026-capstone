@@ -775,12 +775,31 @@
     try { return localStorage.getItem("gt_site_key") || ""; } catch { return ""; }
   })();
 
+  /* 키가 없거나 폐기되면 로그인 화면으로 한 번만 보낸다.
+     (operator-dashboard.html과 같은 처리 — 저장소도 gt_site_key로 공유한다) */
+  let authBounced = false;
+
+  function bounceToLogin(reason) {
+    if (authBounced) return;
+    authBounced = true;
+    try { localStorage.removeItem("gt_site_key"); } catch {}
+    if (state.refreshTimer) clearInterval(state.refreshTimer);
+    location.replace("/login.html?reason=" + encodeURIComponent(reason));
+  }
+
   async function api(path, options = {}) {
     const headers = { ...(options.headers || {}) };
     if (siteKey) headers["X-GT-Key"] = siteKey;
 
     const res = await fetch(`${API}${path}`, { ...options, headers });
     const body = await res.json().catch(() => ({}));
+
+    // 401 = 키 미전달, 403 = 무효한 키. 메시지 문구가 아니라 상태 코드로 판단한다.
+    if (res.status === 401 || res.status === 403) {
+      bounceToLogin(res.status === 401 ? "missing" : "invalid");
+      throw new Error(body.error || "접근 키를 확인할 수 없습니다.");
+    }
+
     if (!res.ok) throw new Error(body.error || body.message || `HTTP ${res.status}`);
     return body;
   }

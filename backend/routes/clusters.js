@@ -865,19 +865,83 @@ router.post('/run', async (req, res) => {
   }
 });
 
+/**
+ * CSV 한 줄을 컬럼으로 나눈다. 따옴표 안의 콤마는 구분자로 치지 않는다.
+ *
+ * sequence 컬럼에 콤마가 들어가면 파이썬 csv.DictWriter가 따옴표로 감싸는데,
+ * 단순 split(',')으로 자르면 그 행부터 컬럼이 통째로 밀린다.
+ */
+function splitCsvLine(line) {
+  const out = [];
+  let cur = '';
+  let quoted = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+
+    if (quoted) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i += 1; }   // "" 는 리터럴 따옴표
+        else quoted = false;
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === ',') {
+      out.push(cur);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+
+  out.push(cur);
+  return out;
+}
+
 // ── GET /api/clusters/sessions ────────────────────────────────────
-// 저장된 semantic_cluster_results.csv를 운영자 화면에서 볼 수 있게 JSON으로 변환한다
-router.get('/sessions', (req, res) => {
+// 저장된 semantic_cluster_results.csv를 운영자 화면에서 볼 수 있게 JSON으로 변환한다.
+//
+// 이 CSV에는 origin 컬럼이 없다.
+//   session_id, cluster, probability, pca_x, pca_y, original_length, used_length, sequence
+// 학습 파이프라인이 전 사이트 세션을 한꺼번에 돌려서 만들기 때문이다.
+// 그래서 그대로 내려주면 A몰 사장님 화면에 B몰 세션이 그대로 섞여 나온다.
+// (지금까지 안 터진 건 이 CSV가 아직 생성된 적이 없어서 404였을 뿐이다)
+//
+// 막는 방법: 이 쇼핑몰에 속한 session_id를 Event에서 먼저 뽑고, 그 집합에 든 행만 남긴다.
+// ML 출력 형식을 건드리지 않고 처리할 수 있는 가장 얕은 지점이다.
+// 나중에 파이프라인이 origin 컬럼을 같이 써주면 이 조회는 지워도 된다.
+router.get('/sessions', async (req, res) => {
   try {
     if (!fs.existsSync(RESULTS_PATH)) {
       return res.status(404).json({ error: 'semantic_cluster_results.csv not found.' });
     }
-    const lines = fs.readFileSync(RESULTS_PATH, 'utf-8').trim().split('\n');
-    const headers = lines[0].split(',');
-    const rows = lines.slice(1).map(line => {
-      const cols = line.split(',');
-      return Object.fromEntries(headers.map((h, i) => [h.trim(), cols[i]?.trim()]));
-    });
+
+    // 파이썬이 utf-8-sig로 저장해서 맨 앞에 BOM이 붙는다.
+    // 안 지우면 첫 컬럼 이름이 'session_id'가 아니라 '﻿session_id'가 되어
+    // 아래 session_id 매칭이 전부 빗나간다.
+    const raw = fs.readFileSync(RESULTS_PATH, 'utf-8').replace(/^﻿/, '').trim();
+
+    const lines   = raw.split(/\r?\n/);
+    const headers = splitCsvLine(lines[0]).map((h) => h.trim());
+
+    let rows = lines.slice(1)
+      .filter(Boolean)
+      .map((line) => {
+        const cols = splitCsvLine(line);
+        return Object.fromEntries(headers.map((h, i) => [h, (cols[i] ?? '').trim()]));
+      });
+
+    // 키 모드에서는 자기 쇼핑몰 세션만 남긴다.
+    // 개방 모드(siteOrigin === null)는 기존처럼 전체를 돌려준다.
+    if (req.siteOrigin) {
+      const ownSessions = new Set(
+        await Event.distinct('session_id', originCondition(req.siteOrigin)),
+      );
+      rows = rows.filter((r) => ownSessions.has(r.session_id));
+    }
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

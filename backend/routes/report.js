@@ -757,9 +757,35 @@ router.post('/session', async (req, res) => {
 });
 
 // ── GET /api/report/cache/clear ───────────────────────────────────────────────
+// 자기 쇼핑몰 리포트만 다시 만들게 한다.
+//
+// 예전에는 reportCache.clear()로 전체를 날렸다. 이 라우터는 requireSite만
+// 통과하면 되므로, 사장님 아무나 다른 모든 쇼핑몰의 캐시까지 지울 수 있었다.
+// 그러면 남의 리포트가 전부 Gemini 재호출로 넘어가 비용과 지연이 같이 튄다.
+//
+// 캐시 키가 `${siteKey(origin)}:${clusterId}:${version}` 형태라
+// 앞부분만 보고 자기 것만 골라 지울 수 있다.
 router.get('/cache/clear', (req, res) => {
-  reportCache.clear();
-  res.json({ message: '캐시 초기화 완료' });
+  const origin = req.siteOrigin || null;
+
+  // 개방 모드(로컬 개발)에서는 볼 수 있는 사이트가 고정돼 있지 않으므로 기존대로 전체 삭제
+  if (!origin) {
+    const total = reportCache.size;
+    reportCache.clear();
+    return res.json({ message: '캐시 초기화 완료', cleared: total, scope: 'all' });
+  }
+
+  const prefix = `${siteKey(origin)}:`;
+  let cleared = 0;
+
+  for (const key of [...reportCache.keys()]) {
+    if (key.startsWith(prefix)) {
+      reportCache.delete(key);
+      cleared += 1;
+    }
+  }
+
+  res.json({ message: '캐시 초기화 완료', cleared, scope: origin });
 });
 
 // ── GET /api/report/weekly/download ───────────────────────────────────────────
