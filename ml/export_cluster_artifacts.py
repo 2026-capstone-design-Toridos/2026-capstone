@@ -108,6 +108,57 @@ def build_profiles(rows: List[dict], labels: np.ndarray, top_n: int = 8) -> Dict
     return profiles
 
 
+def calibrate_inference_gate(normed: np.ndarray, centroids: np.ndarray, labels: np.ndarray) -> dict:
+    """HDBSCAN 정상 군집 정밀도 95%를 목표로 운영 gate를 보정한다."""
+    positives = labels >= 0
+    if not positives.any():
+        return {
+            "min_tokens": 3, "min_similarity": 0.95, "min_margin": 0.05,
+            "max_unknown_ratio": 0.20, "calibration": "fallback_no_clustered_samples",
+        }
+
+    centroid_norm = centroids / (np.linalg.norm(centroids, axis=1, keepdims=True) + 1e-9)
+    similarities = normed @ centroid_norm.T
+    top = np.sort(similarities, axis=1)
+    best = top[:, -1]
+    margins = top[:, -1] - top[:, -2] if top.shape[1] > 1 else np.ones(len(top))
+    positive_count = int(positives.sum())
+    selected = None
+    for similarity_threshold in np.arange(0.55, 0.991, 0.005):
+        for margin_threshold in np.arange(0.0, 0.301, 0.005):
+            predicted = (best >= similarity_threshold) & (margins >= margin_threshold)
+            accepted = int(predicted.sum())
+            if not accepted:
+                continue
+            true_positive = int((predicted & positives).sum())
+            precision = true_positive / accepted
+            recall = true_positive / positive_count
+            if precision < 0.95:
+                continue
+            score = (recall, precision, -similarity_threshold, -margin_threshold)
+            if selected is None or score > selected[0]:
+                selected = (score, similarity_threshold, margin_threshold, accepted)
+
+    if selected is None:
+        return {
+            "min_tokens": 3, "min_similarity": 0.95, "min_margin": 0.05,
+            "max_unknown_ratio": 0.20, "calibration": "conservative_fallback",
+        }
+
+    score, similarity_threshold, margin_threshold, accepted = selected
+    return {
+        "min_tokens": 3,
+        "min_similarity": round(float(similarity_threshold), 4),
+        "min_margin": round(float(margin_threshold), 4),
+        "max_unknown_ratio": 0.20,
+        "target_precision": 0.95,
+        "estimated_precision": round(float(score[1]), 4),
+        "estimated_recall": round(float(score[0]), 4),
+        "accepted_training_samples": accepted,
+        "calibration": "grid_search_against_hdbscan_noise_labels",
+    }
+
+
 # ── 페르소나 이름 부여 ───────────────────────────────────────
 #
 # 클러스터 id 는 재실행할 때마다 바뀐다. id 에 이름을 고정하면 다음 학습에서
@@ -147,10 +198,10 @@ PERSONA_RULES = [
         "test": lambda a, pg, prof: pg.get("CATEGORY", 0) >= 0.40 and a.get("ADD_CART", 0) < 0.01,
     },
     {
-        "id": "active_buyer",
-        "name": "구매까지 진행하는 활발한 고객",
-        "summary": "여러 화면을 오가며 장바구니에 담고 입력까지 진행합니다. 가장 오래 머무는 유형입니다.",
-        "action": "이 경로에서 이탈이 생기면 손실이 가장 큽니다. 결제 단계를 우선 점검하세요.",
+        "id": "high_engagement",
+        "name": "깊게 탐색하는 활동 고객",
+        "summary": "여러 화면을 오가며 장바구니와 입력 행동까지 보이는 체류가 긴 유형입니다.",
+        "action": "구매 고객으로 단정하지 말고 별도 전환 지표와 함께 결제 경로를 점검하세요.",
         "test": lambda a, pg, prof: (
             a.get("EDIT_INPUT", 0) >= 0.04
             or (a.get("ADD_CART", 0) >= 0.03 and prof.get("avg_length", 0) >= 50)
@@ -255,6 +306,7 @@ def main() -> None:
     centroids = np.stack(
         [normed[labels == cid].mean(axis=0) for cid in cluster_ids]
     ).astype(np.float32)
+    inference_gate = calibrate_inference_gate(normed, centroids, labels)
 
     profiles = build_profiles(rows, labels)
     overrides = load_overrides(args.labels)
@@ -308,6 +360,7 @@ def main() -> None:
         "noise_ratio": metrics.get("noise_ratio"),
         "duplicate_sequence_ratio": metrics.get("duplicate_sequence_ratio"),
         "cluster_quality": quality,
+        "inference_quality_gate": inference_gate,
     }
 
     print("=== Export 점검 ===")

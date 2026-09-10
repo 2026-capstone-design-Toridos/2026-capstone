@@ -1717,7 +1717,10 @@
         sites.forEach((site) => {
           const option = document.createElement("option");
           option.value = site;
-          option.textContent = site.replace(/^https?:\/\//, "");
+          const hostname = site.replace(/^https?:\/\//, "");
+          option.textContent = hostname === "dignolucir.co.kr"
+            ? `${hostname} (4개 주소 통합)`
+            : hostname;
           if (site === DEMO_ORIGIN) option.selected = true;
           $("site-filter").appendChild(option);
         });

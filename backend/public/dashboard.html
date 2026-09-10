@@ -1061,14 +1061,18 @@
     try {
       const sites = await api("/api/logs/sites");
       const select = $("site-filter");
-      select.innerHTML = `<option value="">전체 사이트</option>`;
+      select.innerHTML = siteKey ? "" : `<option value="">전체 사이트</option>`;
       sites.forEach((site) => {
         const option = document.createElement("option");
         option.value = site;
-        option.textContent = site.replace(/^https?:\/\//, "");
+        const hostname = site.replace(/^https?:\/\//, "");
+        option.textContent = hostname === "dignolucir.co.kr"
+          ? `${hostname} (4개 주소 통합)`
+          : hostname;
         if (site === DEMO_ORIGIN) option.selected = true;
         select.appendChild(option);
       });
+      select.disabled = Boolean(siteKey);
       state.origin = select.value || "";
     } catch (err) {
       console.warn("[sites]", err.message);

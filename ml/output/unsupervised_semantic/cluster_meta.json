@@ -2,12 +2,15 @@
   "generated_at": "2026-08-19T16:15:03",
   "generated_by": "export_cluster_artifacts.py",
   "model_class": "SessionTransformerEncoder",
-  "num_clusters": 4,
+  "num_clusters": 7,
   "cluster_ids": [
     0,
     1,
     2,
-    3
+    3,
+    4,
+    5,
+    6
   ],
   "embedding_dim": 64,
   "vocab": {
@@ -228,529 +231,327 @@
   "vocab_size": 213,
   "cluster_counts": {
     "0": 11,
-    "1": 40,
-    "2": 31,
-    "3": 18
+    "1": 18,
+    "2": 25,
+    "3": 11,
+    "4": 20,
+    "5": 29,
+    "6": 23
   },
-  "noise_count": 32,
+  "noise_count": 85,
   "session_count": 132,
   "cluster_profiles": {
-    "0": {
-      "count": 11,
-      "avg_length": 42.91,
+    "2": {
+      "count": 25,
       "top_actions": [
         {
           "action": "VIEW_PRODUCT",
-          "count": 103
+          "count": 561
         },
         {
           "action": "SCROLL_PRODUCT",
-          "count": 92
-        },
-        {
-          "action": "START_SESSION",
-          "count": 48
+          "count": 488
         },
         {
           "action": "SCROLL_CATEGORY",
-          "count": 33
-        },
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 30
-        },
-        {
-          "action": "EXIT_SESSION",
-          "count": 24
-        },
-        {
-          "action": "VIEW_REVIEW",
-          "count": 22
-        },
-        {
-          "action": "CLICK_ELEMENT",
-          "count": 19
-        }
-      ],
-      "top_tokens": [
-        {
-          "token": "CATEGORY|VIEW_PRODUCT|REVISIT_ONCE",
-          "count": 74
-        },
-        {
-          "token": "CATEGORY|SCROLL_PRODUCT|SCROLL_LOW",
-          "count": 37
-        },
-        {
-          "token": "CATEGORY|SCROLL_CATEGORY|NONE",
-          "count": 33
-        },
-        {
-          "token": "CATEGORY|SCROLL_PRODUCT|SCROLL_MID",
-          "count": 29
-        },
-        {
-          "token": "PRODUCT|VIEW_PRODUCT|REVISIT_ONCE",
-          "count": 22
-        },
-        {
-          "token": "CATEGORY|START_SESSION|NONE",
-          "count": 20
-        },
-        {
-          "token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW",
-          "count": 20
-        },
-        {
-          "token": "PRODUCT|VIEW_REVIEW|NONE",
-          "count": 16
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 256,
-        "PRODUCT": 161,
-        "HOME": 39,
-        "CART": 5
-      },
-      "action_share": {
-        "START_SESSION": 0.10412147505422993,
-        "EXIT_BOUNCE": 0.03253796095444685,
-        "SCROLL_HOME": 0.013015184381778741,
-        "CLICK_ELEMENT": 0.04121475054229935,
-        "VIEW_REVIEW": 0.04772234273318872,
-        "REVIEW_EXPLORATION_EPISODE": 0.01735357917570499,
-        "EXIT_SESSION": 0.052060737527114966,
-        "VIEW_PRODUCT": 0.22342733188720174,
-        "TAB_OUT": 0.008676789587852495,
-        "TAB_RETURN": 0.004338394793926247,
-        "HOVER_ELEMENT": 0.0650759219088937,
-        "DISTRACTED_EPISODE": 0.006507592190889371,
-        "ZOOM_IMAGE": 0.021691973969631236,
-        "SCROLL_PRODUCT": 0.19956616052060738,
-        "ADD_CART": 0.0021691973969631237,
-        "INACTIVE": 0.004338394793926247,
-        "START_INPUT": 0.0021691973969631237,
-        "EDIT_INPUT": 0.0021691973969631237,
-        "CHECK_SIZE": 0.028199566160520606,
-        "SCROLL_CATEGORY": 0.07158351409978309,
-        "CHECK_PRICE": 0.03470715835140998,
-        "PRICE_REVIEW_EPISODE": 0.013015184381778741,
-        "SIZE_CHECK_EPISODE": 0.004338394793926247
-      },
-      "page_share": {
-        "HOME": 0.08459869848156182,
-        "PRODUCT": 0.3492407809110629,
-        "CATEGORY": 0.5553145336225597,
-        "CART": 0.010845986984815618
-      }
-    },
-    "1": {
-      "count": 40,
-      "avg_length": 20.65,
-      "top_actions": [
-        {
-          "action": "CHECK_PRICE",
-          "count": 518
-        },
-        {
-          "action": "PRICE_REVIEW_EPISODE",
-          "count": 84
+          "count": 140
         },
         {
           "action": "START_SESSION",
-          "count": 51
+          "count": 120
         },
         {
-          "action": "ADD_CART",
-          "count": 51
+          "action": "HOVER_ELEMENT",
+          "count": 89
+        },
+        {
+          "action": "EXIT_SESSION",
+          "count": 55
+        },
+        {
+          "action": "CLICK_ELEMENT",
+          "count": 47
         },
         {
           "action": "VIEW_REVIEW",
-          "count": 14
+          "count": 45
         },
         {
-          "action": "TAB_OUT",
+          "action": "CHECK_SIZE",
+          "count": 44
+        },
+        {
+          "action": "SCROLL_HOME",
+          "count": 40
+        }
+      ],
+      "page_dist": {
+        "CATEGORY": 1223,
+        "PRODUCT": 470,
+        "HOME": 119,
+        "CART": 5
+      }
+    },
+    "6": {
+      "count": 23,
+      "top_actions": [
+        {
+          "action": "START_SESSION",
+          "count": 23
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 23
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 23
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 21
+        },
+        {
+          "action": "SCROLL_REVIEW",
+          "count": 2
+        },
+        {
+          "action": "PRICE_REVIEW_EPISODE",
+          "count": 1
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 93
+      }
+    },
+    "5": {
+      "count": 29,
+      "top_actions": [
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 44
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 29
+        },
+        {
+          "action": "START_SESSION",
+          "count": 28
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 24
+        },
+        {
+          "action": "SCROLL_REVIEW",
+          "count": 2
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 127
+      }
+    },
+    "1": {
+      "count": 18,
+      "top_actions": [
+        {
+          "action": "CHECK_PRICE",
+          "count": 68
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 23
+        },
+        {
+          "action": "START_SESSION",
+          "count": 18
+        },
+        {
+          "action": "PRICE_REVIEW_EPISODE",
+          "count": 18
+        },
+        {
+          "action": "EXIT_BOUNCE",
+          "count": 7
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 6
+        },
+        {
+          "action": "VIEW_REVIEW",
+          "count": 6
+        },
+        {
+          "action": "INACTIVE",
+          "count": 2
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 148
+      }
+    },
+    "0": {
+      "count": 11,
+      "top_actions": [
+        {
+          "action": "SCROLL_CATEGORY",
+          "count": 13
+        },
+        {
+          "action": "START_SESSION",
           "count": 11
         },
         {
           "action": "VIEW_PRODUCT",
-          "count": 10
+          "count": 11
         },
         {
-          "action": "INACTIVE",
-          "count": 10
-        }
-      ],
-      "top_tokens": [
-        {
-          "token": "PRODUCT|CHECK_PRICE|SCROLL_HIGH",
-          "count": 203
-        },
-        {
-          "token": "PRODUCT|CHECK_PRICE|SCROLL_MID",
-          "count": 139
-        },
-        {
-          "token": "PRODUCT|CHECK_PRICE|SCROLL_LOW",
-          "count": 101
-        },
-        {
-          "token": "PRODUCT|PRICE_REVIEW_EPISODE|STRONG",
-          "count": 84
-        },
-        {
-          "token": "PRODUCT|CHECK_PRICE|DWELL_SHORT",
-          "count": 64
-        },
-        {
-          "token": "PRODUCT|ADD_CART|NONE",
-          "count": 49
-        },
-        {
-          "token": "[CLS]",
-          "count": 40
-        },
-        {
-          "token": "HOME|START_SESSION|NONE",
-          "count": 34
+          "action": "EXIT_BOUNCE",
+          "count": 2
         }
       ],
       "page_dist": {
-        "PRODUCT": 740,
-        "HOME": 46
-      },
-      "action_share": {
-        "START_SESSION": 0.0648854961832061,
-        "CHECK_PRICE": 0.6590330788804071,
-        "PRICE_REVIEW_EPISODE": 0.10687022900763359,
-        "ADD_CART": 0.0648854961832061,
-        "CHECK_SHIPPING": 0.005089058524173028,
-        "VIEW_REVIEW": 0.017811704834605598,
-        "REVIEW_EXPLORATION_EPISODE": 0.003816793893129771,
-        "VIEW_PRODUCT": 0.01272264631043257,
-        "CHECK_SIZE": 0.005089058524173028,
-        "CLICK_ELEMENT": 0.001272264631043257,
-        "HOVER_ELEMENT": 0.005089058524173028,
-        "DISTRACTED_EPISODE": 0.005089058524173028,
-        "SIZE_CHECK_EPISODE": 0.001272264631043257,
-        "TAB_RETURN": 0.010178117048346057,
-        "TAB_OUT": 0.013994910941475827,
-        "INACTIVE": 0.01272264631043257,
-        "START_INPUT": 0.002544529262086514,
-        "EDIT_INPUT": 0.001272264631043257,
-        "ABANDON_INPUT": 0.001272264631043257,
-        "SCROLL_PRODUCT": 0.002544529262086514,
-        "EXIT_BOUNCE": 0.002544529262086514
-      },
-      "page_share": {
-        "HOME": 0.058524173027989825,
-        "PRODUCT": 0.9414758269720102
-      }
-    },
-    "2": {
-      "count": 31,
-      "avg_length": 32.87,
-      "top_actions": [
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 181
-        },
-        {
-          "action": "HOVER_ELEMENT",
-          "count": 135
-        },
-        {
-          "action": "VIEW_REVIEW",
-          "count": 77
-        },
-        {
-          "action": "START_SESSION",
-          "count": 55
-        },
-        {
-          "action": "CHECK_SIZE",
-          "count": 54
-        },
-        {
-          "action": "VIEW_PRODUCT",
-          "count": 47
-        },
-        {
-          "action": "CLICK_ELEMENT",
-          "count": 45
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 39
-        }
-      ],
-      "top_tokens": [
-        {
-          "token": "PRODUCT|HOVER_ELEMENT|NONE",
-          "count": 102
-        },
-        {
-          "token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID",
-          "count": 80
-        },
-        {
-          "token": "PRODUCT|SCROLL_PRODUCT|SCROLL_LOW",
-          "count": 46
-        },
-        {
-          "token": "PRODUCT|ZOOM_IMAGE|NONE",
-          "count": 37
-        },
-        {
-          "token": "PRODUCT|VIEW_REVIEW|DWELL_SHORT",
-          "count": 35
-        },
-        {
-          "token": "PRODUCT|VIEW_PRODUCT|REVISIT_ONCE",
-          "count": 35
-        },
-        {
-          "token": "HOME|SCROLL_HOME|NONE",
-          "count": 33
-        },
-        {
-          "token": "PRODUCT|CLICK_ELEMENT|NONE",
-          "count": 32
-        }
-      ],
-      "page_dist": {
-        "PRODUCT": 785,
-        "HOME": 116,
-        "CART": 50,
-        "CATEGORY": 14,
-        "MEMBER": 12,
-        "CHECKOUT": 11
-      },
-      "action_share": {
-        "START_SESSION": 0.05566801619433198,
-        "ENTER_HOME": 0.010121457489878543,
-        "DISTRACTED_EPISODE": 0.02631578947368421,
-        "ENTER_PRODUCT": 0.024291497975708502,
-        "CLICK_ELEMENT": 0.04554655870445344,
-        "HOVER_ELEMENT": 0.13663967611336034,
-        "CHECK_PRICE": 0.039473684210526314,
-        "SCROLL_HOME": 0.03340080971659919,
-        "PRICE_REVIEW_EPISODE": 0.008097165991902834,
-        "SCROLL_PRODUCT": 0.18319838056680163,
-        "CHECK_SHIPPING": 0.027327935222672066,
-        "SHIPPING_CHECK_EPISODE": 0.005060728744939271,
-        "INACTIVE": 0.01720647773279352,
-        "TAB_OUT": 0.020242914979757085,
-        "VIEW_PRODUCT": 0.04757085020242915,
-        "VIEW_REVIEW": 0.07793522267206478,
-        "TAB_RETURN": 0.008097165991902834,
-        "ADD_CART": 0.032388663967611336,
-        "ZOOM_IMAGE": 0.03744939271255061,
-        "REVIEW_EXPLORATION_EPISODE": 0.019230769230769232,
-        "ENTER_CART": 0.006072874493927126,
-        "REMOVE_CART": 0.006072874493927126,
-        "CHECK_SIZE": 0.05465587044534413,
-        "ENTER_CHECKOUT": 0.0010121457489878543,
-        "CLICK_BUY": 0.008097165991902834,
-        "START_INPUT": 0.0010121457489878543,
-        "EDIT_INPUT": 0.0010121457489878543,
-        "ABANDON_INPUT": 0.0010121457489878543,
-        "SIZE_CHECK_EPISODE": 0.013157894736842105,
-        "EXIT_BOUNCE": 0.005060728744939271,
-        "SCROLL_PAGE": 0.0020242914979757085,
-        "SCROLL_REVIEW": 0.030364372469635626,
-        "EXIT_SESSION": 0.008097165991902834,
-        "VIEW_SECTION": 0.005060728744939271,
-        "CART_ABANDON": 0.0010121457489878543,
-        "SCROLL_CATEGORY": 0.0010121457489878543
-      },
-      "page_share": {
-        "HOME": 0.11740890688259109,
-        "PRODUCT": 0.7945344129554656,
-        "CART": 0.05060728744939271,
-        "CHECKOUT": 0.011133603238866396,
-        "MEMBER": 0.012145748987854251,
-        "CATEGORY": 0.01417004048582996
+        "CATEGORY": 37
       }
     },
     "3": {
-      "count": 18,
-      "avg_length": 74.56,
+      "count": 11,
       "top_actions": [
         {
+          "action": "SCROLL_PRODUCT",
+          "count": 174
+        },
+        {
           "action": "HOVER_ELEMENT",
-          "count": 193
+          "count": 150
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 141
         },
         {
           "action": "SCROLL_HOME",
-          "count": 161
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 113
-        },
-        {
-          "action": "VIEW_PRODUCT",
-          "count": 93
-        },
-        {
-          "action": "CLICK_ELEMENT",
-          "count": 89
-        },
-        {
-          "action": "EDIT_INPUT",
-          "count": 82
+          "count": 107
         },
         {
           "action": "ZOOM_IMAGE",
-          "count": 74
+          "count": 85
         },
         {
-          "action": "ADD_CART",
-          "count": 59
-        }
-      ],
-      "top_tokens": [
-        {
-          "token": "HOME|SCROLL_HOME|NONE",
-          "count": 161
-        },
-        {
-          "token": "HOME|HOVER_ELEMENT|NONE",
-          "count": 117
-        },
-        {
-          "token": "PRODUCT|VIEW_PRODUCT|REVISIT_ONCE",
-          "count": 91
-        },
-        {
-          "token": "PRODUCT|HOVER_ELEMENT|NONE",
-          "count": 74
-        },
-        {
-          "token": "PRODUCT|ZOOM_IMAGE|NONE",
-          "count": 74
-        },
-        {
-          "token": "PRODUCT|EDIT_INPUT|NONE",
-          "count": 57
-        },
-        {
-          "token": "PRODUCT|SCROLL_PRODUCT|SCROLL_MID",
-          "count": 49
-        },
-        {
-          "token": "HOME|CLICK_ELEMENT|NONE",
+          "action": "START_SESSION",
           "count": 44
+        },
+        {
+          "action": "VIEW_REVIEW",
+          "count": 27
+        },
+        {
+          "action": "CHECK_SIZE",
+          "count": 26
+        },
+        {
+          "action": "CLICK_ELEMENT",
+          "count": 24
+        },
+        {
+          "action": "EXIT_BOUNCE",
+          "count": 21
         }
       ],
       "page_dist": {
-        "PRODUCT": 773,
-        "HOME": 540,
-        "CART": 11
-      },
-      "action_share": {
-        "START_SESSION": 0.024924471299093656,
-        "SCROLL_HOME": 0.1216012084592145,
-        "DISTRACTED_EPISODE": 0.015861027190332326,
-        "CLICK_ELEMENT": 0.06722054380664652,
-        "HOVER_ELEMENT": 0.14577039274924472,
-        "ADD_CART": 0.0445619335347432,
-        "START_INPUT": 0.03625377643504532,
-        "EDIT_INPUT": 0.061933534743202415,
-        "CLICK_BUY": 0.015861027190332326,
-        "TAB_OUT": 0.011329305135951661,
-        "INACTIVE": 0.00906344410876133,
-        "ENTER_PRODUCT": 0.009818731117824773,
-        "SCROLL_PRODUCT": 0.08534743202416918,
-        "VIEW_REVIEW": 0.03700906344410876,
-        "ZOOM_IMAGE": 0.055891238670694864,
-        "CHECK_SHIPPING": 0.03700906344410876,
-        "CHECK_PRICE": 0.0256797583081571,
-        "PRICE_REVIEW_EPISODE": 0.0037764350453172208,
-        "SHIPPING_CHECK_EPISODE": 0.00906344410876133,
-        "ENTER_HOME": 0.012084592145015106,
-        "ENTER_CART": 0.0007552870090634441,
-        "TAB_RETURN": 0.0030211480362537764,
-        "SEARCH_USE": 0.0188821752265861,
-        "VIEW_PRODUCT": 0.0702416918429003,
-        "ABANDON_INPUT": 0.004531722054380665,
-        "CHECK_SIZE": 0.04003021148036254,
-        "REVIEW_EXPLORATION_EPISODE": 0.0075528700906344415,
-        "SCROLL_REVIEW": 0.006042296072507553,
-        "SIZE_CHECK_EPISODE": 0.006797583081570997,
-        "REMOVE_CART": 0.0007552870090634441,
-        "EXIT_SESSION": 0.006042296072507553,
-        "EXIT_BOUNCE": 0.005287009063444109
-      },
-      "page_share": {
-        "HOME": 0.4078549848942598,
-        "PRODUCT": 0.5838368580060423,
-        "CART": 0.008308157099697885
+        "PRODUCT": 619,
+        "HOME": 227,
+        "CATEGORY": 40,
+        "MEMBER": 35
+      }
+    },
+    "4": {
+      "count": 20,
+      "top_actions": [
+        {
+          "action": "VIEW_REVIEW",
+          "count": 39
+        },
+        {
+          "action": "START_SESSION",
+          "count": 20
+        },
+        {
+          "action": "REVIEW_EXPLORATION_EPISODE",
+          "count": 19
+        },
+        {
+          "action": "INACTIVE",
+          "count": 15
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 5
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 3
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 3
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 104
       }
     }
   },
-  "nlp_labels": {
-    "0": {
-      "id": "list_bouncer",
-      "name": "목록만 훑고 나가는 고객",
-      "summary": "카테고리 목록을 스크롤하다 상품에 들어가지 않고 이탈합니다. 끌리는 상품을 못 찾았습니다.",
-      "action": "목록 썸네일과 첫 화면 상품 구성을 점검하세요.",
-      "source": "rule"
-    },
-    "1": {
-      "id": "price_checker",
-      "name": "가격을 반복 확인하는 고객",
-      "summary": "상품 페이지에서 가격 구간을 계속 오가며 확인합니다. 구매 의사는 있으나 가격에서 망설입니다.",
-      "action": "할인 조건이나 무료배송 기준을 가격 근처에 함께 보여주세요.",
-      "source": "rule"
-    },
-    "2": {
-      "id": "detail_reader",
-      "name": "상품 상세를 꼼꼼히 보는 고객",
-      "summary": "상품 페이지를 천천히 내리며 이미지·리뷰·사이즈를 두루 봅니다.",
-      "action": "상세 이미지 하단에 담기 버튼을 한 번 더 두면 이탈을 줄일 수 있습니다.",
-      "source": "rule"
-    },
-    "3": {
-      "id": "active_buyer",
-      "name": "구매까지 진행하는 활발한 고객",
-      "summary": "여러 화면을 오가며 장바구니에 담고 입력까지 진행합니다. 가장 오래 머무는 유형입니다.",
-      "action": "이 경로에서 이탈이 생기면 손실이 가장 큽니다. 결제 단계를 우선 점검하세요.",
-      "source": "rule"
-    }
-  },
-  "silhouette": 0.4597,
-  "davies_bouldin": 1.0331,
+  "silhouette": 0.4322,
+  "davies_bouldin": 0.8743,
   "calinski_harabasz": 83.06,
   "noise_ratio": 0.2424,
   "duplicate_sequence_ratio": 0.1136,
   "cluster_quality": {
-    "n_sessions": 132,
-    "n_clusters": 4,
-    "n_noise": 32,
-    "noise_ratio": 0.2424,
-    "cluster_sizes": {
-      "0": 11,
-      "1": 40,
-      "2": 31,
-      "3": 18
-    },
-    "min_cluster_size_observed": 11,
-    "max_cluster_size_observed": 40,
-    "silhouette": 0.4597,
-    "davies_bouldin": 1.0331,
-    "calinski_harabasz": 83.06,
-    "duplicate_sequence_ratio": 0.1136,
-    "unique_sequences": 123,
-    "generated_at": "2026-08-19T15:37:54",
-    "params": {
-      "min_cluster_size": 8,
-      "min_samples": 2,
-      "l2_normalized": true
-    },
-    "sample_count": 132,
-    "noise_count": 32,
-    "noise_rate": 0.2424
-  }
+    "sample_count": 222,
+    "clustered_session_count": 137,
+    "noise_count": 85,
+    "noise_rate": 0.3829,
+    "silhouette": 0.4322,
+    "davies_bouldin": 0.8743,
+    "metrics_note": "",
+    "stability": {
+      "avg_profile_stability": 1.0,
+      "per_cluster": {
+        "2": 1.0,
+        "6": 1.0,
+        "5": 1.0,
+        "1": 1.0,
+        "0": 1.0,
+        "3": 1.0,
+        "4": 1.0
+      },
+      "method": "top_actions/page_dist Jaccard similarity against previous run"
+    }
+  },
+  "last_retrain": "2026-09-10T16:39:13.728181",
+  "retrain_session_count": 222,
+  "inference_quality_gate": {
+    "min_tokens": 3,
+    "max_unknown_ratio": 0.2,
+    "min_similarity": 0.92,
+    "min_margin": 0.03,
+    "target_precision": 0.95,
+    "estimated_precision": 0.9524,
+    "estimated_recall": 0.8759,
+    "accepted_training_samples": 126,
+    "calibration": "grid_search_against_hdbscan_noise_labels"
+  },
+  "retrain_origins": [
+    "https://dignolucir.co.kr",
+    "https://dignolucir.co.kr/",
+    "https://hshh2020.cafe24.com",
+    "https://hshh2020.cafe24.com/",
+    "https://hshh2020.cafe24api.com",
+    "https://hshh2020.cafe24api.com/",
+    "https://www.dignolucir.co.kr",
+    "https://www.dignolucir.co.kr/"
+  ]
 }

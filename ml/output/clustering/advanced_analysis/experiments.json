@@ -1,0 +1,3906 @@
+{
+  "candidates": [
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 33,
+          "1": 68
+        },
+        "silhouette": 0.24428558349609375,
+        "silhouette_cosine": 0.3890705406665802,
+        "db": 1.6748700663357907,
+        "ch": 29.642568588256836,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.2371307909488678,
+        "min_cluster": 33,
+        "largest_share": 0.6732673267326733
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7900552615388093,
+        "p10": 0.5661736357100134,
+        "p90": 1.0,
+        "values": [
+          1.0,
+          0.5762208174881004,
+          0.7582721908168727,
+          0.7582721908168727,
+          1.0,
+          0.7089243370074624,
+          1.0,
+          0.4757489997072314,
+          0.6231140795515535,
+          1.0
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 30,
+          "1": 49,
+          "2": 22
+        },
+        "silhouette": 0.23937778174877167,
+        "silhouette_cosine": 0.38718995451927185,
+        "db": 1.4939827475192942,
+        "ch": 31.335695266723633,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.25748929381370544,
+        "min_cluster": 22,
+        "largest_share": 0.48514851485148514
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.9720546951739836,
+        "p10": 0.9528954037880464,
+        "p90": 1.0,
+        "values": [
+          1.0,
+          0.915869082935469,
+          1.0,
+          0.9582876279256412,
+          1.0,
+          0.9727290811124291,
+          1.0,
+          0.958512096558845,
+          0.9581396237691191,
+          0.9570094394383327
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 15,
+          "1": 29,
+          "2": 35,
+          "3": 22
+        },
+        "silhouette": 0.2388831377029419,
+        "silhouette_cosine": 0.38444676995277405,
+        "db": 1.4415451652172835,
+        "ch": 29.662189483642578,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.25435733795166016,
+        "min_cluster": 15,
+        "largest_share": 0.3465346534653465
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.9097048225522046,
+        "p10": 0.8595917443826498,
+        "p90": 0.9763881271416279,
+        "values": [
+          0.8844684977096307,
+          0.8821687536932317,
+          0.9737645857129199,
+          1.0,
+          0.9212002826150202,
+          0.9398187244556596,
+          0.9406595685255559,
+          0.92724161214339,
+          0.9713275400792252,
+          0.6563986605874139
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 16,
+          "1": 22,
+          "2": 11,
+          "3": 37,
+          "4": 15
+        },
+        "silhouette": 0.2623137831687927,
+        "silhouette_cosine": 0.419202595949173,
+        "db": 1.2829999787645339,
+        "ch": 29.047903060913086,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.2663116455078125,
+        "min_cluster": 11,
+        "largest_share": 0.36633663366336633
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.834955892986836,
+        "p10": 0.5517517332312418,
+        "p90": 0.9634502469647709,
+        "values": [
+          0.964308972563418,
+          0.9220528856370868,
+          0.5558372836511961,
+          0.9633548330093656,
+          0.9326399936459435,
+          0.9035785773568324,
+          0.7798281078347341,
+          0.9210482639481697,
+          0.5149817794516537,
+          0.8919282327699601
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      },
+      "holdout": {
+        "n": 34,
+        "assigned": 34,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 3,
+          "1": 10,
+          "2": 3,
+          "3": 15,
+          "4": 3
+        },
+        "silhouette": 0.27727043628692627,
+        "silhouette_cosine": 0.41453349590301514,
+        "db": 1.07561418300936,
+        "ch": 11.362476348876953,
+        "negative_fraction": 0.14705882352941177,
+        "macro_silhouette": 0.3166060447692871,
+        "min_cluster": 3,
+        "largest_share": 0.4411764705882353
+      },
+      "holdout_method": "nearest development centroid, unique unseen patterns, no abstention"
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 15,
+          "1": 21,
+          "2": 20,
+          "3": 13,
+          "4": 9,
+          "5": 23
+        },
+        "silhouette": 0.23079174757003784,
+        "silhouette_cosine": 0.3685563802719116,
+        "db": 1.4713257484496352,
+        "ch": 26.709705352783203,
+        "negative_fraction": 0.019801980198019802,
+        "macro_silhouette": 0.24496042728424072,
+        "min_cluster": 9,
+        "largest_share": 0.22772277227722773
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.8030365715587171,
+        "p10": 0.5607195198116309,
+        "p90": 0.9344707804356654,
+        "values": [
+          0.897711989708548,
+          0.9293157322394593,
+          0.980866214201521,
+          0.8933881864132301,
+          0.5633469071582651,
+          0.7764743010740986,
+          0.537073033691923,
+          0.8474190161221858,
+          0.8088551716986537,
+          0.7959151632792875
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 10,
+          "1": 19,
+          "2": 24,
+          "3": 14,
+          "4": 13,
+          "5": 12,
+          "6": 9
+        },
+        "silhouette": 0.2100466936826706,
+        "silhouette_cosine": 0.3370414078235626,
+        "db": 1.5186435646193535,
+        "ch": 25.14262580871582,
+        "negative_fraction": 0.0297029702970297,
+        "macro_silhouette": 0.22969986498355865,
+        "min_cluster": 9,
+        "largest_share": 0.2376237623762376
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.8640969670274969,
+        "p10": 0.7199135552577991,
+        "p90": 0.9727139594002137,
+        "values": [
+          1.0,
+          0.8647421570935462,
+          0.935290335742237,
+          0.8446778997690216,
+          0.727891711707888,
+          0.9696821771113485,
+          0.8471177965413722,
+          0.9399610887055915,
+          0.8634963563969649,
+          0.6481101472069991
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 10,
+          "1": 23,
+          "2": 13,
+          "3": 8,
+          "4": 15,
+          "5": 2,
+          "6": 18,
+          "7": 12
+        },
+        "silhouette": 0.21335706114768982,
+        "silhouette_cosine": 0.3463486135005951,
+        "db": 1.4158601447863468,
+        "ch": 23.363370895385742,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.22588279843330383,
+        "min_cluster": 2,
+        "largest_share": 0.22772277227722773
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "ward",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 77,
+          "1": 24
+        },
+        "silhouette": 0.2430984228849411,
+        "silhouette_cosine": 0.3876926600933075,
+        "db": 1.4307272993128104,
+        "ch": 28.939167022705078,
+        "negative_fraction": 0.0297029702970297,
+        "macro_silhouette": 0.2791908085346222,
+        "min_cluster": 24,
+        "largest_share": 0.7623762376237624
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.9209989609182692,
+        "p10": 0.8274223127733024,
+        "p90": 1.0,
+        "values": [
+          0.7932178449486854,
+          1.0,
+          1.0,
+          0.8415183805330485,
+          1.0,
+          1.0,
+          1.0,
+          0.8964752528476866,
+          0.8475553216550135,
+          0.8312228091982597
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "ward",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 26,
+          "1": 24,
+          "2": 51
+        },
+        "silhouette": 0.22618333995342255,
+        "silhouette_cosine": 0.35355350375175476,
+        "db": 1.6639659954234516,
+        "ch": 26.899520874023438,
+        "negative_fraction": 0.10891089108910891,
+        "macro_silhouette": 0.2330247163772583,
+        "min_cluster": 24,
+        "largest_share": 0.504950495049505
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7685920017127763,
+        "p10": 0.5110026135314711,
+        "p90": 1.0,
+        "values": [
+          0.8308096258545552,
+          1.0,
+          0.8869659530924036,
+          0.47460167057448144,
+          0.9189738049490936,
+          1.0,
+          0.6807242306060177,
+          0.5260673448360345,
+          0.5150471627489145,
+          0.8527302244662625
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "ward",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 51,
+          "1": 24,
+          "2": 14,
+          "3": 12
+        },
+        "silhouette": 0.24697664380073547,
+        "silhouette_cosine": 0.3778541386127472,
+        "db": 1.3197733240156042,
+        "ch": 26.069501876831055,
+        "negative_fraction": 0.0891089108910891,
+        "macro_silhouette": 0.3006953001022339,
+        "min_cluster": 12,
+        "largest_share": 0.504950495049505
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7739635783697782,
+        "p10": 0.5322778173491256,
+        "p90": 1.0,
+        "values": [
+          0.848152337259933,
+          1.0,
+          0.9003911765285327,
+          0.535902859863604,
+          0.9309158644997937,
+          1.0,
+          0.6071580119874821,
+          0.4996524347188199,
+          0.566700631461487,
+          0.8507624673781303
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "ward",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 41,
+          "1": 24,
+          "2": 14,
+          "3": 12,
+          "4": 10
+        },
+        "silhouette": 0.25854870676994324,
+        "silhouette_cosine": 0.401640385389328,
+        "db": 1.2942546153244259,
+        "ch": 26.496946334838867,
+        "negative_fraction": 0.0594059405940594,
+        "macro_silhouette": 0.28345710039138794,
+        "min_cluster": 10,
+        "largest_share": 0.40594059405940597
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.8340560146214028,
+        "p10": 0.5912976403774666,
+        "p90": 0.9554729742639332,
+        "values": [
+          0.8604179737383078,
+          1.0,
+          0.9025213326393422,
+          0.5937936749747693,
+          0.9505255269599258,
+          0.9353578332600313,
+          0.8572657775239884,
+          0.8214904679376083,
+          0.5688333290017413,
+          0.8503542301783125
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "ward",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 24,
+          "1": 10,
+          "2": 14,
+          "3": 12,
+          "4": 27,
+          "5": 14
+        },
+        "silhouette": 0.20796000957489014,
+        "silhouette_cosine": 0.32249295711517334,
+        "db": 1.4520535702707489,
+        "ch": 24.40667724609375,
+        "negative_fraction": 0.0891089108910891,
+        "macro_silhouette": 0.2192736119031906,
+        "min_cluster": 10,
+        "largest_share": 0.26732673267326734
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.6505805816056157,
+        "p10": 0.5891542681071854,
+        "p90": 0.6924002411955006,
+        "values": [
+          0.6011307633301447,
+          0.6568662139376444,
+          0.5869762261288114,
+          0.8144784553271603,
+          0.6654870113743605,
+          0.6197568727234029,
+          0.5893962727714492,
+          0.6318759328697805,
+          0.6788359951808718,
+          0.661002072412532
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "ward",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 10,
+          "1": 27,
+          "2": 14,
+          "3": 12,
+          "4": 16,
+          "5": 14,
+          "6": 8
+        },
+        "silhouette": 0.1902625411748886,
+        "silhouette_cosine": 0.2959722876548767,
+        "db": 1.494818146502583,
+        "ch": 23.227935791015625,
+        "negative_fraction": 0.09900990099009901,
+        "macro_silhouette": 0.21590721607208252,
+        "min_cluster": 8,
+        "largest_share": 0.26732673267326734
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7422658870478192,
+        "p10": 0.5425480513266799,
+        "p90": 0.9387817247855242,
+        "values": [
+          0.5469998407955152,
+          0.9776230730979613,
+          0.806038938662991,
+          0.7473602710981946,
+          0.8828290533096025,
+          0.9344660194174758,
+          0.5994933192154125,
+          0.5024819461071619,
+          0.8337488083047915,
+          0.5916176004690858
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "ward",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 27,
+          "1": 16,
+          "2": 14,
+          "3": 12,
+          "4": 8,
+          "5": 14,
+          "6": 8,
+          "7": 2
+        },
+        "silhouette": 0.204076886177063,
+        "silhouette_cosine": 0.32286471128463745,
+        "db": 1.378875419511389,
+        "ch": 22.402711868286133,
+        "negative_fraction": 0.0891089108910891,
+        "macro_silhouette": 0.2310265302658081,
+        "min_cluster": 2,
+        "largest_share": 0.26732673267326734
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "average",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 99,
+          "1": 2
+        },
+        "silhouette": 0.2219868302345276,
+        "silhouette_cosine": 0.34659436345100403,
+        "db": 1.2032809941882752,
+        "ch": 3.4378983974456787,
+        "negative_fraction": 0.06930693069306931,
+        "macro_silhouette": 0.2537757158279419,
+        "min_cluster": 2,
+        "largest_share": 0.9801980198019802
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "average",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 75,
+          "1": 2,
+          "2": 24
+        },
+        "silhouette": 0.2316986620426178,
+        "silhouette_cosine": 0.3672642707824707,
+        "db": 1.3060732872603624,
+        "ch": 17.324787139892578,
+        "negative_fraction": 0.04950495049504951,
+        "macro_silhouette": 0.27046486735343933,
+        "min_cluster": 2,
+        "largest_share": 0.7425742574257426
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "average",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 63,
+          "1": 2,
+          "2": 24,
+          "3": 12
+        },
+        "silhouette": 0.24046280980110168,
+        "silhouette_cosine": 0.37045204639434814,
+        "db": 1.1913355135823116,
+        "ch": 20.808902740478516,
+        "negative_fraction": 0.0594059405940594,
+        "macro_silhouette": 0.2853268086910248,
+        "min_cluster": 2,
+        "largest_share": 0.6237623762376238
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "average",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 55,
+          "1": 2,
+          "2": 24,
+          "3": 12,
+          "4": 8
+        },
+        "silhouette": 0.2431904673576355,
+        "silhouette_cosine": 0.37353020906448364,
+        "db": 1.145881952125226,
+        "ch": 21.939563751220703,
+        "negative_fraction": 0.0891089108910891,
+        "macro_silhouette": 0.30082249641418457,
+        "min_cluster": 2,
+        "largest_share": 0.5445544554455446
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "average",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 41,
+          "1": 2,
+          "2": 24,
+          "3": 12,
+          "4": 8,
+          "5": 14
+        },
+        "silhouette": 0.2675023674964905,
+        "silhouette_cosine": 0.4178072214126587,
+        "db": 1.1563849249602534,
+        "ch": 24.420278549194336,
+        "negative_fraction": 0.04950495049504951,
+        "macro_silhouette": 0.29235580563545227,
+        "min_cluster": 2,
+        "largest_share": 0.40594059405940597
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "average",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 2,
+          "1": 39,
+          "2": 24,
+          "3": 12,
+          "4": 8,
+          "5": 14,
+          "6": 2
+        },
+        "silhouette": 0.25687992572784424,
+        "silhouette_cosine": 0.39912527799606323,
+        "db": 1.112693335633035,
+        "ch": 21.802654266357422,
+        "negative_fraction": 0.06930693069306931,
+        "macro_silhouette": 0.2943507730960846,
+        "min_cluster": 2,
+        "largest_share": 0.38613861386138615
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "average",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 24,
+          "1": 39,
+          "2": 14,
+          "3": 12,
+          "4": 8,
+          "5": 1,
+          "6": 2,
+          "7": 1
+        },
+        "silhouette": 0.2501967251300812,
+        "silhouette_cosine": 0.38724541664123535,
+        "db": 0.9730657744475417,
+        "ch": 19.080467224121094,
+        "negative_fraction": 0.07920792079207921,
+        "macro_silhouette": 0.23930257558822632,
+        "min_cluster": 1,
+        "largest_share": 0.38613861386138615
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 5,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 83,
+        "coverage": 0.8217821782178217,
+        "k": 2,
+        "noise": 18,
+        "counts": {
+          "0": 75,
+          "1": 8
+        },
+        "silhouette": 0.2222481667995453,
+        "silhouette_cosine": 0.32873934507369995,
+        "db": 1.0947231292458337,
+        "ch": 13.811820983886719,
+        "negative_fraction": 0.10843373493975904,
+        "macro_silhouette": 0.373097687959671,
+        "min_cluster": 8,
+        "largest_share": 0.9036144578313253
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 5,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 69,
+        "coverage": 0.6831683168316832,
+        "k": 4,
+        "noise": 32,
+        "counts": {
+          "0": 7,
+          "1": 13,
+          "2": 41,
+          "3": 8
+        },
+        "silhouette": 0.33949077129364014,
+        "silhouette_cosine": 0.5027147531509399,
+        "db": 0.9440720260591378,
+        "ch": 29.482101440429688,
+        "negative_fraction": 0.014492753623188406,
+        "macro_silhouette": 0.4482739269733429,
+        "min_cluster": 7,
+        "largest_share": 0.5942028985507246
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 8,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 83,
+        "coverage": 0.8217821782178217,
+        "k": 2,
+        "noise": 18,
+        "counts": {
+          "0": 75,
+          "1": 8
+        },
+        "silhouette": 0.2222481667995453,
+        "silhouette_cosine": 0.32873934507369995,
+        "db": 1.0947231292458337,
+        "ch": 13.811820983886719,
+        "negative_fraction": 0.10843373493975904,
+        "macro_silhouette": 0.373097687959671,
+        "min_cluster": 8,
+        "largest_share": 0.9036144578313253
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 8,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 62,
+        "coverage": 0.6138613861386139,
+        "k": 3,
+        "noise": 39,
+        "counts": {
+          "0": 13,
+          "1": 41,
+          "2": 8
+        },
+        "silhouette": 0.3754352629184723,
+        "silhouette_cosine": 0.5618581175804138,
+        "db": 0.8910382577444079,
+        "ch": 31.510581970214844,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.454317182302475,
+        "min_cluster": 8,
+        "largest_share": 0.6612903225806451
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 12,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 49,
+        "coverage": 0.48514851485148514,
+        "k": 2,
+        "noise": 52,
+        "counts": {
+          "0": 13,
+          "1": 36
+        },
+        "silhouette": 0.40637829899787903,
+        "silhouette_cosine": 0.6182386875152588,
+        "db": 0.938295740566708,
+        "ch": 35.45473098754883,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.4247598648071289,
+        "min_cluster": 13,
+        "largest_share": 0.7346938775510204
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 12,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 63,
+        "coverage": 0.6237623762376238,
+        "k": 2,
+        "noise": 38,
+        "counts": {
+          "0": 13,
+          "1": 50
+        },
+        "silhouette": 0.3541795313358307,
+        "silhouette_cosine": 0.5420569777488708,
+        "db": 1.0046397413774113,
+        "ch": 29.90298080444336,
+        "negative_fraction": 0.015873015873015872,
+        "macro_silhouette": 0.40720874071121216,
+        "min_cluster": 13,
+        "largest_share": 0.7936507936507936
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.3,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 32,
+        "coverage": 0.31683168316831684,
+        "k": 8,
+        "noise": 69,
+        "counts": {
+          "0": 5,
+          "1": 6,
+          "2": 3,
+          "3": 5,
+          "4": 3,
+          "5": 3,
+          "6": 3,
+          "7": 4
+        },
+        "silhouette": 0.5244244337081909,
+        "silhouette_cosine": 0.7529209852218628,
+        "db": 0.6359664242792862,
+        "ch": 51.68674850463867,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.5149973630905151,
+        "min_cluster": 3,
+        "largest_share": 0.1875
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.5,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 85,
+        "coverage": 0.8415841584158416,
+        "k": 3,
+        "noise": 16,
+        "counts": {
+          "0": 74,
+          "1": 3,
+          "2": 8
+        },
+        "silhouette": 0.15598326921463013,
+        "silhouette_cosine": 0.21129284799098969,
+        "db": 1.048577519197709,
+        "ch": 10.213655471801758,
+        "negative_fraction": 0.2235294117647059,
+        "macro_silhouette": 0.41881516575813293,
+        "min_cluster": 3,
+        "largest_share": 0.8705882352941177
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.7,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 97,
+        "coverage": 0.9603960396039604,
+        "k": 1,
+        "noise": 4,
+        "counts": {
+          "0": 97
+        },
+        "silhouette": null,
+        "silhouette_cosine": null,
+        "db": null,
+        "ch": null,
+        "negative_fraction": null,
+        "macro_silhouette": null,
+        "min_cluster": 0,
+        "largest_share": 1.0
+      },
+      "eligible": false
+    },
+    {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.9,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 1,
+        "noise": 0,
+        "counts": {
+          "0": 101
+        },
+        "silhouette": null,
+        "silhouette_cosine": null,
+        "db": null,
+        "ch": null,
+        "negative_fraction": null,
+        "macro_silhouette": null,
+        "min_cluster": 0,
+        "largest_share": 1.0
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 54,
+          "1": 47
+        },
+        "silhouette": 0.14402631916183314,
+        "silhouette_cosine": 0.2379475453194032,
+        "db": 2.369475225790444,
+        "ch": 17.12129117834089,
+        "negative_fraction": 0.019801980198019802,
+        "macro_silhouette": 0.1475572886267596,
+        "min_cluster": 47,
+        "largest_share": 0.5346534653465347
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.9950000400573622,
+        "p10": 0.9950000400573622,
+        "p90": 1.0,
+        "values": [
+          1.0,
+          0.9500004005736215,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 19,
+          "1": 47,
+          "2": 35
+        },
+        "silhouette": 0.15569659692927365,
+        "silhouette_cosine": 0.25604708679374066,
+        "db": 2.2849817589229153,
+        "ch": 13.930782367164824,
+        "negative_fraction": 0.04950495049504951,
+        "macro_silhouette": 0.1637472715775676,
+        "min_cluster": 19,
+        "largest_share": 0.46534653465346537
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.9064386241607998,
+        "p10": 0.7386127417519041,
+        "p90": 1.0,
+        "values": [
+          0.919461648653076,
+          1.0,
+          1.0,
+          0.7564885238824353,
+          0.5777307025771229,
+          1.0,
+          1.0,
+          1.0,
+          0.9171878460060825,
+          0.8935175204892802
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 28,
+          "1": 19,
+          "2": 23,
+          "3": 31
+        },
+        "silhouette": 0.1552871353303159,
+        "silhouette_cosine": 0.24970280987973145,
+        "db": 2.2212440667049247,
+        "ch": 13.022865774789341,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.1573419953700857,
+        "min_cluster": 19,
+        "largest_share": 0.3069306930693069
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7860287285194191,
+        "p10": 0.7056641881101668,
+        "p90": 0.8675964475238543,
+        "values": [
+          0.786650811627835,
+          0.7797955908438212,
+          0.8488401879956713,
+          0.784478994814,
+          0.7808748875738186,
+          0.707098853871989,
+          0.7254945829505496,
+          0.692752196253767,
+          0.889093267265763,
+          0.8652079119969757
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 23,
+          "1": 18,
+          "2": 8,
+          "3": 31,
+          "4": 21
+        },
+        "silhouette": 0.18396087494055421,
+        "silhouette_cosine": 0.2847525180670261,
+        "db": 1.958981236332289,
+        "ch": 12.817364059687737,
+        "negative_fraction": 0.07920792079207921,
+        "macro_silhouette": 0.23643534087000387,
+        "min_cluster": 8,
+        "largest_share": 0.3069306930693069
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7926045021509942,
+        "p10": 0.6963271916070459,
+        "p90": 0.8798682364523689,
+        "values": [
+          0.8631731065875005,
+          0.8113194671907413,
+          0.7614731475243293,
+          0.5504804509073834,
+          0.8516122002127566,
+          0.8703705982701624,
+          0.9653469800922281,
+          0.7295163556185156,
+          0.7125323850181196,
+          0.810220330088205
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 11,
+          "1": 35,
+          "2": 8,
+          "3": 16,
+          "4": 19,
+          "5": 12
+        },
+        "silhouette": 0.19452880394910146,
+        "silhouette_cosine": 0.2943985464761798,
+        "db": 1.7840424747470431,
+        "ch": 11.961539646780366,
+        "negative_fraction": 0.10891089108910891,
+        "macro_silhouette": 0.24650494523670152,
+        "min_cluster": 8,
+        "largest_share": 0.3465346534653465
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7103758052513532,
+        "p10": 0.5991855419964764,
+        "p90": 0.8429004486454975,
+        "values": [
+          0.8982385928128057,
+          0.6461054882910717,
+          0.630279874671144,
+          0.6170622860565133,
+          0.8219536356155625,
+          0.8345867112683649,
+          0.604921377388535,
+          0.5475630234679493,
+          0.6662952969813453,
+          0.836751765960241
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 8,
+          "1": 18,
+          "2": 20,
+          "3": 9,
+          "4": 17,
+          "5": 10,
+          "6": 19
+        },
+        "silhouette": 0.20299911240084048,
+        "silhouette_cosine": 0.3165067049023736,
+        "db": 1.9888452392868088,
+        "ch": 11.641970398395056,
+        "negative_fraction": 0.09900990099009901,
+        "macro_silhouette": 0.23347116497232762,
+        "min_cluster": 8,
+        "largest_share": 0.19801980198019803
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.6438571289402025,
+        "p10": 0.5812384789348952,
+        "p90": 0.719961002700726,
+        "values": [
+          0.6267987940291574,
+          0.6708458710761173,
+          0.6683537468771271,
+          0.6411381460328229,
+          0.6155826731106292,
+          0.4868394850219526,
+          0.5917272560363332,
+          0.6113751271578883,
+          0.7092124796184079,
+          0.8166977104415897
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 18,
+          "1": 19,
+          "2": 20,
+          "3": 12,
+          "4": 7,
+          "5": 8,
+          "6": 9,
+          "7": 8
+        },
+        "silhouette": 0.21293626912214117,
+        "silhouette_cosine": 0.33339089300640395,
+        "db": 1.7410913083956332,
+        "ch": 11.207731090949313,
+        "negative_fraction": 0.019801980198019802,
+        "macro_silhouette": 0.21730439843263027,
+        "min_cluster": 7,
+        "largest_share": 0.19801980198019803
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7788407054931286,
+        "p10": 0.717920199072028,
+        "p90": 0.8319521203588658,
+        "values": [
+          0.7674672856325899,
+          0.8058274428455632,
+          0.7667815455242025,
+          0.8439475347661188,
+          0.7400246812011518,
+          0.6695408285920346,
+          0.8300447073851221,
+          0.8108580477677487,
+          0.7232956846809161,
+          0.8306192965358377
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      },
+      "holdout": {
+        "n": 34,
+        "assigned": 34,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 7,
+          "1": 5,
+          "2": 9,
+          "3": 5,
+          "4": 3,
+          "5": 1,
+          "6": 1,
+          "7": 3
+        },
+        "silhouette": 0.1829633721244408,
+        "silhouette_cosine": 0.27373619969607715,
+        "db": 1.3612719904453532,
+        "ch": 4.408884837194504,
+        "negative_fraction": 0.17647058823529413,
+        "macro_silhouette": 0.13658357040573724,
+        "min_cluster": 1,
+        "largest_share": 0.2647058823529412
+      },
+      "holdout_method": "nearest development centroid, unique unseen patterns, no abstention"
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "ward",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 54,
+          "1": 47
+        },
+        "silhouette": 0.14402631916183314,
+        "silhouette_cosine": 0.2379475453194032,
+        "db": 2.369475225790444,
+        "ch": 17.12129117834089,
+        "negative_fraction": 0.019801980198019802,
+        "macro_silhouette": 0.1475572886267596,
+        "min_cluster": 47,
+        "largest_share": 0.5346534653465347
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.9287367639886541,
+        "p10": 0.8167717867416465,
+        "p90": 1.0,
+        "values": [
+          0.9499939104906222,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.8537930172525682,
+          0.4835807121433515,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "ward",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 47,
+          "1": 32,
+          "2": 22
+        },
+        "silhouette": 0.1537260389824603,
+        "silhouette_cosine": 0.2536990878910884,
+        "db": 2.348574472649073,
+        "ch": 13.787522993275843,
+        "negative_fraction": 0.0297029702970297,
+        "macro_silhouette": 0.15344857235024292,
+        "min_cluster": 22,
+        "largest_share": 0.46534653465346537
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.8257860705163882,
+        "p10": 0.5369827201109215,
+        "p90": 1.0,
+        "values": [
+          0.9594027739550635,
+          0.9702945708234446,
+          1.0,
+          1.0,
+          0.5649412711851245,
+          0.7938319943475612,
+          0.5154426734090986,
+          0.5393760586333463,
+          0.9434773143609765,
+          0.9710940484492672
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "ward",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 39,
+          "1": 32,
+          "2": 22,
+          "3": 8
+        },
+        "silhouette": 0.17081408603259224,
+        "silhouette_cosine": 0.2687286658919983,
+        "db": 2.037837508182342,
+        "ch": 13.107956795051019,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.24032852815016503,
+        "min_cluster": 8,
+        "largest_share": 0.38613861386138615
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7628495949945258,
+        "p10": 0.5163285300945133,
+        "p90": 0.9714848966492223,
+        "values": [
+          0.9599258804380644,
+          0.716959937898383,
+          0.6988586588310621,
+          0.7900674234934533,
+          1.0,
+          0.4987526609244475,
+          0.5182814044467429,
+          0.7961809386404142,
+          0.6811524934402209,
+          0.9683165518324692
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "ward",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 25,
+          "1": 32,
+          "2": 22,
+          "3": 8,
+          "4": 14
+        },
+        "silhouette": 0.1764897045318429,
+        "silhouette_cosine": 0.2724656784942546,
+        "db": 1.9634442511760397,
+        "ch": 12.38456086145528,
+        "negative_fraction": 0.0594059405940594,
+        "macro_silhouette": 0.2351842701095046,
+        "min_cluster": 8,
+        "largest_share": 0.31683168316831684
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7591801279614765,
+        "p10": 0.6294908816922015,
+        "p90": 0.8466525842036441,
+        "values": [
+          0.7776165478446555,
+          0.8062314882270046,
+          0.8861218238410634,
+          0.8301730914912168,
+          0.8422671131328198,
+          0.64247414081512,
+          0.5126415495859349,
+          0.6783172340096455,
+          0.7894814759983715,
+          0.8264768146689325
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "ward",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 32,
+          "1": 14,
+          "2": 22,
+          "3": 8,
+          "4": 8,
+          "5": 17
+        },
+        "silhouette": 0.19418539754339828,
+        "silhouette_cosine": 0.2959755384208181,
+        "db": 1.8333400577160255,
+        "ch": 11.80281486855503,
+        "negative_fraction": 0.06930693069306931,
+        "macro_silhouette": 0.24446203068072572,
+        "min_cluster": 8,
+        "largest_share": 0.31683168316831684
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7823066596627808,
+        "p10": 0.6060298451323088,
+        "p90": 0.9545216078331278,
+        "values": [
+          0.878005321676328,
+          0.9029269834831521,
+          0.8539234009549681,
+          0.9494684531479198,
+          1.0,
+          0.6421165818850469,
+          0.5714615324195892,
+          0.6098707687670555,
+          0.7781553335812379,
+          0.6371382207125099
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "ward",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 17,
+          "1": 14,
+          "2": 22,
+          "3": 8,
+          "4": 8,
+          "5": 17,
+          "6": 15
+        },
+        "silhouette": 0.20298304855792026,
+        "silhouette_cosine": 0.3087348927387236,
+        "db": 2.0524030228739307,
+        "ch": 11.36970681445107,
+        "negative_fraction": 0.16831683168316833,
+        "macro_silhouette": 0.22822741861502144,
+        "min_cluster": 8,
+        "largest_share": 0.21782178217821782
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7370492015301034,
+        "p10": 0.5872908500765476,
+        "p90": 0.9203580594491285,
+        "values": [
+          0.7679012345679013,
+          0.7622964215401017,
+          0.6915194471725574,
+          0.9375130719824161,
+          0.9184519469454299,
+          0.5166997354497355,
+          0.5951343072573044,
+          0.6657288108070973,
+          0.7249125324658684,
+          0.7903345071126229
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "ward",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 14,
+          "1": 10,
+          "2": 22,
+          "3": 7,
+          "4": 8,
+          "5": 17,
+          "6": 15,
+          "7": 8
+        },
+        "silhouette": 0.21112893047314032,
+        "silhouette_cosine": 0.3244078911742788,
+        "db": 1.8080013973655324,
+        "ch": 10.89307977970212,
+        "negative_fraction": 0.0891089108910891,
+        "macro_silhouette": 0.21173838207994913,
+        "min_cluster": 7,
+        "largest_share": 0.21782178217821782
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7527634705828788,
+        "p10": 0.6290785493515936,
+        "p90": 0.8893747498648451,
+        "values": [
+          0.817823913159724,
+          0.8456716722158049,
+          0.7405365721719195,
+          0.889152823838003,
+          0.8913720841064243,
+          0.535933914639743,
+          0.6394279532084658,
+          0.6461792187959082,
+          0.7821231633032086,
+          0.7394133903895872
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "average",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 100,
+          "1": 1
+        },
+        "silhouette": 0.1093487293725293,
+        "silhouette_cosine": 0.18738412851954228,
+        "db": 0.816469755442703,
+        "ch": 1.462745629403514,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.055221108333127294,
+        "min_cluster": 1,
+        "largest_share": 0.9900990099009901
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "average",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 99,
+          "1": 1,
+          "2": 1
+        },
+        "silhouette": 0.08855007415065148,
+        "silhouette_cosine": 0.1483380903882885,
+        "db": 0.8330227711301568,
+        "ch": 1.420775369877436,
+        "negative_fraction": 0.10891089108910891,
+        "macro_silhouette": 0.030112988179177787,
+        "min_cluster": 1,
+        "largest_share": 0.9801980198019802
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "average",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 52,
+          "1": 47,
+          "2": 1,
+          "3": 1
+        },
+        "silhouette": 0.12969638652134755,
+        "silhouette_cosine": 0.21154690013245767,
+        "db": 1.5594588263417908,
+        "ch": 6.9023327592124755,
+        "negative_fraction": 0.04950495049504951,
+        "macro_silhouette": 0.06771688726733215,
+        "min_cluster": 1,
+        "largest_share": 0.5148514851485149
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "average",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 6,
+          "1": 46,
+          "2": 1,
+          "3": 1,
+          "4": 47
+        },
+        "silhouette": 0.13016361637765822,
+        "silhouette_cosine": 0.21142120255888408,
+        "db": 1.6581639079903177,
+        "ch": 6.296794975043614,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.07776790909155487,
+        "min_cluster": 1,
+        "largest_share": 0.46534653465346537
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "average",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 46,
+          "1": 5,
+          "2": 1,
+          "3": 1,
+          "4": 47,
+          "5": 1
+        },
+        "silhouette": 0.1216651700333365,
+        "silhouette_cosine": 0.19535925854274122,
+        "db": 1.4697448914990658,
+        "ch": 5.360835135755781,
+        "negative_fraction": 0.0594059405940594,
+        "macro_silhouette": 0.06525473831228068,
+        "min_cluster": 1,
+        "largest_share": 0.46534653465346537
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "average",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 40,
+          "1": 5,
+          "2": 6,
+          "3": 1,
+          "4": 47,
+          "5": 1,
+          "6": 1
+        },
+        "silhouette": 0.11698892646231807,
+        "silhouette_cosine": 0.18712771799931205,
+        "db": 1.4728566637956728,
+        "ch": 5.428670874020016,
+        "negative_fraction": 0.04950495049504951,
+        "macro_silhouette": 0.07841909997501921,
+        "min_cluster": 1,
+        "largest_share": 0.46534653465346537
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "average",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 5,
+          "1": 39,
+          "2": 6,
+          "3": 1,
+          "4": 47,
+          "5": 1,
+          "6": 1,
+          "7": 1
+        },
+        "silhouette": 0.11290919142873619,
+        "silhouette_cosine": 0.1792095442792104,
+        "db": 1.3777523160821754,
+        "ch": 4.89830101065318,
+        "negative_fraction": 0.06930693069306931,
+        "macro_silhouette": 0.06583038065938526,
+        "min_cluster": 1,
+        "largest_share": 0.46534653465346537
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 5,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 80,
+        "coverage": 0.7920792079207921,
+        "k": 5,
+        "noise": 21,
+        "counts": {
+          "0": 41,
+          "1": 8,
+          "2": 6,
+          "3": 11,
+          "4": 14
+        },
+        "silhouette": 0.2124947479973644,
+        "silhouette_cosine": 0.3079460440005445,
+        "db": 1.481332345126748,
+        "ch": 11.124605871155959,
+        "negative_fraction": 0.1,
+        "macro_silhouette": 0.2799466847862958,
+        "min_cluster": 6,
+        "largest_share": 0.5125
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 5,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 48,
+        "coverage": 0.4752475247524752,
+        "k": 5,
+        "noise": 53,
+        "counts": {
+          "0": 8,
+          "1": 12,
+          "2": 11,
+          "3": 10,
+          "4": 7
+        },
+        "silhouette": 0.387210360506512,
+        "silhouette_cosine": 0.5686839870661787,
+        "db": 1.0907713226565348,
+        "ch": 18.89301537072899,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.40237557531145407,
+        "min_cluster": 7,
+        "largest_share": 0.25
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 8,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 88,
+        "coverage": 0.8712871287128713,
+        "k": 3,
+        "noise": 13,
+        "counts": {
+          "0": 41,
+          "1": 39,
+          "2": 8
+        },
+        "silhouette": 0.18771584257131935,
+        "silhouette_cosine": 0.29378146750567813,
+        "db": 1.740154483921198,
+        "ch": 14.800270643931851,
+        "negative_fraction": 0.045454545454545456,
+        "macro_silhouette": 0.27914094292796143,
+        "min_cluster": 8,
+        "largest_share": 0.4659090909090909
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7620225602906573,
+        "p10": 0.6526448169986581,
+        "p90": 0.8327417253180193,
+        "values": [
+          0.799215792320173,
+          0.6564571094060337,
+          0.8233540791441659,
+          0.8228699551569507,
+          0.9172305408826996,
+          0.7542445922657468,
+          0.8114149010063962,
+          0.7547462282091578,
+          0.6183341853322774,
+          0.6623582191829713
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 8,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 81,
+        "coverage": 0.801980198019802,
+        "k": 3,
+        "noise": 20,
+        "counts": {
+          "0": 38,
+          "1": 35,
+          "2": 8
+        },
+        "silhouette": 0.21214658529199168,
+        "silhouette_cosine": 0.3327591268332088,
+        "db": 1.6317976671307417,
+        "ch": 15.724158650527334,
+        "negative_fraction": 0.037037037037037035,
+        "macro_silhouette": 0.2958638446709055,
+        "min_cluster": 8,
+        "largest_share": 0.4691358024691358
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 12,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 89,
+        "coverage": 0.8811881188118812,
+        "k": 2,
+        "noise": 12,
+        "counts": {
+          "0": 41,
+          "1": 48
+        },
+        "silhouette": 0.16809583551803017,
+        "silhouette_cosine": 0.2768484319967853,
+        "db": 2.1807611696120417,
+        "ch": 17.936142062016295,
+        "negative_fraction": 0.02247191011235955,
+        "macro_silhouette": 0.16629145092365324,
+        "min_cluster": 41,
+        "largest_share": 0.5393258426966292
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.8778261571939405,
+        "p10": 0.7309327892643619,
+        "p90": 0.9500984421170552,
+        "values": [
+          0.9473252565393361,
+          0.7275536402102811,
+          0.975057112316527,
+          0.9466681068528108,
+          0.8539779176257549,
+          0.9313405113331612,
+          0.9115739119896585,
+          0.9191345726540537,
+          0.7313082502703708,
+          0.8343222921474501
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 12,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 83,
+        "coverage": 0.8217821782178217,
+        "k": 2,
+        "noise": 18,
+        "counts": {
+          "0": 38,
+          "1": 45
+        },
+        "silhouette": 0.1860530660858395,
+        "silhouette_cosine": 0.3058108162095227,
+        "db": 2.039434870625343,
+        "ch": 19.08140695989371,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.18403674947890114,
+        "min_cluster": 38,
+        "largest_share": 0.5421686746987951
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.3,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 11,
+        "coverage": 0.10891089108910891,
+        "k": 3,
+        "noise": 90,
+        "counts": {
+          "0": 5,
+          "1": 3,
+          "2": 3
+        },
+        "silhouette": 0.8253804940113583,
+        "silhouette_cosine": 0.9351529871363926,
+        "db": 0.27228345898244605,
+        "ch": 140.47842176461535,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.8031188802443654,
+        "min_cluster": 3,
+        "largest_share": 0.45454545454545453
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.5,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 20,
+        "coverage": 0.19801980198019803,
+        "k": 5,
+        "noise": 81,
+        "counts": {
+          "0": 6,
+          "1": 3,
+          "2": 3,
+          "3": 3,
+          "4": 5
+        },
+        "silhouette": 0.7320627928021431,
+        "silhouette_cosine": 0.8928074256605651,
+        "db": 0.35694988714888526,
+        "ch": 50.783552411404166,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.7317465292650267,
+        "min_cluster": 3,
+        "largest_share": 0.3
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.7,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 60,
+        "coverage": 0.594059405940594,
+        "k": 10,
+        "noise": 41,
+        "counts": {
+          "0": 3,
+          "1": 8,
+          "2": 6,
+          "3": 3,
+          "4": 11,
+          "5": 4,
+          "6": 12,
+          "7": 3,
+          "8": 7,
+          "9": 3
+        },
+        "silhouette": 0.37471310024484017,
+        "silhouette_cosine": 0.5310686263919323,
+        "db": 0.9826682602872328,
+        "ch": 14.779387443632134,
+        "negative_fraction": 0.03333333333333333,
+        "macro_silhouette": 0.42501857707087964,
+        "min_cluster": 3,
+        "largest_share": 0.2
+      },
+      "eligible": false
+    },
+    {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.9,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 85,
+        "coverage": 0.8415841584158416,
+        "k": 5,
+        "noise": 16,
+        "counts": {
+          "0": 33,
+          "1": 5,
+          "2": 36,
+          "3": 3,
+          "4": 8
+        },
+        "silhouette": 0.19139389023983536,
+        "silhouette_cosine": 0.27874557846085884,
+        "db": 1.504981915671516,
+        "ch": 10.591130399610515,
+        "negative_fraction": 0.09411764705882353,
+        "macro_silhouette": 0.3578752276344081,
+        "min_cluster": 3,
+        "largest_share": 0.4235294117647059
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 43,
+          "1": 58
+        },
+        "silhouette": 0.16956712776860555,
+        "silhouette_cosine": 0.28253850025485744,
+        "db": 2.159661016190169,
+        "ch": 20.276821069597133,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.16615794890908142,
+        "min_cluster": 43,
+        "largest_share": 0.5742574257425742
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.9949998397641326,
+        "p10": 0.9949998397641328,
+        "p90": 1.0,
+        "values": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.949998397641328,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 42,
+          "1": 19,
+          "2": 40
+        },
+        "silhouette": 0.15408895081642973,
+        "silhouette_cosine": 0.25162900034110824,
+        "db": 1.96392515955832,
+        "ch": 16.623434920643263,
+        "negative_fraction": 0.04950495049504951,
+        "macro_silhouette": 0.1675291845153235,
+        "min_cluster": 19,
+        "largest_share": 0.4158415841584158
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.8261964565800879,
+        "p10": 0.48359624039322235,
+        "p90": 0.938060102101674,
+        "values": [
+          0.9384452090936598,
+          0.9380173124358978,
+          0.8492573098987958,
+          0.9100446996017286,
+          0.8513006016791065,
+          0.9344080137755537,
+          0.48051859325835594,
+          0.4839382011859853,
+          0.9380173124358978,
+          0.9380173124358978
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 21,
+          "1": 42,
+          "2": 16,
+          "3": 22
+        },
+        "silhouette": 0.1728235173543348,
+        "silhouette_cosine": 0.2809280942085656,
+        "db": 1.8476926407968552,
+        "ch": 15.840678071939374,
+        "negative_fraction": 0.06930693069306931,
+        "macro_silhouette": 0.19097010128089356,
+        "min_cluster": 16,
+        "largest_share": 0.4158415841584158
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.886280241213219,
+        "p10": 0.8306758120737269,
+        "p90": 0.9738094881588126,
+        "values": [
+          0.9750757316204471,
+          0.8349027852069313,
+          0.8467394860816598,
+          0.8804580122638983,
+          0.8307698390731881,
+          0.829829569078575,
+          0.8893656480337144,
+          0.929029613700388,
+          0.9736687944408533,
+          0.872962932632535
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      },
+      "holdout": {
+        "n": 34,
+        "assigned": 34,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 9,
+          "1": 10,
+          "2": 7,
+          "3": 8
+        },
+        "silhouette": 0.2211983675490447,
+        "silhouette_cosine": 0.34094744054004833,
+        "db": 1.704262393600871,
+        "ch": 7.3488671501883,
+        "negative_fraction": 0.029411764705882353,
+        "macro_silhouette": 0.22846616289460536,
+        "min_cluster": 7,
+        "largest_share": 0.29411764705882354
+      },
+      "holdout_method": "nearest development centroid, unique unseen patterns, no abstention"
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 17,
+          "1": 17,
+          "2": 13,
+          "3": 28,
+          "4": 26
+        },
+        "silhouette": 0.16298003727346844,
+        "silhouette_cosine": 0.2554864214590317,
+        "db": 1.8568213219587402,
+        "ch": 14.385028033418362,
+        "negative_fraction": 0.1485148514851485,
+        "macro_silhouette": 0.1904902510531656,
+        "min_cluster": 13,
+        "largest_share": 0.27722772277227725
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.6919534511471819,
+        "p10": 0.60538677705497,
+        "p90": 0.8066629792281226,
+        "values": [
+          0.7970442084206575,
+          0.6597744922170186,
+          0.6048698178982402,
+          0.6054442169612734,
+          0.893231916495309,
+          0.6833535598112872,
+          0.6212423734483175,
+          0.7562419532478727,
+          0.6525555324939836,
+          0.6457764404778594
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 16,
+          "1": 26,
+          "2": 26,
+          "3": 9,
+          "4": 18,
+          "5": 6
+        },
+        "silhouette": 0.1904326515741955,
+        "silhouette_cosine": 0.290506407725456,
+        "db": 1.6754590091763812,
+        "ch": 13.677263398249666,
+        "negative_fraction": 0.1188118811881188,
+        "macro_silhouette": 0.2554369114045257,
+        "min_cluster": 6,
+        "largest_share": 0.25742574257425743
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.6166439188608519,
+        "p10": 0.5225986450565011,
+        "p90": 0.6957324053583984,
+        "values": [
+          0.6568934970390949,
+          0.6933419295912748,
+          0.5905624139070572,
+          0.5245643867610452,
+          0.717246687262511,
+          0.6558792089791555,
+          0.5049069697156038,
+          0.586126617323399,
+          0.5979107215520952,
+          0.6390067564772827
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 23,
+          "1": 19,
+          "2": 6,
+          "3": 10,
+          "4": 17,
+          "5": 10,
+          "6": 16
+        },
+        "silhouette": 0.1980500864190494,
+        "silhouette_cosine": 0.31019687975663285,
+        "db": 1.5909896022080876,
+        "ch": 13.349235107106468,
+        "negative_fraction": 0.09900990099009901,
+        "macro_silhouette": 0.2292515344670776,
+        "min_cluster": 6,
+        "largest_share": 0.22772277227722773
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.6639655364909662,
+        "p10": 0.5878616863423305,
+        "p90": 0.733078021876958,
+        "values": [
+          0.7723716782902625,
+          0.6301722461993079,
+          0.6820503853592139,
+          0.5963754387054695,
+          0.7160510731523637,
+          0.6569920008113281,
+          0.5112379150740796,
+          0.6471213313313627,
+          0.7287120600532575,
+          0.6985712359330178
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 8,
+          "1": 16,
+          "2": 17,
+          "3": 9,
+          "4": 20,
+          "5": 16,
+          "6": 9,
+          "7": 6
+        },
+        "silhouette": 0.21513372019337676,
+        "silhouette_cosine": 0.33812811997409165,
+        "db": 1.6626889923235626,
+        "ch": 13.16399784388468,
+        "negative_fraction": 0.1188118811881188,
+        "macro_silhouette": 0.2236780505012163,
+        "min_cluster": 6,
+        "largest_share": 0.19801980198019803
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.6631215078132724,
+        "p10": 0.5974560910018224,
+        "p90": 0.7280913321049449,
+        "values": [
+          0.7184273131133982,
+          0.6574178536172613,
+          0.6291240348534842,
+          0.7774020850943928,
+          0.5995952283241962,
+          0.6926112755520352,
+          0.6139072797110414,
+          0.5782038551004585,
+          0.6419137932158953,
+          0.7226123595505618
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "ward",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 45,
+          "1": 56
+        },
+        "silhouette": 0.15439977806808194,
+        "silhouette_cosine": 0.2519489819931371,
+        "db": 2.2090430238397305,
+        "ch": 19.09171081742841,
+        "negative_fraction": 0.1188118811881188,
+        "macro_silhouette": 0.16257515296003516,
+        "min_cluster": 45,
+        "largest_share": 0.5544554455445545
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.5791193418367379,
+        "p10": 0.4487724173426626,
+        "p90": 0.7717520488662325,
+        "values": [
+          0.4487880530824579,
+          0.4486316956845047,
+          0.5570869294991317,
+          0.5955728603360012,
+          0.5570186312516546,
+          0.7626510020333899,
+          0.8536614703618168,
+          0.6354804186079299,
+          0.48351430442803317,
+          0.4487880530824579
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "ward",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 56,
+          "1": 29,
+          "2": 16
+        },
+        "silhouette": 0.14565122543440928,
+        "silhouette_cosine": 0.22953164936596904,
+        "db": 1.8422281254736417,
+        "ch": 15.757200661046431,
+        "negative_fraction": 0.1485148514851485,
+        "macro_silhouette": 0.19075812368886802,
+        "min_cluster": 16,
+        "largest_share": 0.5544554455445545
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.5862693617147581,
+        "p10": 0.5183799060928974,
+        "p90": 0.6928628896985989,
+        "values": [
+          0.5326072161946568,
+          0.542997571878117,
+          0.5804848354975158,
+          0.6522739259832022,
+          0.618874473603693,
+          0.7688986760095384,
+          0.390334115177063,
+          0.6844144689973835,
+          0.5525897261313212,
+          0.5392186076750903
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "ward",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 39,
+          "1": 29,
+          "2": 16,
+          "3": 17
+        },
+        "silhouette": 0.15533729633326823,
+        "silhouette_cosine": 0.2422113467383948,
+        "db": 2.0091537354784106,
+        "ch": 14.817816002413663,
+        "negative_fraction": 0.24752475247524752,
+        "macro_silhouette": 0.1957345437159856,
+        "min_cluster": 16,
+        "largest_share": 0.38613861386138615
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.5703796856956063,
+        "p10": 0.4716063269906005,
+        "p90": 0.7008872549125019,
+        "values": [
+          0.48293298335488427,
+          0.5416078296756879,
+          0.4241942967797377,
+          0.68073928388609,
+          0.5580655972763572,
+          0.4945933465453216,
+          0.88221899415021,
+          0.47687433034736304,
+          0.5688292345254488,
+          0.5937409604149617
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "ward",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 29,
+          "1": 23,
+          "2": 16,
+          "3": 17,
+          "4": 16
+        },
+        "silhouette": 0.179359155618977,
+        "silhouette_cosine": 0.2830228044881356,
+        "db": 2.1648401856097608,
+        "ch": 14.060665431520016,
+        "negative_fraction": 0.2079207920792079,
+        "macro_silhouette": 0.19143674255453372,
+        "min_cluster": 16,
+        "largest_share": 0.2871287128712871
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.5979848159763331,
+        "p10": 0.4504536917856457,
+        "p90": 0.7391904477371934,
+        "values": [
+          0.49817220096322107,
+          0.58837090514391,
+          0.4540006415241506,
+          0.7105967085300359,
+          0.4881280929537834,
+          0.4185311441391014,
+          0.8967168535184752,
+          0.542827732983323,
+          0.6608163662458343,
+          0.7216875137614955
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "ward",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 23,
+          "1": 23,
+          "2": 16,
+          "3": 17,
+          "4": 16,
+          "5": 6
+        },
+        "silhouette": 0.1966226103086107,
+        "silhouette_cosine": 0.30708149423736564,
+        "db": 2.0088124004227246,
+        "ch": 13.480450708973622,
+        "negative_fraction": 0.21782178217821782,
+        "macro_silhouette": 0.22732697053114145,
+        "min_cluster": 6,
+        "largest_share": 0.22772277227722773
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.6396369753790332,
+        "p10": 0.5192473069796958,
+        "p90": 0.7355263810504661,
+        "values": [
+          0.49448967313624365,
+          0.565597713499395,
+          0.659880681468725,
+          0.7170843434184428,
+          0.5219981551845239,
+          0.5277658409321411,
+          0.9015047197386759,
+          0.6509536769355859,
+          0.6485841380058588,
+          0.7085108114707398
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "ward",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 11,
+          "1": 23,
+          "2": 12,
+          "3": 17,
+          "4": 16,
+          "5": 6,
+          "6": 16
+        },
+        "silhouette": 0.20693381588960727,
+        "silhouette_cosine": 0.3283701559615809,
+        "db": 1.8836534953652637,
+        "ch": 13.25281517080858,
+        "negative_fraction": 0.1188118811881188,
+        "macro_silhouette": 0.20255295095067138,
+        "min_cluster": 6,
+        "largest_share": 0.22772277227722773
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.6983552173429752,
+        "p10": 0.5281313112401966,
+        "p90": 0.8707037856633231,
+        "values": [
+          0.5354315020951695,
+          0.637804430554582,
+          0.7536877893631856,
+          0.8644007552363,
+          0.5657155563516648,
+          0.4624295935454407,
+          0.9274310595065312,
+          0.7319814890090992,
+          0.7271113928062114,
+          0.7775586049615678
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "ward",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 23,
+          "1": 17,
+          "2": 12,
+          "3": 6,
+          "4": 16,
+          "5": 6,
+          "6": 16,
+          "7": 5
+        },
+        "silhouette": 0.21260304694715987,
+        "silhouette_cosine": 0.3391628782187294,
+        "db": 1.739791734696107,
+        "ch": 12.714041733178961,
+        "negative_fraction": 0.1188118811881188,
+        "macro_silhouette": 0.22207893879723706,
+        "min_cluster": 5,
+        "largest_share": 0.22772277227722773
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7217611571431629,
+        "p10": 0.5768744810716877,
+        "p90": 0.8258484820899552,
+        "values": [
+          0.5817625120551401,
+          0.687169289296213,
+          0.7428936363680967,
+          0.8181642292912041,
+          0.6418418200039542,
+          0.5328822022206162,
+          0.8950067572787147,
+          0.776781074620661,
+          0.8139082343301925,
+          0.7272018159668359
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      }
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "average",
+        "k": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 2,
+        "noise": 0,
+        "counts": {
+          "0": 99,
+          "1": 2
+        },
+        "silhouette": 0.15566128684499847,
+        "silhouette_cosine": 0.2631593956308101,
+        "db": 1.2841285185060372,
+        "ch": 2.786048237037244,
+        "negative_fraction": 0.0297029702970297,
+        "macro_silhouette": 0.24590919908410244,
+        "min_cluster": 2,
+        "largest_share": 0.9801980198019802
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "average",
+        "k": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 3,
+        "noise": 0,
+        "counts": {
+          "0": 97,
+          "1": 2,
+          "2": 2
+        },
+        "silhouette": 0.10783323412518064,
+        "silhouette_cosine": 0.17719009116519088,
+        "db": 1.4911985005466848,
+        "ch": 2.4232313964843026,
+        "negative_fraction": 0.06930693069306931,
+        "macro_silhouette": 0.19471486135140262,
+        "min_cluster": 2,
+        "largest_share": 0.9603960396039604
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "average",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 41,
+          "1": 56,
+          "2": 2,
+          "3": 2
+        },
+        "silhouette": 0.16629443674272223,
+        "silhouette_cosine": 0.27552144861316263,
+        "db": 1.709461011197341,
+        "ch": 8.767938491164518,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.1936732592039658,
+        "min_cluster": 2,
+        "largest_share": 0.5544554455445545
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "average",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 38,
+          "1": 56,
+          "2": 2,
+          "3": 2,
+          "4": 3
+        },
+        "silhouette": 0.15911299626948977,
+        "silhouette_cosine": 0.2629392259377013,
+        "db": 1.6795226373517047,
+        "ch": 7.49829400593888,
+        "negative_fraction": 0.04950495049504951,
+        "macro_silhouette": 0.17896830411658454,
+        "min_cluster": 2,
+        "largest_share": 0.5544554455445545
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "average",
+        "k": 6
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 6,
+        "noise": 0,
+        "counts": {
+          "0": 20,
+          "1": 56,
+          "2": 2,
+          "3": 2,
+          "4": 3,
+          "5": 18
+        },
+        "silhouette": 0.17772095147157493,
+        "silhouette_cosine": 0.2950852981946737,
+        "db": 1.5825353203857844,
+        "ch": 8.562254878562436,
+        "negative_fraction": 0.04950495049504951,
+        "macro_silhouette": 0.18657810454330037,
+        "min_cluster": 2,
+        "largest_share": 0.5544554455445545
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "average",
+        "k": 7
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 7,
+        "noise": 0,
+        "counts": {
+          "0": 56,
+          "1": 4,
+          "2": 2,
+          "3": 2,
+          "4": 3,
+          "5": 18,
+          "6": 16
+        },
+        "silhouette": 0.17474705844116048,
+        "silhouette_cosine": 0.289821581664202,
+        "db": 1.5632691389525644,
+        "ch": 7.998883193426157,
+        "negative_fraction": 0.019801980198019802,
+        "macro_silhouette": 0.17011077413361736,
+        "min_cluster": 2,
+        "largest_share": 0.5544554455445545
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "average",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 51,
+          "1": 4,
+          "2": 2,
+          "3": 2,
+          "4": 3,
+          "5": 18,
+          "6": 16,
+          "7": 5
+        },
+        "silhouette": 0.16211236685087083,
+        "silhouette_cosine": 0.26207767152232747,
+        "db": 1.5327355100712337,
+        "ch": 8.068019126535054,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.17791040536955832,
+        "min_cluster": 2,
+        "largest_share": 0.504950495049505
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 5,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 71,
+        "coverage": 0.7029702970297029,
+        "k": 8,
+        "noise": 30,
+        "counts": {
+          "0": 6,
+          "1": 5,
+          "2": 16,
+          "3": 14,
+          "4": 8,
+          "5": 8,
+          "6": 6,
+          "7": 8
+        },
+        "silhouette": 0.30234000344275347,
+        "silhouette_cosine": 0.45866271143794435,
+        "db": 1.1958264330381723,
+        "ch": 14.796987693456243,
+        "negative_fraction": 0.04225352112676056,
+        "macro_silhouette": 0.3217106043096456,
+        "min_cluster": 5,
+        "largest_share": 0.22535211267605634
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 5,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 54,
+        "coverage": 0.5346534653465347,
+        "k": 6,
+        "noise": 47,
+        "counts": {
+          "0": 6,
+          "1": 10,
+          "2": 11,
+          "3": 6,
+          "4": 7,
+          "5": 14
+        },
+        "silhouette": 0.308453984716838,
+        "silhouette_cosine": 0.4494289473310269,
+        "db": 1.2034410351999456,
+        "ch": 16.852544491570605,
+        "negative_fraction": 0.09259259259259259,
+        "macro_silhouette": 0.3435195258164923,
+        "min_cluster": 6,
+        "largest_share": 0.25925925925925924
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 8,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 69,
+        "coverage": 0.6831683168316832,
+        "k": 3,
+        "noise": 32,
+        "counts": {
+          "0": 39,
+          "1": 16,
+          "2": 14
+        },
+        "silhouette": 0.23766024356833598,
+        "silhouette_cosine": 0.3803476598992558,
+        "db": 1.5320154112918203,
+        "ch": 17.378981971240513,
+        "negative_fraction": 0.043478260869565216,
+        "macro_silhouette": 0.23497580031280885,
+        "min_cluster": 14,
+        "largest_share": 0.5652173913043478
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 8,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 58,
+        "coverage": 0.5742574257425742,
+        "k": 3,
+        "noise": 43,
+        "counts": {
+          "0": 37,
+          "1": 10,
+          "2": 11
+        },
+        "silhouette": 0.25075188377868435,
+        "silhouette_cosine": 0.3962763222279041,
+        "db": 1.3434726597420357,
+        "ch": 15.728067732995548,
+        "negative_fraction": 0.017241379310344827,
+        "macro_silhouette": 0.2738048384536875,
+        "min_cluster": 10,
+        "largest_share": 0.6379310344827587
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 12,
+        "min_samples": 2
+      },
+      "development": {
+        "n": 101,
+        "assigned": 69,
+        "coverage": 0.6831683168316832,
+        "k": 3,
+        "noise": 32,
+        "counts": {
+          "0": 39,
+          "1": 16,
+          "2": 14
+        },
+        "silhouette": 0.23766024356833598,
+        "silhouette_cosine": 0.3803476598992558,
+        "db": 1.5320154112918203,
+        "ch": 17.378981971240513,
+        "negative_fraction": 0.043478260869565216,
+        "macro_silhouette": 0.23497580031280885,
+        "min_cluster": 14,
+        "largest_share": 0.5652173913043478
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "hdbscan",
+        "min_cluster_size": 12,
+        "min_samples": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 63,
+        "coverage": 0.6237623762376238,
+        "k": 2,
+        "noise": 38,
+        "counts": {
+          "0": 26,
+          "1": 37
+        },
+        "silhouette": 0.23831081259228168,
+        "silhouette_cosine": 0.3806689437793004,
+        "db": 1.6977923287776988,
+        "ch": 20.06650917480334,
+        "negative_fraction": 0.031746031746031744,
+        "macro_silhouette": 0.23451904349001043,
+        "min_cluster": 26,
+        "largest_share": 0.5873015873015873
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.3,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 12,
+        "coverage": 0.1188118811881188,
+        "k": 4,
+        "noise": 89,
+        "counts": {
+          "0": 3,
+          "1": 3,
+          "2": 3,
+          "3": 3
+        },
+        "silhouette": 0.7030985657496419,
+        "silhouette_cosine": 0.8561021410473222,
+        "db": 0.4224155189157599,
+        "ch": 56.81491636848064,
+        "negative_fraction": 0.0,
+        "macro_silhouette": 0.7030985657496418,
+        "min_cluster": 3,
+        "largest_share": 0.25
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.5,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 46,
+        "coverage": 0.45544554455445546,
+        "k": 11,
+        "noise": 55,
+        "counts": {
+          "0": 3,
+          "1": 4,
+          "2": 5,
+          "3": 3,
+          "4": 7,
+          "5": 3,
+          "6": 8,
+          "7": 4,
+          "8": 3,
+          "9": 3,
+          "10": 3
+        },
+        "silhouette": 0.4806330931772909,
+        "silhouette_cosine": 0.6625752886225225,
+        "db": 0.717827327079037,
+        "ch": 22.963591058897702,
+        "negative_fraction": 0.021739130434782608,
+        "macro_silhouette": 0.4941194160108664,
+        "min_cluster": 3,
+        "largest_share": 0.17391304347826086
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.7,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 80,
+        "coverage": 0.7920792079207921,
+        "k": 5,
+        "noise": 21,
+        "counts": {
+          "0": 30,
+          "1": 39,
+          "2": 3,
+          "3": 5,
+          "4": 3
+        },
+        "silhouette": 0.1671919271847201,
+        "silhouette_cosine": 0.25254281395593087,
+        "db": 1.4256767480319765,
+        "ch": 9.455503687928955,
+        "negative_fraction": 0.0375,
+        "macro_silhouette": 0.274625667811322,
+        "min_cluster": 3,
+        "largest_share": 0.4875
+      },
+      "eligible": false
+    },
+    {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "dbscan",
+        "eps": 0.9,
+        "min_samples": 3
+      },
+      "development": {
+        "n": 101,
+        "assigned": 94,
+        "coverage": 0.9306930693069307,
+        "k": 1,
+        "noise": 7,
+        "counts": {
+          "0": 94
+        },
+        "silhouette": null,
+        "silhouette_cosine": null,
+        "db": null,
+        "ch": null,
+        "negative_fraction": null,
+        "macro_silhouette": null,
+        "min_cluster": 0,
+        "largest_share": 1.0
+      },
+      "eligible": false
+    }
+  ],
+  "winners": {
+    "bert": {
+      "mode": "bert",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 5
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 16,
+          "1": 22,
+          "2": 11,
+          "3": 37,
+          "4": 15
+        },
+        "silhouette": 0.2623137831687927,
+        "silhouette_cosine": 0.419202595949173,
+        "db": 1.2829999787645339,
+        "ch": 29.047903060913086,
+        "negative_fraction": 0.039603960396039604,
+        "macro_silhouette": 0.2663116455078125,
+        "min_cluster": 11,
+        "largest_share": 0.36633663366336633
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.834955892986836,
+        "p10": 0.5517517332312418,
+        "p90": 0.9634502469647709,
+        "values": [
+          0.964308972563418,
+          0.9220528856370868,
+          0.5558372836511961,
+          0.9633548330093656,
+          0.9326399936459435,
+          0.9035785773568324,
+          0.7798281078347341,
+          0.9210482639481697,
+          0.5149817794516537,
+          0.8919282327699601
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      },
+      "holdout": {
+        "n": 34,
+        "assigned": 34,
+        "coverage": 1.0,
+        "k": 5,
+        "noise": 0,
+        "counts": {
+          "0": 3,
+          "1": 10,
+          "2": 3,
+          "3": 15,
+          "4": 3
+        },
+        "silhouette": 0.27727043628692627,
+        "silhouette_cosine": 0.41453349590301514,
+        "db": 1.07561418300936,
+        "ch": 11.362476348876953,
+        "negative_fraction": 0.14705882352941177,
+        "macro_silhouette": 0.3166060447692871,
+        "min_cluster": 3,
+        "largest_share": 0.4411764705882353
+      },
+      "holdout_method": "nearest development centroid, unique unseen patterns, no abstention"
+    },
+    "atomic": {
+      "mode": "atomic",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 8
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 18,
+          "1": 19,
+          "2": 20,
+          "3": 12,
+          "4": 7,
+          "5": 8,
+          "6": 9,
+          "7": 8
+        },
+        "silhouette": 0.21293626912214117,
+        "silhouette_cosine": 0.33339089300640395,
+        "db": 1.7410913083956332,
+        "ch": 11.207731090949313,
+        "negative_fraction": 0.019801980198019802,
+        "macro_silhouette": 0.21730439843263027,
+        "min_cluster": 7,
+        "largest_share": 0.19801980198019803
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.7788407054931286,
+        "p10": 0.717920199072028,
+        "p90": 0.8319521203588658,
+        "values": [
+          0.7674672856325899,
+          0.8058274428455632,
+          0.7667815455242025,
+          0.8439475347661188,
+          0.7400246812011518,
+          0.6695408285920346,
+          0.8300447073851221,
+          0.8108580477677487,
+          0.7232956846809161,
+          0.8306192965358377
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      },
+      "holdout": {
+        "n": 34,
+        "assigned": 34,
+        "coverage": 1.0,
+        "k": 8,
+        "noise": 0,
+        "counts": {
+          "0": 7,
+          "1": 5,
+          "2": 9,
+          "3": 5,
+          "4": 3,
+          "5": 1,
+          "6": 1,
+          "7": 3
+        },
+        "silhouette": 0.1829633721244408,
+        "silhouette_cosine": 0.27373619969607715,
+        "db": 1.3612719904453532,
+        "ch": 4.408884837194504,
+        "negative_fraction": 0.17647058823529413,
+        "macro_silhouette": 0.13658357040573724,
+        "min_cluster": 1,
+        "largest_share": 0.2647058823529412
+      },
+      "holdout_method": "nearest development centroid, unique unseen patterns, no abstention"
+    },
+    "factorized": {
+      "mode": "factorized",
+      "spec": {
+        "algorithm": "kmeans",
+        "k": 4
+      },
+      "development": {
+        "n": 101,
+        "assigned": 101,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 21,
+          "1": 42,
+          "2": 16,
+          "3": 22
+        },
+        "silhouette": 0.1728235173543348,
+        "silhouette_cosine": 0.2809280942085656,
+        "db": 1.8476926407968552,
+        "ch": 15.840678071939374,
+        "negative_fraction": 0.06930693069306931,
+        "macro_silhouette": 0.19097010128089356,
+        "min_cluster": 16,
+        "largest_share": 0.4158415841584158
+      },
+      "eligible": true,
+      "stability": {
+        "mean": 0.886280241213219,
+        "p10": 0.8306758120737269,
+        "p90": 0.9738094881588126,
+        "values": [
+          0.9750757316204471,
+          0.8349027852069313,
+          0.8467394860816598,
+          0.8804580122638983,
+          0.8307698390731881,
+          0.829829569078575,
+          0.8893656480337144,
+          0.929029613700388,
+          0.9736687944408533,
+          0.872962932632535
+        ],
+        "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+      },
+      "holdout": {
+        "n": 34,
+        "assigned": 34,
+        "coverage": 1.0,
+        "k": 4,
+        "noise": 0,
+        "counts": {
+          "0": 9,
+          "1": 10,
+          "2": 7,
+          "3": 8
+        },
+        "silhouette": 0.2211983675490447,
+        "silhouette_cosine": 0.34094744054004833,
+        "db": 1.704262393600871,
+        "ch": 7.3488671501883,
+        "negative_fraction": 0.029411764705882353,
+        "macro_silhouette": 0.22846616289460536,
+        "min_cluster": 7,
+        "largest_share": 0.29411764705882354
+      },
+      "holdout_method": "nearest development centroid, unique unseen patterns, no abstention"
+    }
+  },
+  "selected": {
+    "mode": "factorized",
+    "spec": {
+      "algorithm": "kmeans",
+      "k": 4
+    },
+    "development": {
+      "n": 101,
+      "assigned": 101,
+      "coverage": 1.0,
+      "k": 4,
+      "noise": 0,
+      "counts": {
+        "0": 21,
+        "1": 42,
+        "2": 16,
+        "3": 22
+      },
+      "silhouette": 0.1728235173543348,
+      "silhouette_cosine": 0.2809280942085656,
+      "db": 1.8476926407968552,
+      "ch": 15.840678071939374,
+      "negative_fraction": 0.06930693069306931,
+      "macro_silhouette": 0.19097010128089356,
+      "min_cluster": 16,
+      "largest_share": 0.4158415841584158
+    },
+    "eligible": true,
+    "stability": {
+      "mean": 0.886280241213219,
+      "p10": 0.8306758120737269,
+      "p90": 0.9738094881588126,
+      "values": [
+        0.9750757316204471,
+        0.8349027852069313,
+        0.8467394860816598,
+        0.8804580122638983,
+        0.8307698390731881,
+        0.829829569078575,
+        0.8893656480337144,
+        0.929029613700388,
+        0.9736687944408533,
+        0.872962932632535
+      ],
+      "method": "80% unique-pattern subsampling; fixed representation; ARI including noise"
+    },
+    "holdout": {
+      "n": 34,
+      "assigned": 34,
+      "coverage": 1.0,
+      "k": 4,
+      "noise": 0,
+      "counts": {
+        "0": 9,
+        "1": 10,
+        "2": 7,
+        "3": 8
+      },
+      "silhouette": 0.2211983675490447,
+      "silhouette_cosine": 0.34094744054004833,
+      "db": 1.704262393600871,
+      "ch": 7.3488671501883,
+      "negative_fraction": 0.029411764705882353,
+      "macro_silhouette": 0.22846616289460536,
+      "min_cluster": 7,
+      "largest_share": 0.29411764705882354
+    },
+    "holdout_method": "nearest development centroid, unique unseen patterns, no abstention"
+  }
+}

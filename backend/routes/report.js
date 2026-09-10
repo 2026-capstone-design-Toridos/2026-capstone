@@ -19,7 +19,7 @@ const fs      = require('fs');
 const path    = require('path');
 const { execFile } = require('child_process');
 const router  = express.Router();
-const { normalizeOrigin } = require('../middleware/siteAccess');
+const { canonicalOrigin } = require('../middleware/siteAccess');
 const clustersRouter = require('./clusters');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -45,7 +45,7 @@ const REPORT_INPUT_DIR = path.join(REPORTS_DIR, 'inputs');
 function siteKey(origin = '') {
   // 끝 슬래시를 먼저 없앤다. 안 그러면 "site.com"과 "site.com/"이
   // 서로 다른 PDF 파일명으로 갈려서 리포트를 못 찾는다.
-  return normalizeOrigin(origin)
+  return canonicalOrigin(origin)
     .replace(/^https?:\/\//, '')
     .replace(/[^a-z0-9._-]+/g, '_');
 }
@@ -192,7 +192,7 @@ async function writeSiteResultCsv(origin) {
     'summary', 'action', 'top_actions_json', 'page_dist_json',
   ];
   const rows = result.clusters.map((cluster) => [
-    normalizeOrigin(origin), result.total_sessions, cluster.cluster, cluster.label,
+    canonicalOrigin(origin), result.total_sessions, cluster.cluster, cluster.label,
     cluster.count, cluster.summary || '', cluster.action || '',
     cluster.top_actions || [], cluster.page_dist || {},
   ].map(csvCell).join(','));
@@ -226,7 +226,7 @@ async function generatePdfReport(origin) {
         pythonBin,
         [
           scriptPath,
-          '--origin', normalizeOrigin(origin),
+          '--origin', canonicalOrigin(origin),
           '--result-csv', resultCsv,
           '--start', dateValue(startDate),
           '--end', dateValue(endDate),

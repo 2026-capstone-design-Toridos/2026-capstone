@@ -15,7 +15,12 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const Event = require('../models/Event');
-const { originCondition, normalizeOrigin } = require('../middleware/siteAccess');
+const {
+  originCondition,
+  originVariants,
+  normalizeOrigin,
+  canonicalOrigin,
+} = require('../middleware/siteAccess');
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -41,7 +46,7 @@ let clusteringJob = null;
 function snapshotKey(origin = '') {
   // normalizeOrigin으로 끝 슬래시를 먼저 없앤다.
   // 안 그러면 "site.com"과 "site.com/"이 서로 다른 스냅샷 파일로 갈린다.
-  return normalizeOrigin(origin)
+  return canonicalOrigin(origin)
     .replace(/^https?:\/\//, '')
     .replace(/[^a-z0-9._-]+/g, '_');
 }
@@ -53,12 +58,14 @@ function snapshotPath(origin = '') {
 // 사이트별 분류 결과를 마지막 실행 시점 스냅샷으로 저장
 function saveSiteSnapshot(origin, payload) {
   if (!origin) return;
+  const canonical = canonicalOrigin(origin);
   fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
   fs.writeFileSync(snapshotPath(origin), JSON.stringify({
     ...payload,
     source: 'site_snapshot',
-    origin,
-    snapshot_origin: origin,
+    origin: canonical,
+    snapshot_origin: canonical,
+    origin_variants: originVariants(origin),
     snapshot_saved_at: new Date().toISOString(),
   }, null, 2), 'utf-8');
 }
@@ -480,6 +487,41 @@ function inferPage(doc) {
   return 'home';
 }
 
+// 과거 artifact의 active_buyer 명칭은 실제 구매 완료가 아니라 입력/장바구니
+// 비율로 붙은 이름이다. 전환 지표와 혼동되지 않도록 행동 유형으로 교정한다.
+function behaviorOnlyPersona(persona = {}) {
+  if (persona.id !== 'active_buyer') return persona;
+  return {
+    ...persona,
+    id: 'high_engagement',
+    name: '깊게 탐색하는 활동 고객',
+    summary: '여러 화면과 입력·장바구니 행동을 보이는 체류가 긴 고객 유형입니다.',
+    action: '구매 고객으로 단정하지 말고 별도 전환 지표와 함께 결제 경로를 점검하세요.',
+    source: 'corrected_legacy_rule',
+  };
+}
+
+// 클러스터(행동 유형)와 구매 퍼널(전환 여부)은 서로 다른 축이다.
+// 구매 신호가 한 번 있었다고 구매형 클러스터로 이름 붙이지 않고 별도로 센다.
+function sessionFunnelSignals(events = []) {
+  const types = new Set(events.map((event) => String(event.event_type || '').toLowerCase()));
+  return {
+    guest_purchase: types.has('guest_purchase'),
+    purchase_intent: types.has('purchase_click'),
+    cart: ['add_to_cart', 'add_to_cart_success'].some((type) => types.has(type)),
+    wishlist: ['wishlist_intent', 'add_to_wishlist_success'].some((type) => types.has(type)),
+    review: ['review_click', 'review_image_click', 'review_page_change', 'review_scroll', 'review_area_scroll']
+      .some((type) => types.has(type)),
+  };
+}
+
+function incrementCounts(target, source = {}) {
+  for (const [key, value] of Object.entries(source)) {
+    const count = Number(value) || 0;
+    if (count) target.set(key, (target.get(key) || 0) + count);
+  }
+}
+
 // 사이트 최근 세션을 모아 분류 서버에 한번에 보내고 결과를 클러스터별로 집계
 async function classifySiteSessions(origin, profiles, labels) {
   // 끝 슬래시가 붙은 origin도 같이 매칭한다
@@ -506,18 +548,29 @@ async function classifySiteSessions(origin, profiles, labels) {
   const sessions = [...grouped.values()]
     .sort((a, b) => new Date(b.last_at) - new Date(a.last_at))
     .slice(0, 120)
-    .map((session) => ({
-      session_id: session.session_id,
-      events: session.events
-        .sort((a, b) => (a.event_seq || a.timestamp || 0) - (b.event_seq || b.timestamp || 0))
-        .slice(0, 128)
-        .map((doc) => ({
+    .map((session) => {
+      const ordered = session.events.sort((a, b) => {
+        const aTime = Number(a.timestamp) || new Date(a.received_at || 0).getTime();
+        const bTime = Number(b.timestamp) || new Date(b.received_at || 0).getTime();
+        return aTime - bTime || Number(a.event_seq || 0) - Number(b.event_seq || 0);
+      });
+      return {
+        session_id: session.session_id,
+        funnel: sessionFunnelSignals(ordered),
+        // 비정상적으로 긴 세션만 안전 상한을 두고 최근 이벤트를 보존한다.
+        // Python 전처리가 noise를 제거한 뒤 모델 길이에 맞춰 다시 자른다.
+        events: ordered.slice(-1000).map((doc) => ({
           event_type: doc.event_type,
-          page: inferPage(doc),
-          section: doc.data?.section || doc.section || '',
-          element_section: doc.data?.element_section || doc.element_section || '',
+          timestamp: Number(doc.timestamp) || new Date(doc.received_at || 0).getTime(),
+          event_seq: doc.event_seq,
+          inter_event_gap: doc.inter_event_gap,
+          pathname: doc.pathname,
+          page_url: doc.page_url,
+          page_type: doc.page_type || doc.data?.page_type,
+          data: doc.data || {},
         })),
-    }))
+      };
+    })
     .filter((session) => session.events.length > 0);
 
   if (!sessions.length) {
@@ -527,7 +580,7 @@ async function classifySiteSessions(origin, profiles, labels) {
       noise_count: 0,
       clusters: [],
       source: 'site_live',
-      origin,
+      origin: canonicalOrigin(origin),
     };
   }
 
@@ -547,28 +600,49 @@ async function classifySiteSessions(origin, profiles, labels) {
   const sessionById = new Map(sessions.map((session) => [session.session_id, session]));
   const siteStats = new Map();
   let noiseCount = 0;
+  const rejectionReasons = new Map();
+  const funnel = {
+    guest_purchase_sessions: 0,
+    purchase_intent_sessions: 0,
+    cart_sessions: 0,
+    wishlist_sessions: 0,
+    review_sessions: 0,
+  };
   for (const [index, result] of (body.results || []).entries()) {
+    const session = sessionById.get(result.session_id) || sessions[index];
+    if (session?.funnel?.guest_purchase) funnel.guest_purchase_sessions += 1;
+    if (session?.funnel?.purchase_intent) funnel.purchase_intent_sessions += 1;
+    if (session?.funnel?.cart) funnel.cart_sessions += 1;
+    if (session?.funnel?.wishlist) funnel.wishlist_sessions += 1;
+    if (session?.funnel?.review) funnel.review_sessions += 1;
+
     const cid = Number(result.cluster_id);
     if (!Number.isFinite(cid) || cid < 0) {
       noiseCount += 1;
+      for (const reason of result.rejection_reasons || ['unclassified']) {
+        rejectionReasons.set(reason, (rejectionReasons.get(reason) || 0) + 1);
+      }
       continue;
     }
     const stats = siteStats.get(cid) || {
       count: 0,
       actionCounts: new Map(),
       pageCounts: new Map(),
+      funnel: {
+        guest_purchase_sessions: 0,
+        purchase_intent_sessions: 0,
+        cart_sessions: 0,
+      },
     };
     stats.count += 1;
 
-    // 분류 결과의 세션과 원본 세션 순서를 연결해 해당 쇼핑몰에서 실제로
-    // 발생한 행동/페이지 분포를 result.csv에 담는다.
-    const session = sessionById.get(result.session_id) || sessions[index];
-    for (const event of session?.events || []) {
-      const action = String(event.event_type || '').trim();
-      const page = String(event.page || '').trim();
-      if (action) stats.actionCounts.set(action, (stats.actionCounts.get(action) || 0) + 1);
-      if (page) stats.pageCounts.set(page, (stats.pageCounts.get(page) || 0) + 1);
-    }
+    if (session?.funnel?.guest_purchase) stats.funnel.guest_purchase_sessions += 1;
+    if (session?.funnel?.purchase_intent) stats.funnel.purchase_intent_sessions += 1;
+    if (session?.funnel?.cart) stats.funnel.cart_sessions += 1;
+
+    // Python이 학습과 같은 규칙으로 만든 semantic 분포를 사용한다.
+    incrementCounts(stats.actionCounts, result.semantic_action_counts);
+    incrementCounts(stats.pageCounts, result.page_counts);
     siteStats.set(cid, stats);
   }
 
@@ -576,7 +650,7 @@ async function classifySiteSessions(origin, profiles, labels) {
     .sort((a, b) => a[0] - b[0])
     .map(([clusterId, stats]) => {
       const profile = profiles[String(clusterId)] || {};
-      const nlp = labels[String(clusterId)] || {};
+      const nlp = behaviorOnlyPersona(labels[String(clusterId)] || {});
       const topActions = [...stats.actionCounts.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 12)
@@ -597,6 +671,7 @@ async function classifySiteSessions(origin, profiles, labels) {
         top_actions: (topActions.length ? topActions : (profile.top_actions || []))
           .map((a) => ({ ...a, label: koAction(a.action) })),
         page_dist: Object.keys(pageDist).length ? pageDist : (profile.page_dist || {}),
+        funnel: stats.funnel,
         validation: clusterValidation(clusterId, profile, stats.count, sessions.length, {}),
       };
     }));
@@ -605,10 +680,12 @@ async function classifySiteSessions(origin, profiles, labels) {
     total_sessions: sessions.length,
     n_clusters: clusters.length,
     noise_count: noiseCount,
+    rejection_reasons: Object.fromEntries(rejectionReasons),
+    funnel,
     clusters,
     quality: qualitySummary(clusters, { noise_count: noiseCount }, sessions.length),
     source: 'site_live',
-    origin,
+    origin: canonicalOrigin(origin),
     sampled_sessions: sessions.length,
   };
 }
@@ -644,7 +721,7 @@ router.get('/', async (req, res) => {
 
     const totalSessions = Object.values(profiles).reduce((sum, profile) => sum + (profile.count || 0), 0);
     const clusters = ensureUniqueClusterLabels(Object.entries(profiles).map(([clusterId, profile]) => {
-      const nlp = labels[String(clusterId)] || {};
+      const nlp = behaviorOnlyPersona(labels[String(clusterId)] || {});
       const count = profile.count || 0;
       return {
         cluster: Number(clusterId),
@@ -681,24 +758,30 @@ router.get('/', async (req, res) => {
       }
     }
 
-    // 기본 사이트 필터는 최신 이벤트를 다시 분류해 현재 사이트 기준 분포를 보여준다
-    if (req.siteOrigin && !frozenMode) {
+    // live 모드는 항상 최신 데이터를 분류한다. frozen 모드라도 새 대표 origin의
+    // 통합 스냅샷이 아직 없으면 한 번 생성해 예전 단일-origin 결과를 쓰지 않는다.
+    if (req.siteOrigin) {
       try {
         const result = await classifySiteSessions(req.siteOrigin, profiles, labels);
+        if (frozenMode) {
+          saveSiteSnapshot(req.siteOrigin, {
+            ...result,
+            snapshot_basis: 'auto_refreshed_for_origin_alias_group',
+            last_retrain: meta.last_retrain ?? null,
+          });
+        }
         return res.json({ ...result, meta });
       } catch (siteErr) {
         console.warn('[clusters] site live fallback:', siteErr.message);
         return res.json({
-          total_sessions: totalSessions,
-          n_clusters: meta.num_clusters ?? clusters.length,
-          silhouette: meta.silhouette ?? null,
-          davies_bouldin: meta.davies_bouldin ?? null,
+          total_sessions: 0,
+          n_clusters: 0,
           noise_count: meta.noise_count ?? 0,
-          quality,
-          clusters,
-          source: 'artifact_fallback',
-          origin: req.siteOrigin,
-          warning: '사이트별 실시간 분류를 불러오지 못해 저장된 전체 클러스터 품질을 표시했습니다.',
+          quality: null,
+          clusters: [],
+          source: 'site_unavailable',
+          origin: canonicalOrigin(req.siteOrigin),
+          warning: '사이트 통합 분류를 불러오지 못했습니다. 다른 쇼핑몰 데이터가 섞이지 않도록 전체 결과로 대체하지 않았습니다.',
           meta,
         });
       }
@@ -769,7 +852,7 @@ router.post('/run', async (req, res) => {
       });
       return res.json({
         ...result,
-        snapshot_origin: requestedOrigin,
+        snapshot_origin: canonicalOrigin(requestedOrigin),
         snapshot_saved: true,
         snapshot_session_count: siteResult.total_sessions,
         snapshot_cluster_count: siteResult.n_clusters,

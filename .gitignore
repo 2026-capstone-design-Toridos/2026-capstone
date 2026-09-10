@@ -21,3 +21,15 @@ venv/
 # ML runtime outputs / backups
 ml/output/unsupervised_semantic/*_backup_*.npy
 ml/output/unsupervised_semantic/*_backup_*.json
+ml/output/clustering/*_backup_*.csv
+
+# Local analytics exports containing session-level identifiers / event flows
+ml/output/clustering/dignolucir_all_sessions.csv
+ml/output/clustering/advanced_cluster_results.csv
+ml/output/clustering/advanced_analysis/advanced_results_intermediate.csv
+ml/output/clustering/advanced_analysis/advanced_features.npz
+ml/output/clustering/advanced_analysis/baseline_embeddings.npy
+ml/output/clustering/advanced_analysis/split.json
+ml/output/unsupervised_semantic/dignolucir_*.csv
+ml/output/unsupervised_semantic/dignolucir_*.json
+tmp/run_dignolucir_clustering.cjs

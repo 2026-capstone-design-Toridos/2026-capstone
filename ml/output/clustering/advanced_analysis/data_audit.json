@@ -1,0 +1,163 @@
+{
+  "sessions": 1023,
+  "events": 31909,
+  "start": "2026-08-07T16:41:33.876+09:00",
+  "end": "2026-09-10T16:16:42.825+09:00",
+  "baseline_count": 222,
+  "assigned": 137,
+  "eligibility": "quality_eligible  clustering_input\nFalse             False               652\nTrue              False               149\n                  True                222",
+  "exclusion_reasons": {
+    "[\"too_few_semantic_tokens\"]": 508,
+    "[]": 371,
+    "[\"too_few_semantic_tokens\", \"too_many_unknown_tokens\"]": 95,
+    "[\"too_many_unknown_tokens\"]": 49
+  },
+  "quality_eligible": 371,
+  "duplicate_cap_expected": 222,
+  "eligible_unique_patterns": 142,
+  "all_unique_patterns": 188,
+  "baseline_unique_patterns": 142,
+  "zeros_received_duration": 710,
+  "multiple_starts": 45,
+  "duration_gt_30m": 19,
+  "max_duration": 80664.353,
+  "truncation_sessions": 4,
+  "lost_tokens": 672,
+  "sequence_mismatches": [],
+  "raw_event_counts": {
+    "session_start": 1185,
+    "section_enter": 7139,
+    "session_end": 465,
+    "scroll_depth": 2099,
+    "scroll_milestone": 1138,
+    "scroll_speed": 797,
+    "scroll_stop": 815,
+    "scroll_direction_change": 492,
+    "section_transition": 5577,
+    "section_exit": 4484,
+    "section_revisit": 2193,
+    "hover_dwell": 522,
+    "tab_exit": 96,
+    "mouse_move": 302,
+    "tab_return": 65,
+    "subsection_enter": 1361,
+    "subsection_exit": 322,
+    "subsection_dwell": 319,
+    "enter_product": 548,
+    "subsection_revisit": 550,
+    "click": 235,
+    "screen_resize": 264,
+    "time_to_first_click": 120,
+    "product_click": 35,
+    "inactivity": 182,
+    "image_zoom": 146,
+    "enter_category": 241,
+    "input_change": 55,
+    "field_focus": 38,
+    "field_blur": 17,
+    "add_to_cart": 8,
+    "input_abandon": 4,
+    "purchase_click": 6,
+    "cart_abandon_flag": 5,
+    "navigation": 16,
+    "paste_event": 1,
+    "rage_click": 2,
+    "option_select": 6,
+    "guest_purchase": 1,
+    "review_scroll": 13,
+    "wishlist_intent": 18,
+    "wishlist_login_required": 18,
+    "quantity_change": 9
+  },
+  "top_oov": [
+    [
+      "BOARD|START_SESSION|NONE",
+      109
+    ],
+    [
+      "BOARD|SCROLL_PAGE|NONE",
+      41
+    ],
+    [
+      "BOARD|EXIT_BOUNCE|NONE",
+      40
+    ],
+    [
+      "BOARD|VIEW_REVIEW|REVISIT_ONCE",
+      25
+    ],
+    [
+      "CATEGORY|VIEW_REVIEW|DWELL_SHORT",
+      22
+    ],
+    [
+      "CATEGORY|VIEW_REVIEW|REVISIT_ONCE",
+      22
+    ],
+    [
+      "CATEGORY|REVIEW_EXPLORATION_EPISODE|STRONG",
+      21
+    ],
+    [
+      "BOARD|SCROLL_REVIEW|SCROLL_LOW",
+      15
+    ],
+    [
+      "UNKNOWN|VIEW_SECTION|NONE",
+      15
+    ],
+    [
+      "BOARD|SCROLL_REVIEW|SCROLL_MID",
+      14
+    ],
+    [
+      "BOARD|SCROLL_REVIEW|SCROLL_HIGH",
+      14
+    ],
+    [
+      "HOME|VIEW_SECTION|NONE",
+      9
+    ],
+    [
+      "MEMBER|VIEW_REVIEW|DWELL_SHORT",
+      4
+    ],
+    [
+      "BOARD|VIEW_SECTION|NONE",
+      4
+    ],
+    [
+      "MEMBER|VIEW_REVIEW|NONE",
+      3
+    ]
+  ],
+  "source_sha256": {
+    "output\\clustering\\dignolucir_all_sessions.csv": "ef0aed2f9cc7689b26c7de7d2e4f606b40effc403e77ef9ab40b5958e6d7d7ac",
+    "output\\clustering\\cluster_results.csv": "9dc770350063e5ad66e48b90ea75b640b2f81063c2e91d1576184312bca71fa3",
+    "output\\unsupervised_semantic\\cluster_meta.json": "37b1dc65a9bd1baa2aa2caa5af486d7526ed55d939fed366e29317b3ed21a0f5",
+    "output\\unsupervised_semantic\\bert_encoder.pt": "a12e43ea202a780bbb0da518d2155246bdaac78fce1c9e63c9c7dd7ed59e6f59"
+  },
+  "source_quality": {
+    "sample_count": 222,
+    "clustered_session_count": 137,
+    "noise_count": 85,
+    "noise_rate": 0.3829,
+    "silhouette": 0.4322,
+    "davies_bouldin": 0.8743,
+    "metrics_note": "",
+    "stability": {
+      "avg_profile_stability": 1.0,
+      "per_cluster": {
+        "2": 1.0,
+        "6": 1.0,
+        "5": 1.0,
+        "1": 1.0,
+        "0": 1.0,
+        "3": 1.0,
+        "4": 1.0
+      },
+      "method": "top_actions/page_dist Jaccard similarity against previous run"
+    }
+  },
+  "legacy_noise_ratio": 0.2424
+}

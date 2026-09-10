@@ -5,7 +5,7 @@
 const express = require('express');
 const router  = express.Router();
 const Event   = require('../models/Event');
-const { originFilter } = require('../middleware/siteAccess');
+const { originFilter, canonicalOrigin } = require('../middleware/siteAccess');
 
 const RISK_EVENTS = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag'];
 
@@ -260,12 +260,12 @@ router.get('/sites', async (req, res) => {
   try {
     // 키 모드: 이 요청이 볼 수 있는 사이트는 하나뿐이다
     if (req.siteOrigin) {
-      return res.json([req.siteOrigin]);
+      return res.json([canonicalOrigin(req.siteOrigin)]);
     }
 
     // 개방 모드(SITE_KEYS 미설정, 로컬 개발): 기존처럼 전체 목록
     const sites = await Event.distinct('origin');
-    res.json(sites.filter(Boolean).sort());
+    res.json([...new Set(sites.filter(Boolean).map(canonicalOrigin))].sort());
   } catch (err) {
     res.status(500).json({ error: '서버 오류' });
   }

@@ -35,6 +35,18 @@ function normalizeOrigin(value) {
     .replace(/\/+$/, '');
 }
 
+// Cafe24 기본 도메인, API 도메인, 연결된 독립 도메인은 한 쇼핑몰에서
+// 발생할 수 있다. 사이트 키는 대표 origin 하나에만 발급하되 조회할 때는
+// 검증된 alias 그룹 전체를 같은 tenant로 취급한다.
+const ORIGIN_ALIAS_GROUPS = [
+  [
+    'https://dignolucir.co.kr',
+    'https://www.dignolucir.co.kr',
+    'https://hshh2020.cafe24.com',
+    'https://hshh2020.cafe24api.com',
+  ],
+].map((group) => group.map(normalizeOrigin));
+
 /**
  * DB에 저장된 origin의 표기 흔들림을 흡수하는 값 목록을 만든다.
  *
@@ -48,7 +60,16 @@ function normalizeOrigin(value) {
  */
 function originVariants(origin) {
   const base = normalizeOrigin(origin);
-  return base ? [base, `${base}/`] : [];
+  if (!base) return [];
+  const aliases = ORIGIN_ALIAS_GROUPS.find((group) => group.includes(base)) || [base];
+  return [...new Set(aliases.flatMap((alias) => [alias, `${alias}/`]))];
+}
+
+/** 같은 쇼핑몰의 여러 origin을 대시보드에서 표시할 대표 주소로 통일한다. */
+function canonicalOrigin(origin) {
+  const base = normalizeOrigin(origin);
+  const aliases = ORIGIN_ALIAS_GROUPS.find((group) => group.includes(base));
+  return aliases?.[0] || base;
 }
 
 // SITE_KEYS 환경변수를 { 키: origin } 형태로 파싱한다
@@ -341,6 +362,7 @@ module.exports = {
   originFilter,
   originCondition,
   originVariants,
+  canonicalOrigin,
   normalizeOrigin,
   isOpenMode,
   logAccessMode,

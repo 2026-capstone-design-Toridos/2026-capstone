@@ -16,83 +16,70 @@ MongoDB 실데이터로 클러스터 centroid 재계산
   python retrain_centroids.py --dry-run     # 임베딩만 하고 저장 안 함
 """
 
-import argparse, json, os, sys, shutil
+import argparse, csv, json, os, sys, shutil
 from collections import defaultdict
 from datetime import datetime
 import numpy as np
 import torch
+from build_session_sequences import build_semantic_sequence_for_session, event_sort_key
+from train_transformer_encoder import SessionTransformerEncoder
 
 # ── 경로 ───────────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 META_PATH  = os.path.join(BASE_DIR, 'output/unsupervised_semantic/cluster_meta.json')
 MODEL_PATH = os.path.join(BASE_DIR, 'output/unsupervised_semantic/bert_encoder.pt')
 CENT_PATH  = os.path.join(BASE_DIR, 'output/unsupervised_semantic/cluster_centroids.npy')
-MONGO_URI  = os.environ.get(
-    'MONGODB_URI',
-    'mongodb+srv://Toridos:1234@capstone.dsph0ff.mongodb.net/ghosttracker?retryWrites=true&w=majority&appName=Capstone'
-)
+RESULT_PATH = os.path.join(BASE_DIR, 'output/clustering/cluster_results.csv')
+MONGO_URI = os.environ.get('MONGODB_URI', '').strip()
 
-# ── TransformerMLM (cluster_server.py 와 동일 아키텍처) ─────────────────────────
-import torch.nn as nn
+DIGNOLUCIR_ORIGINS = {
+    'https://hshh2020.cafe24.com',
+    'https://hshh2020.cafe24api.com',
+    'https://dignolucir.co.kr',
+    'https://www.dignolucir.co.kr',
+}
 
-class TransformerMLM(nn.Module):
-    def __init__(self, vocab_size, embed_dim=64, nhead=4, num_layers=2,
-                 max_len=60, dim_feedforward=128, dropout=0.1):
-        super().__init__()
-        self.token_emb = nn.Embedding(vocab_size, embed_dim)
-        self.pos_emb   = nn.Embedding(max_len + 5, embed_dim)
-        self.norm      = nn.LayerNorm(embed_dim)
-        enc_layer = nn.TransformerEncoderLayer(
-            d_model=embed_dim, nhead=nhead,
-            dim_feedforward=dim_feedforward,
-            dropout=dropout, batch_first=True)
-        self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
-        self.head    = nn.Linear(embed_dim, vocab_size)
 
-    def forward(self, input_ids, attention_mask):
-        B, L = input_ids.shape
-        pos  = torch.arange(L, device=input_ids.device).unsqueeze(0)
-        x    = self.token_emb(input_ids) + self.pos_emb(pos)
-        x    = self.norm(x)
-        mask = (attention_mask == 0)
-        x    = self.encoder(x, src_key_padding_mask=mask)
-        return x[:, 0, :]   # [CLS] 임베딩
+def expand_origins(origins):
+    normalized = {str(origin).strip().lower().rstrip('/') for origin in (origins or [])}
+    if normalized & DIGNOLUCIR_ORIGINS:
+        normalized |= DIGNOLUCIR_ORIGINS
+    return sorted({variant for origin in normalized for variant in (origin, f'{origin}/')})
 
 
 # ── 모델 로드 ──────────────────────────────────────────────────────────────────
 # cluster_meta.json 하이퍼파라미터로 TransformerMLM을 복원하고 학습된 가중치를 로드한다
-def load_model(meta: dict, device: str = 'cpu') -> TransformerMLM:
-    state = torch.load(MODEL_PATH, map_location=device, weights_only=True)
-    if 'model_state_dict' in state:
-        state = state['model_state_dict']
+def load_model(meta: dict, device: str = 'cpu') -> SessionTransformerEncoder:
+    checkpoint = torch.load(MODEL_PATH, map_location=device, weights_only=False)
+    state = checkpoint.get('model_state_dict', checkpoint.get('encoder_state'))
+    cfg = checkpoint.get('model_config')
+    if state is None or not cfg:
+        raise RuntimeError('체크포인트에 model_state_dict/model_config가 없습니다.')
+    if cfg['vocab_size'] != len(meta['vocab']):
+        raise RuntimeError('체크포인트와 cluster_meta.json의 vocab이 다릅니다.')
 
-    # 구조 자동 감지
-    vocab_size      = meta['vocab_size']
-    embed_dim       = meta.get('embedding_dim', 64)
-    pos_key         = 'pos_emb.weight'
-    max_len         = state[pos_key].shape[0] - 5 if pos_key in state else meta.get('max_len', 60)
-    num_layers_keys = [k for k in state if k.startswith('encoder.layers.') and k.endswith('.self_attn.in_proj_weight')]
-    num_layers      = len(num_layers_keys)
-    ff_key          = 'encoder.layers.0.linear1.weight'
-    dim_feedforward = state[ff_key].shape[0] if ff_key in state else 128
-
-    model = TransformerMLM(vocab_size, embed_dim, num_layers=num_layers,
-                           max_len=max_len, dim_feedforward=dim_feedforward)
-    model.load_state_dict(state)
+    model = SessionTransformerEncoder(
+        vocab_size=cfg['vocab_size'], max_len=cfg['max_len'], pad_id=cfg['pad_id'],
+        embed_dim=cfg['embed_dim'], num_heads=cfg['num_heads'],
+        num_layers=cfg['num_layers'], ff_dim=cfg['ff_dim'], dropout=0.0,
+    )
+    model.load_state_dict(state, strict=True)
     model.to(device)
     model.eval()
+    model._gt_max_len = cfg['max_len']
+    model._gt_pooling = checkpoint.get('pooling', meta.get('pooling', 'mean'))
     return model
 
 
 # ── 세션 임베딩 ────────────────────────────────────────────────────────────────
 # 토큰 ID 시퀀스 하나를 BERT 모델로 임베딩해 numpy 벡터로 반환한다
-def embed_session(model: TransformerMLM, token_ids: list,
+def embed_session(model: SessionTransformerEncoder, token_ids: list,
                   meta: dict, device: str = 'cpu') -> np.ndarray:
-    PAD = meta['special_tokens']['PAD_ID']
-    CLS = meta['special_tokens']['CLS_ID']
-    UNK = meta['special_tokens'].get('UNK_ID', 1)
+    PAD = meta['vocab'].get('[PAD]', 0)
+    CLS = meta['vocab'].get('[CLS]', 3)
+    UNK = meta['vocab'].get('[UNK]', 1)
     vocab_size = int(meta.get('vocab_size', 0))
-    max_len = meta.get('max_len', 60)
+    max_len = model._gt_max_len
 
     safe_tokens = [
         tok if isinstance(tok, int) and 0 <= tok < vocab_size else UNK
@@ -105,40 +92,66 @@ def embed_session(model: TransformerMLM, token_ids: list,
     id_t = torch.tensor([ids], dtype=torch.long, device=device)
     mask = (id_t != PAD).long()
     with torch.no_grad():
-        emb = model(id_t, mask)
+        emb = model.encode(id_t, mask, pooling=model._gt_pooling)
     return emb[0].cpu().numpy()
 
 
 # ── MongoDB에서 세션 토큰 시퀀스 불러오기 ─────────────────────────────────────
-# MongoDB events 컬렉션에서 세션별 토큰 ID 시퀀스를 읽어온다
-def load_sessions_from_mongo() -> dict:
+# MongoDB raw event를 학습과 동일한 semantic mapper로 변환한다.
+def load_sessions_from_mongo(
+    meta: dict, origins=None, min_tokens: int = 3, max_duplicate_sequences: int = 5,
+) -> dict:
     try:
         from pymongo import MongoClient
     except ImportError:
         sys.exit('pymongo 설치 필요: pip install pymongo')
 
+    if not MONGO_URI:
+        sys.exit('MONGODB_URI 환경변수가 필요합니다.')
+
     print("MongoDB 연결 중...")
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=10000,
-                         tlsAllowInvalidCertificates=True)
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=10000)
     col = client['ghosttracker']['events']
 
+    query = {'origin': {'$in': origins}} if origins else {}
     sessions = defaultdict(list)
-    cursor   = col.find({}, {'session_id': 1, 'event_token': 1, 'event_seq': 1})
+    projection = {
+        '_id': 0, 'session_id': 1, 'event_type': 1, 'timestamp': 1,
+        'received_at': 1, 'event_seq': 1, 'inter_event_gap': 1,
+        'pathname': 1, 'page_url': 1, 'page_type': 1, 'data': 1,
+    }
+    cursor = col.find(query, projection)
     for doc in cursor:
-        tok = doc.get('event_token')
-        if tok and isinstance(tok, int) and tok > 0:   # 0=PAD 제외
-            sessions[doc['session_id']].append(
-                (doc.get('event_seq', 0), tok)
-            )
+        sid = doc.get('session_id')
+        if not sid:
+            continue
+        if doc.get('timestamp') is None and doc.get('received_at') is not None:
+            doc['timestamp'] = doc['received_at'].timestamp() * 1000
+        sessions[str(sid)].append(doc)
 
-    # event_seq 기준 정렬, token만 추출
+    vocab = meta['vocab']
+    unk = vocab.get('[UNK]', 1)
     result = {}
+    duplicate_counts = defaultdict(int)
+    duplicate_dropped = 0
     for sid, events in sessions.items():
-        events.sort(key=lambda x: x[0])
-        result[sid] = [tok for _, tok in events]
+        events.sort(key=event_sort_key)
+        sequence = build_semantic_sequence_for_session(events)['sequence']
+        if len(sequence) < min_tokens:
+            continue
+        token_ids = [vocab.get(token, unk) for token in sequence]
+        if token_ids.count(unk) / len(token_ids) > 0.20:
+            continue
+        signature = tuple(token_ids)
+        if duplicate_counts[signature] >= max_duplicate_sequences:
+            duplicate_dropped += 1
+            continue
+        duplicate_counts[signature] += 1
+        result[sid] = token_ids
 
     print(f"  → {len(result)}개 세션 로드 완료 "
-          f"(평균 {np.mean([len(v) for v in result.values()]):.0f}개 이벤트)")
+          f"(평균 {np.mean([len(v) for v in result.values()]):.0f}개 semantic token)")
+    print(f"  → 동일 시퀀스 상한 초과 제외: {duplicate_dropped}개")
     return result
 
 
@@ -254,11 +267,86 @@ def ema_update(old_centroids: np.ndarray, new_embeddings: list,
         cluster_embs[cid].append(emb)
 
     for cid, embs in cluster_embs.items():
-        if cid < n_clusters:
+        if 0 <= cid < n_clusters:
             new_c = np.mean(embs, axis=0)
             updated[cid] = (1 - alpha) * old_centroids[cid] + alpha * new_c
 
     return updated
+
+
+def save_cluster_results(path, sids, sessions, labels, probabilities, points, meta, max_len):
+    """재학습에 실제 사용된 세션과 최종 배정을 표준 CSV 형식으로 저장한다."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    id2tok = {value: token for token, value in meta['vocab'].items()}
+    with open(path, 'w', encoding='utf-8-sig', newline='') as file:
+        fieldnames = [
+            'session_id', 'cluster', 'probability', 'pca_x', 'pca_y',
+            'original_length', 'used_length', 'sequence',
+        ]
+        writer = csv.DictWriter(file, fieldnames=fieldnames, lineterminator='\n')
+        writer.writeheader()
+        for index, sid in enumerate(sids):
+            tokens = [id2tok.get(token_id, '[UNK]') for token_id in sessions[sid]]
+            used_tokens = tokens[-(max_len - 1):]
+            writer.writerow({
+                'session_id': sid,
+                'cluster': int(labels[index]),
+                'probability': round(float(probabilities[index]), 6),
+                'pca_x': round(float(points[index, 0]), 8),
+                'pca_y': round(float(points[index, 1]), 8),
+                'original_length': len(tokens),
+                'used_length': len(used_tokens) + 1,
+                'sequence': ' '.join(['[CLS]', *used_tokens]),
+            })
+
+
+def calibrate_inference_gate(similarities, density_labels, target_precision=0.95):
+    """HDBSCAN의 정상/노이즈 판정을 교사로 삼아 centroid gate를 보정한다."""
+    best_similarity = similarities.max(axis=1)
+    sorted_similarity = np.sort(similarities, axis=1)
+    margins = (
+        sorted_similarity[:, -1] - sorted_similarity[:, -2]
+        if similarities.shape[1] > 1 else np.ones(len(similarities))
+    )
+    positives = density_labels >= 0
+    positive_count = int(positives.sum())
+    best = None
+
+    for similarity_threshold in np.arange(0.55, 0.991, 0.005):
+        for margin_threshold in np.arange(0.0, 0.301, 0.005):
+            predicted = (
+                (best_similarity >= similarity_threshold)
+                & (margins >= margin_threshold)
+            )
+            accepted_count = int(predicted.sum())
+            if accepted_count == 0:
+                continue
+            true_positive = int((predicted & positives).sum())
+            precision = true_positive / accepted_count
+            recall = true_positive / positive_count if positive_count else 0.0
+            if precision < target_precision:
+                continue
+            candidate = (recall, precision, -similarity_threshold, -margin_threshold)
+            if best is None or candidate > best[0]:
+                best = (candidate, similarity_threshold, margin_threshold, accepted_count)
+
+    if best is None:
+        return {
+            'min_similarity': 0.95, 'min_margin': 0.05,
+            'target_precision': target_precision, 'estimated_precision': None,
+            'estimated_recall': None, 'calibration': 'conservative_fallback',
+        }
+
+    score, similarity_threshold, margin_threshold, accepted_count = best
+    return {
+        'min_similarity': round(float(similarity_threshold), 4),
+        'min_margin': round(float(margin_threshold), 4),
+        'target_precision': target_precision,
+        'estimated_precision': round(float(score[1]), 4),
+        'estimated_recall': round(float(score[0]), 4),
+        'accepted_training_samples': accepted_count,
+        'calibration': 'grid_search_against_hdbscan_noise_labels',
+    }
 
 
 # ── 메인 ──────────────────────────────────────────────────────────────────────
@@ -268,6 +356,13 @@ def main():
     parser.add_argument('--full',    action='store_true', help='HDBSCAN 전체 재클러스터링')
     parser.add_argument('--dry-run', action='store_true', help='저장 없이 임베딩만 실행')
     parser.add_argument('--alpha',   type=float, default=0.3, help='EMA 반영 비율 (기본 0.3)')
+    parser.add_argument('--origin', action='append', help='대상 origin. 여러 번 지정 가능')
+    parser.add_argument('--min-tokens', type=int, default=3, help='최소 semantic token 수')
+    parser.add_argument('--min-similarity', type=float, default=0.55, help='EMA 배정 최소 cosine 유사도')
+    parser.add_argument('--min-margin', type=float, default=0.02, help='EMA용 1·2순위 centroid 최소 거리 차이')
+    parser.add_argument('--min-cluster-size', type=int, default=8, help='HDBSCAN 최소 클러스터 크기')
+    parser.add_argument('--min-samples', type=int, default=3, help='HDBSCAN 밀도 최소 표본')
+    parser.add_argument('--max-duplicates', type=int, default=5, help='동일 시퀀스 최대 학습 수')
     args = parser.parse_args()
 
     device = 'cpu'
@@ -290,7 +385,10 @@ def main():
 
     # 2. MongoDB 세션 로드
     print("\n[2/4] MongoDB 세션 데이터 로드 중...")
-    sessions = load_sessions_from_mongo()
+    origins = expand_origins(args.origin)
+    if origins:
+        print(f"  대상 origin: {', '.join(origins)}")
+    sessions = load_sessions_from_mongo(meta, origins, args.min_tokens, args.max_duplicates)
     if not sessions:
         sys.exit("세션 데이터 없음.")
 
@@ -315,14 +413,19 @@ def main():
     sims        = emb_norm @ cent_norm.T          # (N, K)
     assignments = sims.argmax(axis=1)             # (N,)
     confidences = sims.max(axis=1)
+    sorted_sims = np.sort(sims, axis=1)
+    margins = sorted_sims[:, -1] - sorted_sims[:, -2] if n_clusters > 1 else np.ones(len(sims))
+    accepted = (confidences >= args.min_similarity) & (margins >= args.min_margin)
+    assignments = np.where(accepted, assignments, -1)
 
     # 배정 통계
     from collections import Counter
     dist = Counter(assignments.tolist())
     print("\n  클러스터 배정 결과:")
-    for cid in sorted(dist.keys()):
+    for cid in sorted(cid for cid in dist.keys() if cid >= 0):
         print(f"    C{cid}: {dist[cid]}개 세션  (평균 신뢰도 "
               f"{confidences[assignments==cid].mean():.3f})")
+    print(f"    noise: {(assignments < 0).sum()}개 세션")
     print(f"  전체 평균 신뢰도: {confidences.mean():.4f}")
 
     if args.dry_run:
@@ -338,13 +441,16 @@ def main():
         except ImportError:
             sys.exit("hdbscan 설치 필요: pip install hdbscan")
         print("  HDBSCAN 전체 재클러스터링...")
-        clusterer = hdbscan.HDBSCAN(min_cluster_size=3, min_samples=2,
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=args.min_cluster_size,
+                                    min_samples=args.min_samples,
                                     metric='euclidean')
         labels = clusterer.fit_predict(emb_norm)
         valid  = labels >= 0
         n_new  = len(set(labels[valid]))
         print(f"  → 새 클러스터: {n_new}개 "
               f"({(~valid).sum()}개 노이즈 포인트 제외)")
+        if n_new < 2:
+            sys.exit('신뢰 가능한 클러스터가 2개 미만입니다. 파라미터나 표본 수를 점검하세요.')
 
         # 새 centroids 계산
         new_centroids = np.array([
@@ -355,6 +461,8 @@ def main():
         final_centroids = new_centroids
         final_n         = n_new
         quality_metrics = compute_quality_metrics(emb_norm, labels)
+        result_labels = labels.astype(int)
+        result_probabilities = np.where(valid, clusterer.probabilities_, 0.0)
     else:
         # EMA 업데이트
         print(f"  EMA 업데이트 (alpha={args.alpha})...")
@@ -363,16 +471,43 @@ def main():
         new_assignments = {sids[i]: int(assignments[i]) for i in range(len(sids))}
         final_n         = n_clusters
         quality_metrics = compute_quality_metrics(emb_norm, assignments.astype(int))
+        result_labels = assignments.astype(int)
+        result_probabilities = np.where(accepted, np.clip(confidences, 0.0, 1.0), 0.0)
 
     # 클러스터 프로파일 재계산
     new_profiles = compute_profiles(sessions, new_assignments, meta)
     stability_metrics = compute_profile_stability(old_profiles, new_profiles)
 
+    final_cent_norm = final_centroids / (
+        np.linalg.norm(final_centroids, axis=1, keepdims=True) + 1e-8
+    )
+    final_sims = emb_norm @ final_cent_norm.T
+    if args.full:
+        gate_calibration = calibrate_inference_gate(final_sims, result_labels)
+    else:
+        gate_calibration = {
+            'min_similarity': args.min_similarity,
+            'min_margin': args.min_margin,
+            'target_precision': None,
+            'estimated_precision': None,
+            'estimated_recall': None,
+            'calibration': 'configured_ema_gate',
+        }
+
     # 백업
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     shutil.copy(META_PATH,  META_PATH.replace('.json', f'_backup_{ts}.json'))
     shutil.copy(CENT_PATH,  CENT_PATH.replace('.npy',  f'_backup_{ts}.npy'))
+    if os.path.exists(RESULT_PATH):
+        shutil.copy(RESULT_PATH, RESULT_PATH.replace('.csv', f'_backup_{ts}.csv'))
     print(f"  → 백업 완료 (_{ts})")
+
+    from sklearn.decomposition import PCA
+    pca_points = PCA(n_components=2, random_state=42).fit_transform(emb_norm)
+    save_cluster_results(
+        RESULT_PATH, sids, sessions, result_labels, result_probabilities,
+        pca_points, meta, model._gt_max_len,
+    )
 
     # cluster_centroids.npy 저장
     np.save(CENT_PATH, final_centroids.astype(np.float32))
@@ -381,6 +516,9 @@ def main():
     meta['num_clusters']          = final_n
     meta['cluster_ids']           = list(range(final_n))
     meta['cluster_profiles']      = new_profiles
+    meta['cluster_counts']        = {
+        str(cid): int((result_labels == cid).sum()) for cid in range(final_n)
+    }
     meta['last_retrain']          = datetime.now().isoformat()
     meta['retrain_session_count'] = len(sessions)
     meta['silhouette']            = quality_metrics.get('silhouette')
@@ -390,11 +528,22 @@ def main():
         **quality_metrics,
         'stability': stability_metrics,
     }
+    meta['inference_quality_gate'] = {
+        'min_tokens': args.min_tokens,
+        'max_unknown_ratio': 0.20,
+        **gate_calibration,
+    }
+    meta['retrain_origins'] = origins or ['*']
+    if args.full:
+        # 새 클러스터 ID에 예전 ID의 이름을 재사용하면 의미가 뒤바뀐다.
+        meta.pop('nlp_labels', None)
+        meta.pop('cluster_labels', None)
     with open(META_PATH, 'w', encoding='utf-8') as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
     print("\n완료!")
     print(f"   cluster_meta.json 업데이트 ({final_n}개 클러스터)")
+    print(f"   cluster_results.csv 저장: {RESULT_PATH}")
     print(f"   평균 신뢰도: {confidences.mean():.4f}")
     print(f"   cluster_server.py 재시작 시 자동 반영됩니다.")
 

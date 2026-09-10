@@ -24,66 +24,12 @@ const { originCondition } = require('../middleware/siteAccess');
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 
-// pathname/page_url로 결제·장바구니·상품·검색 페이지를 구분한다
-function inferPage(doc = {}) {
-  const raw = `${doc.pathname || ''} ${doc.page_url || ''}`.toLowerCase();
-  if (raw.includes('checkout') || raw.includes('payment') || raw.includes('order')) return 'checkout';
-  if (raw.includes('cart') || raw.includes('basket')) return 'cart';
-  if (raw.includes('product') || raw.includes('item') || raw.includes('prod_')) return 'product';
-  if (raw.includes('search') || raw.includes('category') || raw.includes('collection')) return 'search';
-  return 'home';
-}
-
-// 섹션 기반 클러스터링 보조 정보 — data 우선, 없으면 최상위 필드 fallback
-function inferSection(doc = {}) {
-  return doc.data?.section || doc.section || '';
-}
-
-// 클릭/호버 대상이 속한 화면 영역을 분류 서버 입력 형식으로 보존한다
-function inferElementSection(doc = {}) {
-  return doc.data?.element_section || doc.element_section || '';
-}
-
 // 주문완료 이벤트가 따로 없어 클릭/호버 문구로 주문 성공 여부를 판별
 function isOrderSuccessDoc(doc = {}) {
   if (doc.event_type === 'guest_purchase') return true;
   const text = `${doc.data?.hover_text || ''} ${doc.data?.click_text || ''}`;
   const target = `${doc.data?.hover_target || ''} ${doc.data?.click_target || ''}`.toLowerCase();
   return text.includes('주문이 완료') || target.includes('complete');
-}
-
-// DB에 쌓인 raw 이벤트를 클러스터 서버가 아는 액션 토큰으로 매핑
-function normalizeEventType(doc = {}) {
-  const eventType = String(doc.event_type || '');
-  const page = inferPage(doc);
-
-  if (eventType === 'enter_category') return 'ENTER_CATEGORY';
-  if (eventType === 'enter_product') return 'ENTER_PRODUCT';
-  if (eventType === 'subsection_enter') {
-    const subsection = String(doc.data?.subsection_id || doc.subsection_id || '').toLowerCase();
-    if (subsection === 'review') return 'VIEW_REVIEW';
-    if (subsection === 'qa' || subsection === 'qna' || subsection === 'inquiry') return 'VIEW_QNA';
-    if (subsection === 'detail' || subsection === 'product_detail') return 'VIEW_DETAIL';
-    return 'CLICK_ELEMENT';
-  }
-
-  if (isOrderSuccessDoc(doc)) return 'CLICK_BUY';
-  if (eventType === 'purchase_click') return 'CLICK_BUY';
-  if (eventType === 'add_to_cart') return 'ADD_CART';
-  if (eventType === 'product_click') return page === 'product' ? 'ENTER_PRODUCT' : 'CLICK_ELEMENT';
-  if (eventType === 'tab_exit') return 'TAB_OUT';
-  if (eventType === 'tab_return') return 'TAB_RETURN';
-  if (eventType === 'inactivity') return 'INACTIVE';
-  if (eventType === 'search_use') return 'SEARCH_USE';
-  if (eventType === 'hover_dwell') return 'HOVER_ELEMENT';
-  if (eventType === 'section_exit') return 'EXIT_SESSION';
-  if (eventType === 'session_start') return 'START_SESSION';
-  if (eventType === 'click') return page === 'checkout' ? 'CLICK_BUY' : 'CLICK_ELEMENT';
-  if (eventType === 'scroll_depth' || eventType === 'scroll_speed' || eventType === 'scroll_stop' || eventType === 'scroll_milestone') {
-    if (page === 'product') return 'SCROLL_PRODUCT';
-    if (page === 'home') return 'SCROLL_HOME';
-  }
-  return eventType;
 }
 
 // ── 헬퍼: Python 클러스터 서버 호출 ──────────────────────────────────────────
@@ -160,10 +106,11 @@ router.post('/session/:sessionId', async (req, res) => {
     // 조회 범위를 이 요청이 접근 가능한 사이트로 제한한다.
     const scope = { session_id: sessionId, ...originCondition(req.siteOrigin) };
 
-    // DB에서 해당 세션 이벤트 조회 (최대 256개, 시간순)
+    // 긴 세션의 앞부분만 남겨 구매·결제 신호가 잘리던 문제를 피하기 위해
+    // 최근 이벤트를 넉넉히 읽은 뒤 다시 시간순으로 정렬한다.
     const docs = await Event.find(scope)
-      .sort({ event_seq: 1, timestamp: 1 })
-      .limit(256)
+      .sort({ received_at: -1 })
+      .limit(1000)
       .lean();
 
     if (docs.length === 0) {
@@ -174,13 +121,23 @@ router.post('/session/:sessionId', async (req, res) => {
 
     const completed = docs.some(isOrderSuccessDoc);
 
-    // 클러스터 서버가 이해할 수 있는 이벤트 형식으로 정규화
-    const events = docs.map((d) => ({
-      event_type: normalizeEventType(d),
-      page: inferPage(d),
-      section: inferSection(d),
-      element_section: inferElementSection(d),
-    }));
+    // raw 필드를 보내 Python이 학습 때와 같은 semantic mapper를 사용하게 한다.
+    const events = docs
+      .sort((a, b) => {
+        const aTime = Number(a.timestamp) || new Date(a.received_at || 0).getTime();
+        const bTime = Number(b.timestamp) || new Date(b.received_at || 0).getTime();
+        return aTime - bTime || Number(a.event_seq || 0) - Number(b.event_seq || 0);
+      })
+      .map((d) => ({
+        event_type: d.event_type,
+        timestamp: Number(d.timestamp) || new Date(d.received_at || 0).getTime(),
+        event_seq: d.event_seq,
+        inter_event_gap: d.inter_event_gap,
+        pathname: d.pathname,
+        page_url: d.page_url,
+        page_type: d.page_type || d.data?.page_type,
+        data: d.data || {},
+      }));
 
     const result = await callCluster('/classify', {
       session_id: sessionId,

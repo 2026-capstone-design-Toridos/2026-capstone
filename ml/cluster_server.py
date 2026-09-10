@@ -65,6 +65,14 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from flask import Flask, jsonify, request
 
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THIS_DIR not in sys.path:
+    sys.path.insert(0, _THIS_DIR)
+from build_session_sequences import (  # noqa: E402
+    build_semantic_sequence_for_session,
+    event_sort_key,
+)
+
 # ── PyTorch 로드 시도 ─────────────────────────────────────────────────────────
 try:
     import torch
@@ -114,14 +122,21 @@ PAGE_MAP: Dict[str, str] = {
 
 
 def events_to_tokens(events: List[dict]) -> List[str]:
-    """원시 이벤트 리스트 → PAGE|SEMANTIC|CONTEXTUAL 토큰 리스트"""
-    tokens = []
-    for ev in events:
-        et   = ev.get("event_type", "")
-        page = PAGE_MAP.get(str(ev.get("page", "")).lower(), "UNKNOWN")
-        sem  = EVENT_TO_SEMANTIC.get(et, "CLICK_ELEMENT")
-        tokens.append(f"{page}|{sem}|NONE")
-    return tokens
+    """학습 파이프라인과 같은 규칙으로 raw event를 semantic token으로 바꾼다."""
+    if not events:
+        return []
+
+    # 기존 API 사용자가 이미 변환한 대문자 semantic event를 보내는 경우는
+    # 계속 지원한다. SDK의 소문자 raw event는 공통 전처리기로 보낸다.
+    event_types = [str(ev.get("event_type", "")) for ev in events]
+    if event_types and all(et in EVENT_TO_SEMANTIC for et in event_types):
+        return [
+            f"{PAGE_MAP.get(str(ev.get('page', '')).lower(), 'UNKNOWN')}|"
+            f"{EVENT_TO_SEMANTIC[str(ev.get('event_type'))]}|NONE"
+            for ev in events
+        ]
+
+    return build_semantic_sequence_for_session(sorted(events, key=event_sort_key))["sequence"]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -183,6 +198,24 @@ class ClusterPredictor:
             )
         with open(meta_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
+
+        # 중심점에 가장 가깝다는 이유만으로 모든 세션을 강제 배정하지 않는다.
+        # 메타파일 또는 환경변수로 운영 데이터에 맞게 조정할 수 있다.
+        configured_gate = meta.get("inference_quality_gate", {})
+        self.quality_gate = {
+            "min_tokens": int(os.getenv(
+                "CLUSTER_MIN_TOKENS", configured_gate.get("min_tokens", 3)
+            )),
+            "min_similarity": float(os.getenv(
+                "CLUSTER_MIN_SIMILARITY", configured_gate.get("min_similarity", 0.55)
+            )),
+            "min_margin": float(os.getenv(
+                "CLUSTER_MIN_MARGIN", configured_gate.get("min_margin", 0.05)
+            )),
+            "max_unknown_ratio": float(os.getenv(
+                "CLUSTER_MAX_UNKNOWN_RATIO", configured_gate.get("max_unknown_ratio", 0.20)
+            )),
+        }
 
         self.vocab: Dict[str, int] = meta["vocab"]   # token → id
         self.id2tok = {v: k for k, v in self.vocab.items()}
@@ -386,17 +419,56 @@ class ClusterPredictor:
         best_id = int(np.argmin(dists))
         best_d  = float(dists[best_id])
 
+        sorted_distances = np.sort(dists)
+        margin = (
+            float(sorted_distances[1] - sorted_distances[0])
+            if len(sorted_distances) > 1 else 1.0
+        )
+        known_count = sum(1 for token in tokens if token in self.vocab)
+        unknown_ratio = 1.0 - (known_count / len(tokens))
+
         # confidence: 1 - normalized_distance (0~1)
         confidence = max(0.0, round(1.0 - best_d, 4))
 
         distances_map = {
             str(i): round(float(d), 4) for i, d in enumerate(dists)
         }
+        semantic_action_counts: Dict[str, int] = {}
+        page_counts: Dict[str, int] = {}
+        for token in tokens:
+            parts = token.split("|")
+            if len(parts) != 3:
+                continue
+            page, action, _ = parts
+            semantic_action_counts[action] = semantic_action_counts.get(action, 0) + 1
+            page_counts[page] = page_counts.get(page, 0) + 1
+
+        rejection_reasons = []
+        if len(tokens) < self.quality_gate["min_tokens"]:
+            rejection_reasons.append("too_few_semantic_tokens")
+        if confidence < self.quality_gate["min_similarity"]:
+            rejection_reasons.append("low_similarity")
+        if margin < self.quality_gate["min_margin"]:
+            rejection_reasons.append("ambiguous_between_clusters")
+        if unknown_ratio > self.quality_gate["max_unknown_ratio"]:
+            rejection_reasons.append("too_many_unknown_tokens")
+
+        accepted = not rejection_reasons
 
         return {
-            "cluster_id": best_id,
-            "persona":    self.cluster_labels.get(str(best_id), f"Cluster {best_id}"),
+            "cluster_id": best_id if accepted else -1,
+            "candidate_cluster_id": best_id,
+            "persona": (
+                self.cluster_labels.get(str(best_id), f"Cluster {best_id}")
+                if accepted else None
+            ),
             "confidence": confidence,
+            "margin": round(margin, 4),
+            "unknown_ratio": round(unknown_ratio, 4),
+            "accepted": accepted,
+            "rejection_reasons": rejection_reasons,
+            "semantic_action_counts": semantic_action_counts,
+            "page_counts": page_counts,
             "distances":  distances_map,
             "seq_len":    len(tokens),
             "mode":       self.mode,
@@ -421,6 +493,7 @@ def health():
         "mode":       predictor.mode,
         "n_clusters": predictor.n_clusters,
         "model":      "ghosttracker_cluster",
+        "quality_gate": predictor.quality_gate,
     })
 
 
