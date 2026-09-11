@@ -146,6 +146,8 @@ router.post('/session/:sessionId', async (req, res) => {
     res.json({
       ...result,
       completed,
+      raw_event_count: events.length,
+      meaningful_event_count: Number(result.seq_len) || 0,
     });
   } catch (err) {
     console.error('[classify/session] 오류:', err.message);

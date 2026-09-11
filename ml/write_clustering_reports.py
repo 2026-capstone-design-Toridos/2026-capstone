@@ -261,8 +261,12 @@ def write_reports(d):
 
 - 기존 222개 기준: **137 → 212개 배정**, 85개 노이즈 중 **75개 복구**, 나머지 **10개는 행동 근거 부족**으로 표시.
 - 전체 1,023개 기준: **137 → 361개 배정(13.39% → 35.29%)**. 추가 224개는 기존 노이즈 75개와 중복 제한으로 빠졌던 149개이다.
-- **614개는 행동 근거 부족**, **48개는 기준 패턴 밖 또는 배정 불확실**로 유지한다. 이것들을 고객 행동 군집에 억지로 포함하지 않는다.
+- 분석 결과에서는 **614개를 행동 근거 부족**, **48개를 기준 패턴 밖 또는 배정 불확실**로 유지해 신뢰도 기준을 보존한다.
 - 48개의 새로운 패턴 세션은 이번 거리·margin gate에서 모두 보류됐다. 따라서 이번 실행에서 **OOV 세션 복구 성과를 입증한 것은 아니다**.
+
+### 운영 대시보드 적용 방식
+
+운영 화면에서는 분석용 보류 상태를 미분류로 숨기지 않는다. 4개 행동 군집과 `짧은 방문·행동 정보 부족형`을 합쳐 최대 5개 유형으로 전체 1,023세션을 배정한다. 행동 근거가 충분한 기존 패턴 361세션은 `신뢰 높음`, 정보 부족 614세션과 유형 경계가 모호한 48세션은 `신뢰 낮음`으로 별도 표시한다. 모호한 48세션은 가장 가까운 행동 군집에 포함하지만 확정적인 고객 의도로 해석하지 않는다.
 
 개선된 점은 **해석 가능한 표현에서의 분리도, 적용 범위, 그룹 재학습 안정성**이다. 기존 BERT 공간의 분리도는 오히려 낮아졌다. 전 영역에서 우월한 모델 또는 운영 정확도 향상으로 주장하지 않는다.
 
@@ -281,9 +285,9 @@ def write_reports(d):
 
 ## 3. 탐색 및 검증 설계
 
-3개 표현(BERT, 완전 토큰 TF-IDF, 분리 TF-IDF) × 31개 설정, **총 93개 후보**를 비교했다. 알고리즘은 K-means, Ward, average-linkage, HDBSCAN, DBSCAN이다.
+3개 표현(BERT, 완전 토큰 TF-IDF, 분리 TF-IDF) × 22개 설정, **총 66개 후보**를 비교한다. 알고리즘은 K-means, Ward, average-linkage, HDBSCAN, DBSCAN이다.
 
-- K-means·Ward·average: k=2~8.
+- K-means·Ward·average: k=2~5.
 - HDBSCAN: min_cluster_size=5/8/12 × min_samples=2/4.
 - DBSCAN: eps=0.3/0.5/0.7/0.9, min_samples=3.
 - 개발 후보 조건: 배정률≥85%, 군집 2개 이상, 최소 고유 패턴 5개, 최대 군집 비중≤80%, 10회 80% 재표집 ARI 평균≥0.75.
@@ -387,7 +391,7 @@ python ml/write_clustering_reports.py --deps C:/ghostTracker/.analysis-deps
 
 Python 분석 CSV intermediate를 Artifact Tool에서 읽어 최종 CSV로 내보냈다. 코드만 재실행할 때는 `advanced_analysis/advanced_results_intermediate.csv`에 동일 분석 값이 생성된다. 패키지 버전: {d['versions']}.
 
-`advanced_analysis/`에는 93개 후보 결과(experiments.json), split.json, final_metrics.json, validation.json, 입력 해시(data_audit.json), 임베딩·특징 배열과 advanced_model.json을 보관한다. 원본 CSV·운영 centroid·체크포인트·DB는 변경하지 않았다. 결과 파일의 재실행 후 무결성 검증을 통과했다.
+`advanced_analysis/`에는 66개 후보 결과(experiments.json), split.json, final_metrics.json, validation.json, 입력 해시(data_audit.json), 임베딩·특징 배열과 advanced_model.json을 보관한다. 원본 CSV·운영 centroid·체크포인트·DB는 변경하지 않았다. 결과 파일의 재실행 후 무결성 검증을 통과했다.
 
 {sources}
 '''

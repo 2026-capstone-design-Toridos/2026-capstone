@@ -945,8 +945,8 @@
           <span class="result-value">C${result.cluster_id}</span>
         </div>
         <div class="result-line">
-          <span class="result-label">신뢰도</span>
-          <span class="result-value">${Math.round((result.confidence || 0) * 100)}%</span>
+          <span class="result-label">배정 신뢰</span>
+          <span class="result-value">${result.reliability === "high" ? "높음" : "낮음"} · ${Math.round((result.confidence || 0) * 100)}%</span>
         </div>
         <div class="result-line">
           <span class="result-label">분석 모드</span>
@@ -1068,7 +1068,7 @@
         <div class="cluster-card" data-cluster="${c.cluster}">
           <div class="cluster-name">C${c.cluster} · ${c.label || "고객 유형"}</div>
           <div class="cluster-count">${fmt(c.count)}개 세션 · ${pct}%</div>
-          <div class="chips">${chips}</div>
+          <div class="chips"><span class="chip">신뢰 높은 세션 ${Math.round((c.reliability?.high_rate || 0) * 100)}%</span>${chips}</div>
         </div>`;
     }).join("");
     $("cluster-cards").querySelectorAll(".cluster-card").forEach((card) => {

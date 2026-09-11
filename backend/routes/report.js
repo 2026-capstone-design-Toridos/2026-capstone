@@ -38,6 +38,7 @@ const REPLACEMENT_TERM = '탐색 중지';
 // 인메모리 캐시 (서버 재시작 시 초기화)
 const reportCache = new Map();
 const reportGenerationJobs = new Map();
+const reportGenerationStatus = new Map();
 const REPORT_INPUT_DIR = path.join(REPORTS_DIR, 'inputs');
 
 // ── 사이트 식별 ───────────────────────────────────────────────────────────────
@@ -290,6 +291,21 @@ async function generatePdfReport(origin) {
 
   reportGenerationJobs.set(key, job);
   return job;
+}
+
+// 웹 요청을 보고서 생성 시간(최대 3분) 동안 붙잡아 두면 프록시가 먼저
+// 504를 반환한다. 생성은 백그라운드에서 계속하고 화면은 상태를 조회한다.
+function queuePdfReport(origin) {
+  const key = siteKey(origin);
+  if (!key) throw new Error('보고서를 생성할 사이트 정보가 없습니다.');
+  if (reportGenerationJobs.has(key)) return;
+  reportGenerationStatus.set(key, { status: 'generating', started_at: new Date().toISOString() });
+  generatePdfReport(origin)
+    .then(() => reportGenerationStatus.set(key, { status: 'ready', finished_at: new Date().toISOString() }))
+    .catch((err) => {
+      console.error('[report/generate/background] 오류:', err.message);
+      reportGenerationStatus.set(key, { status: 'error', error: err.message, finished_at: new Date().toISOString() });
+    });
 }
 
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
@@ -819,9 +835,8 @@ router.get('/weekly/download', async (req, res) => {
       if (!origin) {
         return res.status(400).json({ error: '보고서를 생성할 쇼핑몰을 먼저 선택해주세요.' });
       }
-      await generatePdfReport(origin);
-      report = findCurrentPdfReport(origin);
-      if (!report) throw new Error('생성된 PDF 보고서를 찾지 못했습니다.');
+      queuePdfReport(origin);
+      return res.status(202).json({ status: 'generating', message: '주간 보고서를 생성하고 있습니다.' });
     }
 
     const datePart = localDateValue();
@@ -835,6 +850,18 @@ router.get('/weekly/download', async (req, res) => {
   }
 });
 
+router.get('/weekly/status', (req, res) => {
+  const origin = req.siteOrigin || null;
+  if (!origin) return res.status(400).json({ error: '보고서를 생성할 쇼핑몰을 먼저 선택해주세요.' });
+  const pdf = findCurrentPdfReport(origin);
+  const html = findCurrentHtmlReport(origin);
+  if (pdf && html) return res.json({ status: 'ready' });
+  const status = reportGenerationStatus.get(siteKey(origin));
+  if (status?.status === 'error') return res.status(500).json(status);
+  if (!reportGenerationJobs.has(siteKey(origin))) queuePdfReport(origin);
+  return res.status(202).json(status || { status: 'generating' });
+});
+
 // PDF 변환 직전의 동일한 HTML 원본을 대시보드 안에서 보여준다.
 // 화면과 PDF가 서로 다른 요약 규칙을 갖지 않도록 한 생성 결과를 함께 사용한다.
 router.get('/weekly/view', async (req, res) => {
@@ -845,8 +872,8 @@ router.get('/weekly/view', async (req, res) => {
     }
     let report = findCurrentHtmlReport(origin);
     if (!report) {
-      await generatePdfReport(origin);
-      report = findCurrentHtmlReport(origin);
+      queuePdfReport(origin);
+      return res.status(202).json({ status: 'generating', message: '전체 보고서를 생성하고 있습니다.' });
     }
     if (!report) throw new Error('생성된 웹 리포트를 찾지 못했습니다.');
     res.sendFile(report.fullPath);

@@ -13,7 +13,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GhostTracker | 운영자 쉬운 화면</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
     @font-face {
@@ -483,6 +482,21 @@
       border-radius: 11px;
       padding: 14px;
     }
+    .type-comparison { display:grid; gap:14px; }
+    .comparison-row { display:grid; gap:7px; }
+    .comparison-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; font-size:.8rem; }
+    .comparison-name { color:var(--text); font-weight:700; line-height:1.35; }
+    .comparison-value { color:var(--muted); white-space:nowrap; }
+    .comparison-bars { display:grid; grid-template-columns:48px minmax(0,1fr) 45px; gap:8px; align-items:center; color:var(--muted); font-size:.7rem; }
+    .comparison-track { height:9px; overflow:hidden; border-radius:999px; background:#e8eef6; }
+    .comparison-fill { display:block; height:100%; min-width:2px; border-radius:inherit; background:var(--blue); }
+    .comparison-fill.recent { background:var(--mint); }
+    .behavior-list { display:grid; gap:0; max-height:420px; overflow:auto; margin-top:10px; padding-right:4px; }
+    .behavior-row { display:grid; grid-template-columns:62px 22px minmax(0,1fr); gap:8px; align-items:start; padding:9px 0; border-bottom:1px solid var(--line); }
+    .behavior-time { color:var(--muted); font-size:.72rem; }
+    .behavior-index { display:grid; place-items:center; width:22px; height:22px; border-radius:50%; background:var(--blue-soft); color:var(--blue); font-size:.7rem; font-weight:700; }
+    .behavior-action { font-size:.82rem; font-weight:650; line-height:1.4; }
+    .behavior-context { color:var(--muted); font-size:.75rem; line-height:1.45; margin-top:2px; overflow-wrap:anywhere; }
     .cohort-change-list {
       display: grid;
       gap: 7px;
@@ -745,7 +759,6 @@
     .card-refresh { color:var(--muted); font-size:.78rem; white-space:nowrap; }
     .chart-wrap { min-height:320px; }
     .split { align-items:start; }
-    #type-chart { display:block; width:100% !important; height:190px !important; min-height:0; }
     @media (max-width:1120px) {
       .marketing-grid, .visit-workspace { grid-template-columns:1fr 1fr; }
       .insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -910,7 +923,7 @@
             <div class="split">
               <div class="chart-wrap">
                 <div class="chart-label">전체 대비 최근 100세션 유형 구성</div>
-                <canvas id="type-chart" height="190"></canvas>
+                <div class="type-comparison" id="type-comparison"><div class="empty">유형별 비율을 계산하는 중입니다.</div></div>
                 <div class="cohort-period" id="cohort-period">비교 기간을 불러오는 중입니다.</div>
                 <div class="cohort-change-list" id="cohort-change-list">
                   <div class="empty">최근 변화를 계산하는 중입니다.</div>
@@ -1058,13 +1071,14 @@
       activeView: "overview",
       reportPeriod: "day",
       fullReportOrigin: null,
+      sessionEventCache: new Map(),
+      periodReportCache: new Map(),
     };
-
-    Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue("--font-body").trim();
 
     const $ = (id) => document.getElementById(id); // id로 엘리먼트 가져오기
     const fmt = (n) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("ko-KR") : "-"; // 숫자를 천단위 콤마로
     const shortId = (sid) => sid ? `${sid.slice(0, 8)}...${sid.slice(-4)}` : "-"; // 세션ID 앞뒤만 잘라서 표시
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
     const customerNumber = (sessionId) => { // 세션ID를 "최근 고객 n번" 순번으로 변환
       const idx = state.sessions.findIndex((s) => s.session_id === sessionId);
       return idx >= 0 ? idx + 1 : "?";
@@ -1078,38 +1092,12 @@
         button.classList.toggle("active", active);
         if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current");
       });
-      if (view === "marketing") setTimeout(() => chart.resize(), 0);
       if (view === "reports") {
         renderPeriodReport(state.reportPeriod);
         loadFullReport();
       }
       window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}#${view}`);
     }
-
-    // 전체와 최신 100세션을 같은 색상·순서로 비교하는 100% 누적 가로 막대
-    const chart = new Chart($("type-chart"), {
-      type: "bar",
-      data: { labels: [], datasets: [] },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            stacked: true,
-            min: 0,
-            max: 100,
-            ticks: { callback: (value) => `${value}%` },
-            grid: { color: "rgba(148, 163, 184, 0.16)" },
-          },
-          y: { stacked: true, grid: { display: false } },
-        },
-        plugins: {
-          legend: { position: "bottom", labels: { color: "#475569", boxWidth: 11 } },
-          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } },
-        },
-      },
-    });
 
     /* ── 접근 키 문제 처리 ───────────────────────────────────────────
        refresh()가 API를 6개씩 병렬로 부르고 2.5초마다 반복하므로,
@@ -1140,8 +1128,14 @@
       ["demo-06", "/search", 6, false, true, "google", "autumn_style"],
     ].map((row, idx) => ({ session_id: row[0], pathname: row[1], count: row[2], completed: row[3], risky: row[4], utm_source: row[5], utm_campaign: row[6], referrer: row[5] ? `https://${row[5]}.com` : "", last_at: new Date(previewNow - idx * 420000).toISOString() }));
     const previewLogs = previewSessions.flatMap((session, idx) => {
-      const types = session.completed ? ["session_start", "product_click", "add_to_cart", "purchase_click", "guest_purchase"] : ["session_start", "navigation", "product_click", session.risky ? "inactivity" : "search_use"];
-      return types.map((event_type, seq) => ({ session_id: session.session_id, event_type, event_seq: seq + 1, pathname: seq < 2 ? "/" : session.pathname, received_at: new Date(previewNow - idx * 420000 - (types.length - seq) * 18000).toISOString(), utm_source: session.utm_source, utm_campaign: session.utm_campaign, referrer: session.referrer, data: {} }));
+      const cycle = ["session_start", "navigation", "section_enter", "scroll_depth", "product_click", "section_transition", "hover_dwell", "section_revisit"];
+      return Array.from({ length: session.count }, (_, seq) => {
+        let event_type = cycle[seq % cycle.length];
+        if (session.completed && seq === session.count - 2) event_type = "add_to_cart";
+        if (session.completed && seq === session.count - 1) event_type = "guest_purchase";
+        if (session.risky && seq === session.count - 1) event_type = "inactivity";
+        return { session_id: session.session_id, event_type, event_seq: seq + 1, pathname: seq < 2 ? "/" : session.pathname, received_at: new Date(previewNow - idx * 420000 - (session.count - seq) * 18000).toISOString(), utm_source: session.utm_source, utm_campaign: session.utm_campaign, referrer: session.referrer, data: { section: seq % 2 ? "상품 정보" : "리뷰·구매 영역" } };
+      });
     }).sort((a, b) => new Date(b.received_at) - new Date(a.received_at));
     function previewPayload(path, options = {}) {
       if (path === "/api/logs/sites") return [DEMO_ORIGIN];
@@ -1154,6 +1148,11 @@
         priorities: [{ title: "상품 상세의 배송 안내 강화", detail: "배송비와 도착 예정일을 구매 버튼 가까이에 배치하세요." }, { title: "장바구니 혜택 재노출", detail: "쿠폰과 무료 배송 조건을 장바구니 상단에 보여주세요." }, { title: "검색 결과 정렬 개선", detail: "재고와 인기순 필터를 첫 화면에서 바로 쓰게 하세요." }],
         source_performance: [{ name: "Google", total: 15, completion_rate: 27, risk_rate: 13, top_page: "상품 상세" }, { name: "Instagram", total: 11, completion_rate: 9, risk_rate: 36, top_page: "신상품" }, { name: "직접 방문", total: 7, completion_rate: 29, risk_rate: 14, top_page: "홈" }],
       };
+      if (path.startsWith("/api/logs/period-report")) {
+        const query = new URL(path, location.origin).searchParams;
+        const days = Math.max(1, Math.round((new Date(query.get("end")) - new Date(query.get("start"))) / 86400000));
+        return { visitor_count: days * 7 + 1, event_count: days * 83 + 17, completed_count: Math.floor(days / 3), completion_rate: 5, risky_count: days * 2, blocked_pages: [{ label: "상품 상세", count: days * 2 }], issue_causes: [{ label: "화면을 보다가 멈춤", count: days }], source_performance: [{ name: "Google", total: days * 3, completion_rate: 7, risk_rate: 18 }] };
+      }
       if (path === "/api/clusters/run") return { snapshot_saved: true, snapshot_cluster_count: 5, snapshot_session_count: 222 };
       if (path.startsWith("/api/clusters")) return {
         total_sessions: 222, snapshot_saved_at: new Date(previewNow - 86400000).toISOString(), source: "site_snapshot",
@@ -1168,8 +1167,11 @@
         ],
         comparison: { recent_100: { total_sessions: 100, date_range: { oldest_at: new Date(previewNow - 12 * 86400000).toISOString(), newest_at: new Date(previewNow).toISOString() }, clusters: [{ cluster: 0, count: 28 }, { cluster: 1, count: 29 }, { cluster: 2, count: 18 }, { cluster: 3, count: 17 }, { cluster: 4, count: 8 }] }, deltas: [{ cluster: 0, label: "구매 의도가 높은 고객", percentage_point_change: 4.6 }, { cluster: 1, label: "꼼꼼히 비교하는 고객", percentage_point_change: -1.2 }, { cluster: 2, label: "상품을 찾는 고객", percentage_point_change: -3.6 }, { cluster: 3, label: "빠르게 이탈하는 고객", percentage_point_change: 1.7 }] },
       };
-      if (path.startsWith("/api/logs?")) return previewLogs;
-      if (path.startsWith("/api/classify/session/")) return { session_id: state.selectedSessionId, cluster_id: 1, reliability: "high", confidence: .84, seq_len: state.selectedEvents.length };
+      if (path.startsWith("/api/logs?")) {
+        const requested = new URL(path, location.origin).searchParams.get("session_id");
+        return requested ? previewLogs.filter((event) => event.session_id === requested) : previewLogs;
+      }
+      if (path.startsWith("/api/classify/session/")) return { session_id: state.selectedSessionId, cluster_id: 1, reliability: "high", confidence: .84, seq_len: Math.max(3, Math.floor(state.selectedEvents.length / 2)), raw_event_count: state.selectedEvents.length, meaningful_event_count: Math.max(3, Math.floor(state.selectedEvents.length / 2)) };
       if (path === "/api/report/session") return { report: "선택 고객은 상품 비교 후 구매 조건을 확인하는 단계입니다. 리뷰 요약과 배송 안내를 같은 화면에 배치해 다음 행동을 돕는 것이 좋습니다." };
       if (path.startsWith("/api/report/cluster/")) return { report: "이 유형은 상세 정보와 리뷰를 반복 확인합니다. 리뷰 핵심 요약, 실제 착용 사진, 배송 조건을 상품 정보 가까이에 배치하세요." };
       return {};
@@ -1493,6 +1495,9 @@
         tab_exit: "탭 떠남",
         tab_return: "탭 돌아옴",
         inactivity: "움직임 없음",
+        section_enter: "화면 영역 진입",
+        section_transition: "다음 영역 이동",
+        section_revisit: "이전 영역 다시 확인",
         section_exit: "영역 벗어남",
         scroll_depth: "스크롤",
         hover_dwell: "머무름",
@@ -1503,13 +1508,44 @@
       return labels[e.event_type] || e.event_type.replaceAll("_", " ");
     }
 
-    // 이벤트 목록을 화살표로 이어진 행동 흐름 HTML로 변환
-    function renderBehaviorFlow(events, limit = 6) {
+    function decodedPath(raw) {
+      try { return decodeURIComponent(String(raw || "/")).replace(/\+/g, " "); }
+      catch { return String(raw || "/"); }
+    }
+
+    function eventContext(event) {
+      const data = event.data || {};
+      const named = data.product_name || data.product_title || data.item_name || data.click_text || data.hover_text;
+      if (named && String(named).trim().length > 1) return String(named).trim().replace(/\s+/g, " ").slice(0, 100);
+      const path = decodedPath(event.pathname || (() => { try { return new URL(event.page_url).pathname; } catch { return ""; } })());
+      const productMatch = path.match(/\/product\/([^/]+)/i);
+      if (productMatch) return `상품: ${productMatch[1].replace(/[-_]/g, " ")}`;
+      if (data.section) return String(data.section).trim().replace(/\s+/g, " ").slice(0, 100);
+      return path === "/" ? "홈 화면" : path;
+    }
+
+    function orderedEvents(events) {
+      return [...events].sort((a, b) => {
+        const at = Number(a.timestamp) || new Date(a.received_at || 0).getTime();
+        const bt = Number(b.timestamp) || new Date(b.received_at || 0).getTime();
+        return at - bt || Number(a.event_seq || 0) - Number(b.event_seq || 0);
+      });
+    }
+
+    // 실제 화면·상품 맥락을 포함해 세션의 행동을 시간순으로 보여준다.
+    function renderBehaviorFlow(events, limit = 18) {
       if (!events.length) return `<div class="empty">아직 이 고객의 행동 흐름이 없습니다.</div>`;
       const usefulTypes = new Set([
         "session_start",
         "navigation",
+        "page_view",
         "product_click",
+        "section_enter",
+        "section_transition",
+        "section_revisit",
+        "section_exit",
+        "scroll_depth",
+        "hover_dwell",
         "add_to_cart",
         "purchase_click",
         "guest_purchase",
@@ -1523,25 +1559,24 @@
         "session_end",
       ]);
       const compact = [];
-      events.forEach((event) => {
+      orderedEvents(events).forEach((event) => {
         const hasOrderComplete = `${event.data?.hover_text || ""} ${event.data?.click_text || ""}`.includes("주문이 완료")
           || `${event.data?.hover_target || ""} ${event.data?.click_target || ""}`.toLowerCase().includes("complete");
         if (!usefulTypes.has(event.event_type) && !hasOrderComplete) return;
-        const label = shortEventText(event);
-        if (compact[compact.length - 1] !== label) compact.push(label);
+        const row = { label: shortEventText(event), context: eventContext(event), at: event.received_at || event.timestamp };
+        const previous = compact[compact.length - 1];
+        if (!previous || previous.label !== row.label || previous.context !== row.context) compact.push(row);
       });
-      const meaningful = compact.filter((label) => !["페이지 이동", "탭 떠남", "탭 돌아옴", "움직임 없음"].includes(label));
-      const source = meaningful.length >= 3 ? meaningful : compact;
-      // 흐름이 너무 길면 앞뒤만 보여주고 중간은 생략
-      const display = source.length > limit
-        ? [...source.slice(0, Math.ceil(limit / 2)), `중간 ${source.length - limit}개 생략`, ...source.slice(-(Math.floor(limit / 2)))]
-        : source;
+      const display = compact.slice(0, limit);
       return `
-        <div class="result-title">이 고객의 행동 흐름</div>
-        <div class="flow">
-          ${display.map((label, idx, arr) => `
-            <span class="flow-step">${label}</span>
-            ${idx < arr.length - 1 ? `<span class="flow-arrow">→</span>` : ""}
+        <div class="result-title">이 고객의 행동 흐름 · 수집 ${fmt(events.length)}개${compact.length > limit ? ` · 주요 흐름 ${limit}/${compact.length}개 표시` : ""}</div>
+        <div class="behavior-list">
+          ${display.map((row, idx) => `
+            <div class="behavior-row">
+              <span class="behavior-time">${row.at ? new Date(row.at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-"}</span>
+              <span class="behavior-index">${idx + 1}</span>
+              <div><div class="behavior-action">${escapeHtml(row.label)}</div><div class="behavior-context">${escapeHtml(row.context)}</div></div>
+            </div>
           `).join("")}
         </div>
       `;
@@ -1730,16 +1765,22 @@
 
     // 검증 통과/필요, 분리도, 미분류 비율 카드 채우기
     function renderQualitySummary(quality = {}) {
-      const assigned = quality.assigned_sessions ?? quality.sample_count ?? 0;
-      const reliable = quality.reliable_sessions ?? 0;
-      const insufficient = quality.insufficient_behavior_sessions ?? 0;
-      const ambiguous = quality.ambiguous_sessions ?? 0;
-      const reliableRate = assigned ? Math.round((reliable / assigned) * 100) : 0;
+      const assigned = quality.assigned_sessions ?? quality.sample_count;
+      const hasReliability = ["reliable_sessions", "insufficient_behavior_sessions", "ambiguous_sessions"]
+        .some((key) => Object.hasOwn(quality, key));
+      const reliable = quality.reliable_sessions;
+      const insufficient = quality.insufficient_behavior_sessions;
+      const ambiguous = quality.ambiguous_sessions;
+      const reliableRate = assigned && reliable !== undefined ? Math.round((reliable / assigned) * 100) : null;
+      const measured = (value, rate = null) => value === undefined
+        ? "집계 전"
+        : `${qualityValue(value)}세션${rate === null ? "" : ` · ${rate}%`}`;
       $("quality-summary").innerHTML = `
-        <div class="quality-item"><div class="label">전체 배정</div><div class="value">${qualityValue(assigned)}세션</div></div>
-        <div class="quality-item"><div class="label">행동 근거 충분</div><div class="value">${qualityValue(reliable)}세션 · ${reliableRate}%</div></div>
-        <div class="quality-item"><div class="label">행동 근거 부족</div><div class="value">${qualityValue(insufficient)}세션</div></div>
-        <div class="quality-item"><div class="label">유형 경계 모호</div><div class="value">${qualityValue(ambiguous)}세션</div></div>
+        <div class="quality-item"><div class="label">전체 분류 대상</div><div class="value">${measured(assigned)}</div></div>
+        <div class="quality-item"><div class="label">행동 근거 충분</div><div class="value">${measured(reliable, reliableRate)}</div></div>
+        <div class="quality-item"><div class="label">행동 근거 부족</div><div class="value">${measured(insufficient)}</div></div>
+        <div class="quality-item"><div class="label">유형 경계 모호</div><div class="value">${measured(ambiguous)}</div></div>
+        ${!hasReliability ? `<div class="cohort-period" style="grid-column:1/-1">기존 분류 결과에는 행동 근거 품질값이 없습니다. “최신 데이터로 다시 분류”하면 실제 세션별 품질을 집계합니다.</div>` : ""}
       `;
     }
 
@@ -1774,6 +1815,7 @@
       const total = data.total_sessions || clusters.reduce((sum, c) => sum + c.count, 0);
       const groupedQuality = {
         ...(data.quality || {}),
+        assigned_sessions: data.quality?.assigned_sessions ?? data.total_sessions,
         verified_clusters: clusters.filter((cluster) => cluster.validation?.status === "verified").length,
         weak_clusters: clusters.filter((cluster) => cluster.validation?.status === "weak").length,
         insufficient_clusters: clusters.filter((cluster) => cluster.validation?.status === "insufficient").length,
@@ -1781,22 +1823,22 @@
       };
       renderQualitySummary(groupedQuality);
       const displayNames = clusters.map((c) => c.label || friendlyClusterName(c));
-      const colors = ["#185adb", "#14b8a6", "#e85d4f", "#f59e0b", "#047857"];
       const comparison = data.comparison || {};
       const recentMap = new Map((comparison.recent_100?.clusters || rawClusters).map((c) => [String(c.cluster), c]));
       const overallTotal = comparison.overall?.total_sessions || total || 1;
       const recentTotal = comparison.recent_100?.total_sessions || total || 1;
-      chart.data.labels = ["전체", "최근 100세션"];
-      chart.data.datasets = rawClusters.map((cluster, idx) => ({
-        label: cluster.label || friendlyClusterName(cluster),
-        data: [
-          Number(((cluster.count || 0) / overallTotal * 100).toFixed(1)),
-          Number(((recentMap.get(String(cluster.cluster))?.count || 0) / recentTotal * 100).toFixed(1)),
-        ],
-        backgroundColor: colors[idx % colors.length],
-        borderWidth: 0,
-      }));
-      chart.update();
+      const comparisonRows = rawClusters.map((cluster) => {
+        const overallRate = Number(((cluster.count || 0) / overallTotal * 100).toFixed(1));
+        const recentRate = Number(((recentMap.get(String(cluster.cluster))?.count || 0) / recentTotal * 100).toFixed(1));
+        const delta = Number((recentRate - overallRate).toFixed(1));
+        return { name: cluster.label || friendlyClusterName(cluster), overallRate, recentRate, delta };
+      });
+      $("type-comparison").innerHTML = comparisonRows.length ? comparisonRows.map((row) => `
+        <div class="comparison-row">
+          <div class="comparison-head"><span class="comparison-name">${row.name}</span><span class="comparison-value">최근 ${row.delta > 0 ? "+" : ""}${row.delta}%p</span></div>
+          <div class="comparison-bars"><span>전체</span><span class="comparison-track"><span class="comparison-fill" style="width:${Math.max(row.overallRate, 1)}%"></span></span><b>${row.overallRate}%</b></div>
+          <div class="comparison-bars"><span>최근</span><span class="comparison-track"><span class="comparison-fill recent" style="width:${Math.max(row.recentRate, 1)}%"></span></span><b>${row.recentRate}%</b></div>
+        </div>`).join("") : `<div class="empty">비교할 고객 유형이 아직 없습니다.</div>`;
 
       const dateRange = comparison.recent_100?.date_range || data.date_range || {};
       $("cohort-period").textContent = dateRange.oldest_at && dateRange.newest_at
@@ -1816,7 +1858,7 @@
               <div class="type-name">${displayNames[idx]}</div>
               <div class="type-count">${fmt(c.count)}명 · ${pct}%</div>
             </div>
-            <div class="chips">${validationBadge(c.validation)} <span class="chip">신뢰 높은 세션 ${Math.round((c.reliability?.high_rate || 0) * 100)}%</span></div>
+            <div class="chips">${validationBadge(c.validation)} <span class="chip">${c.reliability?.high_rate === undefined ? "신뢰도 집계 전" : `신뢰 높은 세션 ${Math.round(c.reliability.high_rate * 100)}%`}</span></div>
             <div class="type-desc">${c.summary || friendlyClusterDesc(c)}</div>
             <div class="chips">${chips}</div>
             ${c.action ? `<div class="type-desc"><b>추천:</b> ${c.action}</div>` : ""}
@@ -1838,7 +1880,7 @@
         <div class="session-row ${s.session_id === state.selectedSessionId ? "active" : ""}" data-session="${s.session_id}" tabindex="0" role="button">
           <div>
             <div class="sid">최근 고객 ${idx + 1}</div>
-            <div class="session-meta">${new Date(s.last_at).toLocaleTimeString("ko-KR")} · ${s.pathname} · 행동 ${s.count}개 · 참조 ${shortId(s.session_id)}</div>
+            <div class="session-meta">${new Date(s.last_at).toLocaleTimeString("ko-KR")} · ${escapeHtml(eventContext({ pathname: s.pathname }))} · 행동 ${s.count}개 · 참조 ${shortId(s.session_id)}</div>
             <div class="session-tags">${sourceTags(s).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
           </div>
           <span class="badge ${s.completed ? "good" : (s.risky ? "risk" : "ok")}">${s.completed ? "주문 성공" : (s.risky ? "탐색 중지 신호" : "탐색 중")}</span>
@@ -1865,32 +1907,46 @@
       `).join("");
     }
 
-    // 고객 선택 시 분석 결과 초기화하고 행동 흐름부터 보여주기
-    function selectSession(sessionId) {
+    async function loadSessionEvents(sessionId, force = false) {
+      if (!force && state.sessionEventCache.has(sessionId)) return state.sessionEventCache.get(sessionId);
+      const params = new URLSearchParams({ limit: "1000", session_id: sessionId });
+      if (state.origin) params.set("origin", state.origin);
+      const events = orderedEvents(await api(`/api/logs?${params.toString()}`));
+      state.sessionEventCache.set(sessionId, events);
+      return events;
+    }
+
+    // 고객 선택 시 해당 세션의 전체 이벤트를 DB에서 다시 읽어 행동 흐름을 보여준다.
+    async function selectSession(sessionId) {
       state.selectedSessionId = sessionId;
       $("session-input").dataset.sessionId = sessionId;
       $("session-input").value = `최근 고객 ${customerNumber(sessionId)}`;
-      state.selectedEvents = state.logs
-        .filter((e) => e.session_id === sessionId)
-        .sort((a, b) => (a.event_seq || 0) - (b.event_seq || 0));
       state.analysis = null;
       const selectedSession = state.sessions.find((s) => s.session_id === sessionId);
-      $("timeline-box").innerHTML = `
-        ${renderBehaviorFlow(state.selectedEvents)}
-        <div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
-      `;
+      $("timeline-box").innerHTML = `<div class="empty">이 고객의 전체 행동을 불러오는 중입니다.</div>`;
       $("result-box").innerHTML = `<div class="empty">“이 고객 분석”을 누르면 이 행동 흐름이 어떤 고객 유형에 가까운지 보여줍니다.</div>`;
       $("report-box").textContent = "고객 분석 후 리포트를 볼 수 있습니다.";
       $("cluster-report").disabled = true;
       $("session-report").disabled = true;
       renderSessions();
+      try {
+        state.selectedEvents = await loadSessionEvents(sessionId);
+        if (state.selectedSessionId !== sessionId) return;
+        $("timeline-box").innerHTML = `${renderBehaviorFlow(state.selectedEvents)}<div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>`;
+      } catch (err) {
+        if (state.selectedSessionId === sessionId) $("timeline-box").innerHTML = `<div class="error-state">행동 흐름을 불러오지 못했습니다: ${escapeHtml(err.message)}</div>`;
+      }
     }
 
     function refreshSelectedTimeline() {
       if (!state.selectedSessionId) return;
-      const events = state.logs.filter((event) => event.session_id === state.selectedSessionId)
-        .sort((a, b) => (a.event_seq || 0) - (b.event_seq || 0));
-      if (events.length) state.selectedEvents = events;
+      const cached = state.sessionEventCache.get(state.selectedSessionId) || state.selectedEvents;
+      const incoming = state.logs.filter((event) => event.session_id === state.selectedSessionId);
+      const eventKey = (event) => event.event_id || `${event.timestamp || event.received_at}:${event.event_seq || 0}:${event.event_type}:${event.pathname || ""}`;
+      const byId = new Map(cached.map((event) => [eventKey(event), event]));
+      incoming.forEach((event) => byId.set(eventKey(event), event));
+      state.selectedEvents = orderedEvents([...byId.values()]);
+      state.sessionEventCache.set(state.selectedSessionId, state.selectedEvents);
       const selectedSession = state.sessions.find((session) => session.session_id === state.selectedSessionId);
       $("timeline-box").innerHTML = `${renderBehaviorFlow(state.selectedEvents)}<div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>`;
     }
@@ -1901,11 +1957,10 @@
       if (!sessionId) return;
       $("result-box").innerHTML = `<div class="empty">고객 행동을 분석하는 중입니다.</div>`;
       try {
-        if (!state.selectedEvents.length) {
-          state.selectedEvents = await api(`/api/logs?limit=200&session_id=${encodeURIComponent(sessionId)}`);
-        }
+        state.selectedEvents = await loadSessionEvents(sessionId, true);
         const result = await api(`/api/classify/session/${encodeURIComponent(sessionId)}`, { method: "POST" });
-        const details = clusterDetails(result.cluster_id);
+        const isUnassigned = !Number.isFinite(Number(result.cluster_id)) || Number(result.cluster_id) < 0;
+        const details = isUnassigned ? null : clusterDetails(result.cluster_id);
         const reliabilityLabel = result.reliability === "high" ? "신뢰 높음" : "신뢰 낮음";
         const completed = result.completed || state.selectedEvents.some((event) => isOrderSuccessEvent(event));
         // 실제로 주문까지 완료한 세션은 AI가 분류한 유형 대신 "주문 완료" 설명으로 덮어씀
@@ -1913,21 +1968,21 @@
         state.analysis = {
           ...result,
           completed,
-          persona: displayDetails?.label || result.persona || `고객 유형 ${result.cluster_id}`,
-          summary: displayDetails?.summary || "이 고객은 현재 사이트의 상위 유형 목록에는 없지만, AI 분류 기준에 따라 가장 가까운 고객 유형으로 분류됐습니다.",
-          action: displayDetails?.action || "고객 리포트를 열어 실제 행동 흐름을 기준으로 추천 액션을 확인하세요.",
+          persona: isUnassigned ? "현재 고객 유형 판정 보류" : (displayDetails?.label || result.persona || `고객 유형 ${result.cluster_id}`),
+          summary: isUnassigned ? `수집 행동 ${result.raw_event_count || state.selectedEvents.length}개 중 유형 판정에 쓰인 핵심 행동이 ${result.meaningful_event_count ?? result.seq_len ?? 0}개라 기존 유형으로 확정하기 어렵습니다.` : (displayDetails?.summary || "수집된 행동과 가장 가까운 고객 유형입니다."),
+          action: isUnassigned ? "아래 실제 행동 흐름에서 확인한 상품과 멈춘 지점을 기준으로 다음 행동 유도 문구를 점검하세요." : (displayDetails?.action || "실제 행동 흐름을 기준으로 추천 액션을 확인하세요."),
         };
         $("result-box").innerHTML = `
-          <div class="result-title">이 고객은 이런 유형에 가깝습니다</div>
+          <div class="result-title">${isUnassigned ? "이 고객은 아직 유형을 확정하기 어렵습니다" : "이 고객은 이런 유형에 가깝습니다"}</div>
           <div class="persona">${state.analysis.persona}</div>
           <div class="type-desc">${state.analysis.summary}</div>
           ${state.analysis.action ? `<div class="type-desc"><b>추천:</b> ${state.analysis.action}</div>` : ""}
           <div class="result-grid">
-            <div class="mini"><div class="label">${completed ? "기준 유형" : "유형 ID"}</div><div class="value">C${result.cluster_id}</div></div>
+            <div class="mini"><div class="label">분류 결과</div><div class="value">${isUnassigned ? "판정 보류" : `C${result.cluster_id}`}</div></div>
             <div class="mini"><div class="label">배정 신뢰</div><div class="value">${reliabilityLabel} · ${Math.round((result.confidence || 0) * 100)}%</div></div>
-            <div class="mini"><div class="label">행동 수</div><div class="value">${result.seq_len || "-"}</div></div>
+            <div class="mini"><div class="label">수집 / 핵심 행동</div><div class="value">${fmt(result.raw_event_count || state.selectedEvents.length)} / ${fmt(result.meaningful_event_count ?? result.seq_len)}</div></div>
           </div>`;
-        $("cluster-report").disabled = false;
+        $("cluster-report").disabled = isUnassigned;
         $("session-report").disabled = false;
         $("report-box").textContent = "이제 “고객 리포트” 또는 “유형 리포트”를 눌러 운영 액션을 확인하세요.";
       } catch (err) {
@@ -2031,29 +2086,44 @@
       return { start, end };
     }
 
-    function renderPeriodReport(period = state.reportPeriod) {
+    async function renderPeriodReport(period = state.reportPeriod) {
       state.reportPeriod = period;
       const { start, end } = reportRange(period);
-      const sessions = state.sessions.filter((item) => { const time = new Date(item.last_at); return time >= start && time <= end; });
-      const logs = state.logs.filter((item) => { const time = new Date(item.received_at); return time >= start && time <= end; });
-      const completed = sessions.filter((item) => item.completed).length;
-      const risky = sessions.filter((item) => item.risky).length;
-      const completionRate = sessions.length ? Math.round(completed / sessions.length * 100) : 0;
-      const sources = state.operatorSummary.source_performance || [];
+      const reportTarget = $("period-report");
+      reportTarget.innerHTML = `<div class="empty">선택한 기간의 전체 데이터를 집계하는 중입니다.</div>`;
+      const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString() });
+      if (state.origin) params.set("origin", state.origin);
+      const cacheKey = `${state.origin}:${params.get("start")}:${params.get("end")}`;
+      try {
+        let payload = state.periodReportCache.get(cacheKey);
+        if (!payload) {
+          payload = await api(`/api/logs/period-report?${params.toString()}`);
+          state.periodReportCache.set(cacheKey, payload);
+        }
+        if (state.reportPeriod !== period) return;
+      const sources = payload.source_performance || [];
       const topSource = [...sources].sort((a, b) => (b.completion_rate || 0) - (a.completion_rate || 0))[0];
-      const topIssue = state.operatorSummary.blocked_pages?.[0];
+      const topIssue = payload.blocked_pages?.[0];
       const periodNames = { day: "하루", week: "주간", month: "한달", custom: "선택 기간" };
-      $("period-report").innerHTML = `
+      const actions = [
+        topIssue ? `${topIssue.label} 화면에서 중지 신호 ${fmt(topIssue.count)}건의 원인을 점검하세요.` : null,
+        payload.issue_causes?.[0] ? `${payload.issue_causes[0].label} 패턴(${fmt(payload.issue_causes[0].count)}건)에 맞춘 안내를 보강하세요.` : null,
+        topSource ? `${topSource.name} 유입의 성공률 ${topSource.completion_rate}%와 중지율 ${topSource.risk_rate}%를 캠페인별로 비교하세요.` : null,
+      ].filter(Boolean);
+      reportTarget.innerHTML = `
         <div class="result-title">${periodNames[period] || "기간"} 리포트 · ${start.toLocaleDateString("ko-KR")} ~ ${end.toLocaleDateString("ko-KR")}</div>
         <div class="report-summary-grid">
-          <div class="mini"><div class="label">확인된 방문</div><div class="value">${fmt(sessions.length)}명</div></div>
-          <div class="mini"><div class="label">수집 행동</div><div class="value">${fmt(logs.length)}개</div></div>
-          <div class="mini"><div class="label">주문 성공</div><div class="value">${fmt(completed)}명 · ${completionRate}%</div></div>
-          <div class="mini"><div class="label">중지 신호</div><div class="value">${fmt(risky)}명</div></div>
+          <div class="mini"><div class="label">확인된 방문</div><div class="value">${fmt(payload.visitor_count)}명</div></div>
+          <div class="mini"><div class="label">수집 행동</div><div class="value">${fmt(payload.event_count)}개</div></div>
+          <div class="mini"><div class="label">주문 성공</div><div class="value">${fmt(payload.completed_count)}명 · ${payload.completion_rate}%</div></div>
+          <div class="mini"><div class="label">중지 신호</div><div class="value">${fmt(payload.risky_count)}명</div></div>
         </div>
         <div class="report-section"><h3>핵심 관찰</h3><div class="type-desc">${topIssue ? `${topIssue.label}에서 탐색 중지 신호가 가장 많이 확인됐습니다.` : "막힘 데이터를 더 수집하면 핵심 관찰을 보여드립니다."} ${topSource ? `${topSource.name} 유입의 주문 성공률은 ${topSource.completion_rate}%입니다.` : ""}</div></div>
-        <div class="report-section"><h3>추천 운영 액션</h3>${(state.operatorSummary.priorities || []).slice(0, 3).map((item, idx) => `<div class="insight-item"><div class="insight-name">${idx + 1}. ${item.title}</div><div class="insight-desc">${item.detail}</div></div>`).join("") || `<div class="empty">추천할 운영 액션이 아직 없습니다.</div>`}</div>
-        <div class="cohort-period">현재 대시보드에 반영된 최신 방문과 행동을 선택한 기간 기준으로 집계했습니다.</div>`;
+        <div class="report-section"><h3>추천 운영 액션</h3>${actions.map((item, idx) => `<div class="insight-item"><div class="insight-name">${idx + 1}. ${escapeHtml(item)}</div></div>`).join("") || `<div class="empty">추천할 운영 액션이 아직 없습니다.</div>`}</div>
+        <div class="cohort-period">${start.toLocaleString("ko-KR")}부터 ${end.toLocaleString("ko-KR")}까지 서버에 저장된 전체 행동을 집계했습니다.</div>`;
+      } catch (err) {
+        reportTarget.innerHTML = `<div class="error-state">기간 리포트를 불러오지 못했습니다: ${escapeHtml(err.message)}</div>`;
+      }
     }
 
     function previewFullReportHtml() {
@@ -2086,7 +2156,21 @@
         } else {
           if (!state.origin) throw new Error("리포트를 볼 쇼핑몰을 먼저 선택해주세요.");
           const headers = siteKey ? { "X-GT-Key": siteKey } : {};
-          const response = await fetch(`/api/report/weekly/view?origin=${encodeURIComponent(state.origin)}`, { headers });
+          const reportUrl = `/api/report/weekly/view?origin=${encodeURIComponent(state.origin)}`;
+          let response = await fetch(reportUrl, { headers });
+          if (response.status === 202) {
+            loading.textContent = "전체 보고서를 백그라운드에서 생성하고 있습니다. 완료되면 자동으로 표시합니다.";
+            for (let attempt = 0; attempt < 90 && response.status === 202; attempt += 1) {
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              const status = await fetch(`/api/report/weekly/status?origin=${encodeURIComponent(state.origin)}`, { headers });
+              if (status.status >= 400) {
+                const body = await status.json().catch(() => ({}));
+                throw new Error(body.error || "전체 보고서를 생성하지 못했습니다.");
+              }
+              if (status.ok && status.status !== 202) response = await fetch(reportUrl, { headers });
+            }
+          }
+          if (response.status === 202) throw new Error("보고서 생성이 오래 걸리고 있습니다. 잠시 후 리포트 메뉴를 다시 열어주세요.");
           html = await response.text();
           if (!response.ok) throw new Error("전체 보고서를 불러오지 못했습니다.");
         }
@@ -2190,7 +2274,6 @@
       const successCount = results.filter((result) => result.status === "fulfilled").length;
       $("overview-updated").textContent = `마지막 갱신 ${new Date().toLocaleTimeString("ko-KR")}`;
       setStatus(successCount >= 4, successCount === results.length ? `Live · ${new Date().toLocaleTimeString("ko-KR")}` : `일부 연결 지연`);
-      if (state.activeView === "reports") renderPeriodReport(state.reportPeriod);
     }
 
     // "최신 데이터로 다시 분류" 버튼 핸들러
@@ -2227,6 +2310,8 @@
       state.origin = e.target.value;
       state.selectedSessionId = "";
       state.selectedEvents = [];
+      state.sessionEventCache.clear();
+      state.periodReportCache.clear();
       state.analysis = null;
       state.fullReportOrigin = null;
       $("session-input").value = "";
@@ -2262,7 +2347,20 @@
       try {
         const headers = siteKey ? { "X-GT-Key": siteKey } : {};
         const origin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
-        const response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+        let response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+        if (response.status === 202) {
+          button.textContent = "백그라운드 생성 중";
+          for (let attempt = 0; attempt < 90 && response.status === 202; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const status = await fetch(`/api/report/weekly/status${origin}`, { headers });
+            if (status.status >= 400) {
+              const body = await status.json().catch(() => ({}));
+              throw new Error(body.error || "보고서 생성에 실패했습니다.");
+            }
+            if (status.ok && status.status !== 202) response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+          }
+        }
+        if (response.status === 202) throw new Error("보고서 생성이 오래 걸리고 있습니다. 잠시 후 다시 시도해주세요.");
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
           throw new Error(body.error || `보고서 다운로드 실패 (HTTP ${response.status})`);

@@ -251,7 +251,8 @@ def main():
     dump('split.json', dict(seed=SEED, development_ids=dev.session_id.tolist(), holdout_ids=hold.session_id.tolist(),
                            development_patterns=len(dev), holdout_patterns=len(hold)))
     b_lookup = {sid: B[i] for i,sid in enumerate(base.session_id)}
-    specs = [dict(algorithm=alg,k=k) for alg in ('kmeans','ward','average') for k in range(2,9)]
+    # 운영자가 한눈에 비교할 수 있도록 해석 가능한 유형 수를 최대 5개로 제한한다.
+    specs = [dict(algorithm=alg,k=k) for alg in ('kmeans','ward','average') for k in range(2,6)]
     specs += [dict(algorithm='hdbscan',min_cluster_size=m,min_samples=s) for m in (5,8,12) for s in (2,4)]
     specs += [dict(algorithm='dbscan',eps=e,min_samples=3) for e in (.3,.5,.7,.9)]
     results = []
@@ -359,6 +360,11 @@ def main():
     # Transparent model configuration; no pickle or modification of serving artifacts.
     dump('advanced_model.json',dict(mode=mode,spec=spec,cluster_ids=cluster_ids,centroids=centers,
          radii=radii,vectorizers=[dict(kind=k,weight=w,vocabulary=v.vocabulary_,idf=v.idf_) for k,w,v in fe.vectorizers]))
+    known_patterns = {
+        hashlib.sha256(sequence.encode('utf-8')).hexdigest(): int(label)
+        for sequence, label in pattern_labels.items()
+    }
+    dump('known_pattern_labels.json', known_patterns)
     print('FINAL',json.dumps({k:final[k] for k in ['advanced_in_bert','advanced_in_advanced','full_status_counts','full_cluster_counts','unique_pattern_stability']},ensure_ascii=False),flush=True)
 
 

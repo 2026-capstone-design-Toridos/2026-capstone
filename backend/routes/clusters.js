@@ -40,6 +40,14 @@ const SNAPSHOT_DIR = path.resolve(
 );
 const ML_DIR = path.resolve(__dirname, '../../ml');
 const RETRAIN_SCRIPT = path.join(ML_DIR, 'retrain_centroids.py');
+const SITE_CLUSTER_EVENT_LIMIT = Math.min(
+  Math.max(Number(process.env.SITE_CLUSTER_EVENT_LIMIT) || 100000, 1000),
+  500000,
+);
+const SITE_CLUSTER_SESSION_LIMIT = Math.min(
+  Math.max(Number(process.env.SITE_CLUSTER_SESSION_LIMIT) || 5000, 100),
+  10000,
+);
 let clusteringJob = null;
 
 // origin URL을 파일명으로 쓸 수 있게 정리
@@ -501,6 +509,34 @@ function behaviorOnlyPersona(persona = {}) {
   };
 }
 
+const FORCED_CLUSTER_PERSONAS = {
+  0: {
+    name: '리뷰 관련 신호 중심 고객',
+    summary: '상품 후기와 리뷰 영역을 중심으로 구매 판단에 필요한 근거를 확인하는 고객 유형입니다.',
+    action: '리뷰 요약, 착용 정보와 리뷰 상품 연결을 강화하세요.',
+  },
+  1: {
+    name: '상품·가격 확인 중심 고객',
+    summary: '상품 페이지를 살펴보고 가격과 상세 정보를 반복해서 확인하는 고객 유형입니다.',
+    action: '가격 혜택과 배송·옵션 정보를 상품 화면에서 빠르게 비교할 수 있게 하세요.',
+  },
+  2: {
+    name: '다양한 상호작용·구매 시도 고객',
+    summary: '여러 화면과 기능을 사용하며 장바구니 또는 구매 단계까지 시도하는 활동 고객 유형입니다.',
+    action: '장바구니부터 구매 진입까지의 마찰과 중단 지점을 우선 점검하세요.',
+  },
+  3: {
+    name: '상품·카테고리 반복 탐색 고객',
+    summary: '카테고리와 여러 상품 화면을 오가며 비교 탐색하는 고객 유형입니다.',
+    action: '최근 본 상품, 비교 기능과 카테고리 이동 동선을 강화하세요.',
+  },
+  4: {
+    name: '짧은 방문·행동 정보 부족형',
+    summary: '방문은 확인되지만 고객 의도를 판단할 만큼 의미 있는 행동이 충분히 수집되지 않은 유형입니다.',
+    action: '첫 화면의 다음 행동 유도와 SDK 이벤트 수집 상태를 함께 점검하세요.',
+  },
+};
+
 // 클러스터(행동 유형)와 구매 퍼널(전환 여부)은 서로 다른 축이다.
 // 구매 신호가 한 번 있었다고 구매형 클러스터로 이름 붙이지 않고 별도로 센다.
 function sessionFunnelSignals(events = []) {
@@ -523,11 +559,15 @@ function incrementCounts(target, source = {}) {
 }
 
 // 사이트 최근 세션을 모아 분류 서버에 한번에 보내고 결과를 클러스터별로 집계
-async function classifySiteSessions(origin, profiles, labels) {
+async function classifySiteSessions(origin, profiles, labels, options = {}) {
+  const sessionLimit = Math.min(
+    Math.max(Number(options.sessionLimit) || SITE_CLUSTER_SESSION_LIMIT, 1),
+    SITE_CLUSTER_SESSION_LIMIT,
+  );
   // 끝 슬래시가 붙은 origin도 같이 매칭한다
   const docs = await Event.find(originCondition(origin))
     .sort({ received_at: -1 })
-    .limit(20000)
+    .limit(SITE_CLUSTER_EVENT_LIMIT)
     .lean();
 
   const grouped = new Map();
@@ -547,7 +587,7 @@ async function classifySiteSessions(origin, profiles, labels) {
 
   const sessions = [...grouped.values()]
     .sort((a, b) => new Date(b.last_at) - new Date(a.last_at))
-    .slice(0, 120)
+    .slice(0, sessionLimit)
     .map((session) => {
       const ordered = session.events.sort((a, b) => {
         const aTime = Number(a.timestamp) || new Date(a.received_at || 0).getTime();
@@ -588,7 +628,7 @@ async function classifySiteSessions(origin, profiles, labels) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessions }),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!res.ok) {
@@ -597,10 +637,18 @@ async function classifySiteSessions(origin, profiles, labels) {
   }
 
   const body = await res.json();
+  const modelMode = body.results?.find((result) => result.mode)?.mode || 'unknown';
   const sessionById = new Map(sessions.map((session) => [session.session_id, session]));
   const siteStats = new Map();
   let noiseCount = 0;
   const rejectionReasons = new Map();
+  const qualityReasons = new Map();
+  const reliability = {
+    reliable_sessions: 0,
+    insufficient_behavior_sessions: 0,
+    ambiguous_sessions: 0,
+    low_confidence_sessions: 0,
+  };
   const funnel = {
     guest_purchase_sessions: 0,
     purchase_intent_sessions: 0,
@@ -616,6 +664,20 @@ async function classifySiteSessions(origin, profiles, labels) {
     if (session?.funnel?.wishlist) funnel.wishlist_sessions += 1;
     if (session?.funnel?.review) funnel.review_sessions += 1;
 
+    const status = String(result.assignment_status || '');
+    if (status === 'insufficient_behavior') {
+      reliability.insufficient_behavior_sessions += 1;
+      reliability.low_confidence_sessions += 1;
+    } else if (result.reliability === 'high' || status === 'reliable') {
+      reliability.reliable_sessions += 1;
+    } else {
+      reliability.ambiguous_sessions += 1;
+      reliability.low_confidence_sessions += 1;
+    }
+    for (const reason of result.quality_reasons || []) {
+      qualityReasons.set(reason, (qualityReasons.get(reason) || 0) + 1);
+    }
+
     const cid = Number(result.cluster_id);
     if (!Number.isFinite(cid) || cid < 0) {
       noiseCount += 1;
@@ -628,6 +690,9 @@ async function classifySiteSessions(origin, profiles, labels) {
       count: 0,
       actionCounts: new Map(),
       pageCounts: new Map(),
+      personaCounts: new Map(),
+      reliableCount: 0,
+      lowConfidenceCount: 0,
       funnel: {
         guest_purchase_sessions: 0,
         purchase_intent_sessions: 0,
@@ -635,6 +700,11 @@ async function classifySiteSessions(origin, profiles, labels) {
       },
     };
     stats.count += 1;
+    if (result.persona) {
+      stats.personaCounts.set(result.persona, (stats.personaCounts.get(result.persona) || 0) + 1);
+    }
+    if (result.reliability === 'high' || status === 'reliable') stats.reliableCount += 1;
+    else stats.lowConfidenceCount += 1;
 
     if (session?.funnel?.guest_purchase) stats.funnel.guest_purchase_sessions += 1;
     if (session?.funnel?.purchase_intent) stats.funnel.purchase_intent_sessions += 1;
@@ -651,6 +721,9 @@ async function classifySiteSessions(origin, profiles, labels) {
     .map(([clusterId, stats]) => {
       const profile = profiles[String(clusterId)] || {};
       const nlp = behaviorOnlyPersona(labels[String(clusterId)] || {});
+      const forcedPersona = FORCED_CLUSTER_PERSONAS[clusterId];
+      const inferredPersona = [...stats.personaCounts.entries()]
+        .sort((a, b) => b[1] - a[1])[0]?.[0];
       const topActions = [...stats.actionCounts.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 12)
@@ -658,36 +731,109 @@ async function classifySiteSessions(origin, profiles, labels) {
       const pageDist = Object.fromEntries(
         [...stats.pageCounts.entries()].sort((a, b) => b[1] - a[1]),
       );
+      const validation = clusterValidation(clusterId, profile, stats.count, sessions.length, {});
+      if (clusterId === 4) {
+        validation.status = 'insufficient';
+        validation.label = '신뢰 낮음';
+        validation.reasons = ['고객 의도를 판단할 의미 행동이 충분하지 않습니다.'];
+      } else {
+        validation.status = stats.reliableCount >= stats.lowConfidenceCount ? 'verified' : 'weak';
+        validation.label = validation.status === 'verified' ? '신뢰 높음' : '신뢰 낮음';
+      }
       return {
         cluster: clusterId,
-        label: nlp.name || buildLabel(clusterId, profile, labels),
-        summary: nlp.summary || '',
-        action: nlp.action || '',
+        label: forcedPersona?.name || inferredPersona || nlp.name || buildLabel(clusterId, profile, labels),
+        summary: forcedPersona?.summary || nlp.summary || '',
+        action: forcedPersona?.action || nlp.action || '',
         // 이름이 어디서 왔는지 화면에 알려준다. 없으면 화면이 자체 규칙으로 다시 명명한다.
-        persona_source: nlp.source || (nlp.name ? 'meta' : null),
-        persona_id: nlp.id || null,
+        persona_source: forcedPersona ? 'forced_factorized' : (nlp.source || (nlp.name ? 'meta' : null)),
+        persona_id: forcedPersona ? `forced_${clusterId}` : (nlp.id || null),
         count: stats.count,
+        reliability: {
+          high: stats.reliableCount,
+          low: stats.lowConfidenceCount,
+          high_rate: stats.count ? Number((stats.reliableCount / stats.count).toFixed(4)) : 0,
+        },
         // 번역은 서버에서 붙여 내려보낸다. 화면이 다시 번역하면 사전이 두 개가 된다.
         top_actions: (topActions.length ? topActions : (profile.top_actions || []))
           .map((a) => ({ ...a, label: koAction(a.action) })),
         page_dist: Object.keys(pageDist).length ? pageDist : (profile.page_dist || {}),
         funnel: stats.funnel,
-        validation: clusterValidation(clusterId, profile, stats.count, sessions.length, {}),
+        validation,
       };
     }));
 
-  return {
+  const payload = {
     total_sessions: sessions.length,
     n_clusters: clusters.length,
     noise_count: noiseCount,
     rejection_reasons: Object.fromEntries(rejectionReasons),
+    quality_reasons: Object.fromEntries(qualityReasons),
+    reliability,
     funnel,
     clusters,
-    quality: qualitySummary(clusters, { noise_count: noiseCount }, sessions.length),
+    quality: {
+      ...qualitySummary(clusters, { noise_count: noiseCount }, sessions.length),
+      assigned_sessions: sessions.length - noiseCount,
+      ...reliability,
+      reliable_rate: sessions.length
+        ? Number((reliability.reliable_sessions / sessions.length).toFixed(4))
+        : 0,
+    },
     source: 'site_live',
+    model_mode: modelMode,
     origin: canonicalOrigin(origin),
     sampled_sessions: sessions.length,
+    date_range: {
+      newest_at: sessions[0]?.last_at || null,
+      oldest_at: sessions[sessions.length - 1]?.last_at || null,
+    },
   };
+
+  // 전체 분포와 동일한 모델로 최신 100세션을 다시 배정해 직접 비교할 수 있게 한다.
+  // 분류 기준은 하나만 유지하므로 두 결과의 비율 차이는 실제 최근 행동 변화에 해당한다.
+  if (options.includeComparison !== false) {
+    const cohortView = (result) => ({
+      total_sessions: result.total_sessions,
+      clusters: result.clusters,
+      quality: result.quality,
+      date_range: result.date_range,
+    });
+    const recent = sessions.length > 100
+      ? await classifySiteSessions(origin, profiles, labels, {
+        sessionLimit: 100,
+        includeComparison: false,
+      })
+      : payload;
+    const overallById = new Map(payload.clusters.map((cluster) => [cluster.cluster, cluster]));
+    const recentById = new Map(recent.clusters.map((cluster) => [cluster.cluster, cluster]));
+    const clusterIds = [...new Set([...overallById.keys(), ...recentById.keys()])]
+      .sort((a, b) => a - b);
+
+    payload.comparison = {
+      overall: cohortView(payload),
+      recent_100: cohortView(recent),
+      deltas: clusterIds.map((clusterId) => {
+        const overallCluster = overallById.get(clusterId);
+        const recentCluster = recentById.get(clusterId);
+        const overallRate = payload.total_sessions
+          ? (overallCluster?.count || 0) / payload.total_sessions
+          : 0;
+        const recentRate = recent.total_sessions
+          ? (recentCluster?.count || 0) / recent.total_sessions
+          : 0;
+        return {
+          cluster: clusterId,
+          label: overallCluster?.label || recentCluster?.label || `Cluster ${clusterId}`,
+          overall_rate: Number(overallRate.toFixed(4)),
+          recent_rate: Number(recentRate.toFixed(4)),
+          percentage_point_change: Number(((recentRate - overallRate) * 100).toFixed(1)),
+        };
+      }),
+    };
+  }
+
+  return payload;
 }
 
 // PDF 리포트처럼 사이트별 최신 분류 결과가 필요한 내부 기능에서 재사용한다.
@@ -750,7 +896,12 @@ router.get('/', async (req, res) => {
     // 운영자가 "고정" 모드를 선택하면 마지막 저장 스냅샷을 우선 사용한다
     if (req.siteOrigin && frozenMode) {
       const snapshot = loadSiteSnapshot(req.siteOrigin);
-      if (snapshot) {
+      const isCompleteForcedAssignment = snapshot
+        && snapshot.model_mode === 'factorized_tfidf'
+        && Number(snapshot.noise_count || 0) === 0
+        && Number(snapshot.quality?.assigned_sessions || 0) === Number(snapshot.total_sessions || 0)
+        && snapshot.comparison?.recent_100;
+      if (isCompleteForcedAssignment) {
         return res.json({
           ...snapshot,
           meta,

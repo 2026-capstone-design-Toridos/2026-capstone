@@ -534,6 +534,79 @@ router.get('/operator-summary', async (req, res) => {
 });
 
 /**
+ * GET /api/logs/period-report
+ * 선택 기간의 전체 이벤트와 세션을 DB에서 직접 집계한다. 대시보드가 최근
+ * 200개 이벤트/8개 세션만 들고 있으므로 브라우저 상태로 기간 리포트를
+ * 계산하면 모든 기간이 같은 값으로 보이는 문제가 있었다.
+ */
+router.get('/period-report', async (req, res) => {
+  try {
+    const start = new Date(String(req.query.start || ''));
+    const end = new Date(String(req.query.end || ''));
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+      return res.status(400).json({ error: '올바른 시작일과 종료일이 필요합니다.' });
+    }
+
+    const filter = {
+      ...originFilter(req),
+      received_at: { $gte: start, $lte: end },
+    };
+    const [eventCount, sessions] = await Promise.all([
+      Event.countDocuments(filter),
+      Event.aggregate(buildSessionPipeline(filter)),
+    ]);
+    const completed = sessions.filter((session) => session.completed);
+    const risky = sessions.filter((session) => session.risky && !session.completed);
+
+    const blockedMap = new Map();
+    const causeMap = new Map();
+    const sourceMap = new Map();
+    for (const session of sessions) {
+      const source = deriveSourceName(session);
+      const sourceRow = sourceMap.get(source) || { name: source, total: 0, completed: 0, risky: 0 };
+      sourceRow.total += 1;
+      if (session.completed) sourceRow.completed += 1;
+      if (session.risky) sourceRow.risky += 1;
+      sourceMap.set(source, sourceRow);
+      if (!session.risky || session.completed) continue;
+      const page = screenLabel(session.pathname, session.page_type);
+      blockedMap.set(page, (blockedMap.get(page) || 0) + 1);
+      const cause = causeLabel(session);
+      causeMap.set(cause, (causeMap.get(cause) || 0) + 1);
+    }
+
+    const topRows = (map) => [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([label, count]) => ({ label, count }));
+    const sources = [...sourceMap.values()]
+      .map((row) => ({
+        ...row,
+        completion_rate: row.total ? Math.round((row.completed / row.total) * 100) : 0,
+        risk_rate: row.total ? Math.round((row.risky / row.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+    res.json({
+      start: start.toISOString(),
+      end: end.toISOString(),
+      visitor_count: sessions.length,
+      event_count: eventCount,
+      completed_count: completed.length,
+      completion_rate: sessions.length ? Math.round((completed.length / sessions.length) * 100) : 0,
+      risky_count: risky.length,
+      blocked_pages: topRows(blockedMap),
+      issue_causes: topRows(causeMap),
+      source_performance: sources,
+    });
+  } catch (err) {
+    console.error('[period-report] 오류:', err.message);
+    res.status(500).json({ error: '기간 리포트를 집계하지 못했습니다.' });
+  }
+});
+
+/**
  * GET /api/logs/sources
  * 쿼리: limit, origin — 유입 채널별 세션 수 TOP N
  */

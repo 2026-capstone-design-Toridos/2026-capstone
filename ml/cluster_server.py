@@ -56,6 +56,7 @@ GET /health
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -120,6 +121,18 @@ PAGE_MAP: Dict[str, str] = {
     "search":    "SEARCH",
 }
 
+LIFECYCLE_ACTIONS = {
+    "START_SESSION", "EXIT_SESSION", "EXIT_BOUNCE", "TAB_OUT", "TAB_RETURN", "INACTIVE",
+}
+
+FORCED_CLUSTER_LABELS = {
+    "0": "리뷰 관련 신호 중심 고객",
+    "1": "상품·가격 확인 중심 고객",
+    "2": "다양한 상호작용·구매 시도 고객",
+    "3": "상품·카테고리 반복 탐색 고객",
+    "4": "짧은 방문·행동 정보 부족형",
+}
+
 
 def events_to_tokens(events: List[dict]) -> List[str]:
     """학습 파이프라인과 같은 규칙으로 raw event를 semantic token으로 바꾼다."""
@@ -180,6 +193,7 @@ class ClusterPredictor:
 
     MODE_BERT  = "bert"
     MODE_TFIDF = "tfidf"
+    MODE_FACTORIZED = "factorized_tfidf"
 
     def __init__(self, model_dir: str, device: str = "cpu"):
         self.model_dir = model_dir
@@ -189,6 +203,13 @@ class ClusterPredictor:
         meta_path      = os.path.join(model_dir, "cluster_meta.json")
         centroids_path = os.path.join(model_dir, "cluster_centroids.npy")
         encoder_path   = os.path.join(model_dir, "bert_encoder.pt")
+        advanced_path  = os.getenv(
+            "ADVANCED_CLUSTER_MODEL",
+            os.path.abspath(os.path.join(
+                model_dir, "..", "clustering", "advanced_analysis", "advanced_model.json",
+            )),
+        )
+        pattern_path = os.path.join(os.path.dirname(advanced_path), "known_pattern_labels.json")
 
         # ── 공통: cluster_meta.json ─────────────────────────────────────────
         if not os.path.exists(meta_path):
@@ -239,6 +260,28 @@ class ClusterPredictor:
 
         self.n_clusters = len(self.cluster_labels) or meta.get("num_clusters", 0)
         print(f"[ClusterServer] vocab_size={len(self.vocab)}, n_clusters={self.n_clusters}")
+
+        # 해석 가능한 factorized TF-IDF 모델이 있으면 이를 운영 분류에 우선 사용한다.
+        # 의미 행동 4개 군집 + 행동 정보 부족 전용 군집 하나로 모든 세션을 배정한다.
+        self.factorized_model = None
+        self.known_pattern_labels = {}
+        if os.path.exists(advanced_path):
+            with open(advanced_path, "r", encoding="utf-8") as f:
+                candidate = json.load(f)
+            cluster_count = len(candidate.get("cluster_ids", []))
+            if candidate.get("mode") == "factorized" and 2 <= cluster_count <= 4:
+                self.factorized_model = candidate
+                if os.path.exists(pattern_path):
+                    with open(pattern_path, "r", encoding="utf-8") as f:
+                        self.known_pattern_labels = json.load(f)
+                self.cluster_labels = dict(FORCED_CLUSTER_LABELS)
+                self.n_clusters = cluster_count + 1
+                self.mode = self.MODE_FACTORIZED
+                print(
+                    f"[ClusterServer] factorized TF-IDF 모드 "
+                    f"({cluster_count}개 행동 군집 + 정보 부족 군집)"
+                )
+                return
 
         # ── TF-IDF 중심점 (항상 로드, fallback용) ─────────────────────────
         self.tfidf_centroids: Optional[np.ndarray] = None
@@ -393,6 +436,119 @@ class ClusterPredictor:
             vec /= norm
         return vec
 
+    @staticmethod
+    def _factorized_terms(tokens: List[str], kind: str) -> List[str]:
+        parsed = [token.split("|") for token in tokens if len(token.split("|")) == 3]
+        actions = [parts[1] for parts in parsed if parts[1] not in LIFECYCLE_ACTIONS]
+        if kind == "actions":
+            return actions or ["NO_ACTION"]
+        if kind == "pages":
+            pages = [parts[0] for parts in parsed if parts[1] not in LIFECYCLE_ACTIONS]
+            return pages or [parts[0] for parts in parsed] or ["UNKNOWN"]
+        if kind == "transitions":
+            compact = [action for i, action in enumerate(actions) if i == 0 or action != actions[i - 1]]
+            return [f"{a}>{b}" for a, b in zip(compact, compact[1:])] or ["NO_TRANSITION"]
+        return tokens
+
+    def _embed_factorized(self, tokens: List[str]) -> np.ndarray:
+        blocks = []
+        for config in self.factorized_model["vectorizers"]:
+            vocabulary = config["vocabulary"]
+            idf = np.asarray(config["idf"], dtype=np.float32)
+            vector = np.zeros(len(vocabulary), dtype=np.float32)
+            counts: Dict[str, int] = {}
+            for term in self._factorized_terms(tokens, config["kind"]):
+                counts[term] = counts.get(term, 0) + 1
+            for term, count in counts.items():
+                index = vocabulary.get(term)
+                if index is not None:
+                    vector[index] = (1.0 + math.log(count)) * idf[index]
+            norm = np.linalg.norm(vector)
+            if norm > 0:
+                vector /= norm
+            blocks.append(vector * math.sqrt(float(config["weight"])))
+        result = np.concatenate(blocks)
+        norm = np.linalg.norm(result)
+        return result / norm if norm > 0 else result
+
+    def _classify_factorized(self, tokens: List[str]) -> dict:
+        parsed = [token.split("|") for token in tokens if len(token.split("|")) == 3]
+        meaningful = [parts for parts in parsed if parts[1] not in LIFECYCLE_ACTIONS]
+        action_counts: Dict[str, int] = {}
+        page_counts: Dict[str, int] = {}
+        for page, action, _ in parsed:
+            action_counts[action] = action_counts.get(action, 0) + 1
+            page_counts[page] = page_counts.get(page, 0) + 1
+
+        # 정보가 거의 없는 방문도 버리지 않고 전용 유형으로 포함한다.
+        if len(parsed) < 3 or not meaningful:
+            return {
+                "cluster_id": 4,
+                "candidate_cluster_id": 4,
+                "persona": FORCED_CLUSTER_LABELS["4"],
+                "confidence": 0.0,
+                "margin": 0.0,
+                "accepted": True,
+                "reliability": "low",
+                "assignment_status": "insufficient_behavior",
+                "quality_reasons": ["too_few_or_uninformative_actions"],
+                "rejection_reasons": [],
+                "semantic_action_counts": action_counts,
+                "page_counts": page_counts,
+                "distances": {},
+                "seq_len": len(tokens),
+                "mode": self.mode,
+            }
+
+        vector = self._embed_factorized(tokens)
+        centroids = np.asarray(self.factorized_model["centroids"], dtype=np.float32)
+        distances = np.linalg.norm(centroids - vector, axis=1)
+        best_index = int(np.argmin(distances))
+        cluster_id = int(self.factorized_model["cluster_ids"][best_index])
+        ordered = np.sort(distances)
+        margin = (
+            float((ordered[1] - ordered[0]) / max(ordered[1], 1e-12))
+            if len(ordered) > 1 else 1.0
+        )
+        radius = float(self.factorized_model.get("radii", {}).get(str(cluster_id), 1.0))
+        within_reference = float(distances[best_index]) <= radius and margin >= 0.05
+        signature = hashlib.sha256(" ".join(tokens).encode("utf-8")).hexdigest()
+        known_cluster = self.known_pattern_labels.get(signature)
+        if known_cluster is not None:
+            cluster_id = int(known_cluster)
+            best_index = self.factorized_model["cluster_ids"].index(cluster_id)
+            within_reference = True
+        reasons = []
+        if known_cluster is None:
+            if float(distances[best_index]) > radius:
+                reasons.append("outside_reference_radius")
+            if margin < 0.05:
+                reasons.append("ambiguous_between_clusters")
+        confidence = max(0.0, min(1.0, 1.0 - float(distances[best_index]) / max(2 * radius, 1e-12)))
+        return {
+            "cluster_id": cluster_id,
+            "candidate_cluster_id": cluster_id,
+            "persona": FORCED_CLUSTER_LABELS[str(cluster_id)],
+            "confidence": round(confidence, 4),
+            "margin": round(margin, 4),
+            "accepted": True,
+            "reliability": "high" if within_reference else "low",
+            "assignment_status": (
+                "known_pattern" if known_cluster is not None
+                else ("reliable" if within_reference else "out_of_reference_or_ambiguous")
+            ),
+            "quality_reasons": reasons,
+            "rejection_reasons": [],
+            "semantic_action_counts": action_counts,
+            "page_counts": page_counts,
+            "distances": {
+                str(cid): round(float(distance), 4)
+                for cid, distance in zip(self.factorized_model["cluster_ids"], distances)
+            },
+            "seq_len": len(tokens),
+            "mode": self.mode,
+        }
+
     # ── 코사인 유사도 ────────────────────────────────────────────────────────
     @staticmethod
     def _cosine_distances(vec: np.ndarray, centroids: np.ndarray) -> np.ndarray:
@@ -405,7 +561,12 @@ class ClusterPredictor:
     # ── 메인 분류 ────────────────────────────────────────────────────────────
     def classify(self, tokens: List[str]) -> dict:
         if not tokens:
+            if self.mode == self.MODE_FACTORIZED:
+                return self._classify_factorized(tokens)
             return {"error": "tokens 리스트가 비어 있습니다."}
+
+        if self.mode == self.MODE_FACTORIZED:
+            return self._classify_factorized(tokens)
 
         if self.mode == self.MODE_BERT:
             ids  = self._tokens_to_ids(tokens)
