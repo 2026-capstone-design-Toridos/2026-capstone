@@ -161,6 +161,24 @@ function findCurrentPdfReport(origin) {
   return files[0] || null;
 }
 
+function findCurrentHtmlReport(origin) {
+  if (!fs.existsSync(REPORTS_DIR)) return null;
+  const key = origin ? siteKey(origin) : '';
+  const stamp = localDateValue(new Date(), true);
+  const expectedName = key ? `ghosttracker_report_${key}_${stamp}.html` : '';
+  const files = fs.readdirSync(REPORTS_DIR)
+    .filter((name) => name.toLowerCase().endsWith('.html'))
+    .filter((name) => (key
+      ? name.toLowerCase() === expectedName.toLowerCase()
+      : name.includes(stamp) && !name.includes('.generating.')))
+    .map((name) => {
+      const fullPath = path.join(REPORTS_DIR, name);
+      return { name, fullPath, mtimeMs: fs.statSync(fullPath).mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return files[0] || null;
+}
+
 /**
  * 사이트 전용 PDF가 없을 때 보고서 생성기를 한 번만 실행한다.
  * execFile을 사용해 origin을 셸 문자열로 해석하지 않으며, 동일 사이트의
@@ -254,8 +272,11 @@ async function generatePdfReport(origin) {
             return;
           }
           try {
+            const outputHtmlPath = outputPath.replace(/\.pdf$/i, '.html');
+            removeGeneratedArtifact(outputPath);
+            removeGeneratedArtifact(outputHtmlPath);
             fs.renameSync(stagingPath, outputPath);
-            removeGeneratedArtifact(stagingHtmlPath);
+            if (fs.existsSync(stagingHtmlPath)) fs.renameSync(stagingHtmlPath, outputHtmlPath);
             resolve(outputPath);
           } catch (moveErr) {
             removeGeneratedArtifact(stagingPath);
@@ -811,6 +832,27 @@ router.get('/weekly/download', async (req, res) => {
   } catch (err) {
     console.error('[report/weekly/download] 오류:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// PDF 변환 직전의 동일한 HTML 원본을 대시보드 안에서 보여준다.
+// 화면과 PDF가 서로 다른 요약 규칙을 갖지 않도록 한 생성 결과를 함께 사용한다.
+router.get('/weekly/view', async (req, res) => {
+  try {
+    const origin = req.siteOrigin || null;
+    if (!origin) {
+      return res.status(400).send('<p>리포트를 볼 쇼핑몰을 먼저 선택해주세요.</p>');
+    }
+    let report = findCurrentHtmlReport(origin);
+    if (!report) {
+      await generatePdfReport(origin);
+      report = findCurrentHtmlReport(origin);
+    }
+    if (!report) throw new Error('생성된 웹 리포트를 찾지 못했습니다.');
+    res.sendFile(report.fullPath);
+  } catch (err) {
+    console.error('[report/weekly/view] 오류:', err.message);
+    res.status(500).send(`<html lang="ko"><body><p>리포트를 준비하지 못했습니다. ${String(err.message).replace(/[<>&"]/g, '')}</p></body></html>`);
   }
 });
 
