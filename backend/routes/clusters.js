@@ -658,6 +658,7 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
   };
   for (const [index, result] of (body.results || []).entries()) {
     const session = sessionById.get(result.session_id) || sessions[index];
+    const cid = Number(result.cluster_id);
     if (session?.funnel?.guest_purchase) funnel.guest_purchase_sessions += 1;
     if (session?.funnel?.purchase_intent) funnel.purchase_intent_sessions += 1;
     if (session?.funnel?.cart) funnel.cart_sessions += 1;
@@ -665,10 +666,18 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     if (session?.funnel?.review) funnel.review_sessions += 1;
 
     const status = String(result.assignment_status || '');
-    if (status === 'insufficient_behavior') {
+    const reasons = result.rejection_reasons || [];
+    // 이전 분류 서버에는 assignment_status/reliability가 없었다. 배포가
+    // 엇갈려도 모든 세션을 '모호'로 세지 않고 기존 quality gate 결과를 쓴다.
+    const legacyAccepted = modelMode !== 'factorized_tfidf'
+      && Number.isFinite(cid) && cid >= 0 && result.accepted !== false;
+    const insufficientBehavior = status === 'insufficient_behavior'
+      || (modelMode !== 'factorized_tfidf' && reasons.includes('too_few_semantic_tokens'));
+    const reliableAssignment = result.reliability === 'high' || status === 'reliable' || legacyAccepted;
+    if (insufficientBehavior) {
       reliability.insufficient_behavior_sessions += 1;
       reliability.low_confidence_sessions += 1;
-    } else if (result.reliability === 'high' || status === 'reliable') {
+    } else if (reliableAssignment) {
       reliability.reliable_sessions += 1;
     } else {
       reliability.ambiguous_sessions += 1;
@@ -678,7 +687,6 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
       qualityReasons.set(reason, (qualityReasons.get(reason) || 0) + 1);
     }
 
-    const cid = Number(result.cluster_id);
     if (!Number.isFinite(cid) || cid < 0) {
       noiseCount += 1;
       for (const reason of result.rejection_reasons || ['unclassified']) {
@@ -703,7 +711,7 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     if (result.persona) {
       stats.personaCounts.set(result.persona, (stats.personaCounts.get(result.persona) || 0) + 1);
     }
-    if (result.reliability === 'high' || status === 'reliable') stats.reliableCount += 1;
+    if (reliableAssignment) stats.reliableCount += 1;
     else stats.lowConfidenceCount += 1;
 
     if (session?.funnel?.guest_purchase) stats.funnel.guest_purchase_sessions += 1;
@@ -721,7 +729,7 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     .map(([clusterId, stats]) => {
       const profile = profiles[String(clusterId)] || {};
       const nlp = behaviorOnlyPersona(labels[String(clusterId)] || {});
-      const forcedPersona = FORCED_CLUSTER_PERSONAS[clusterId];
+      const forcedPersona = modelMode === 'factorized_tfidf' ? FORCED_CLUSTER_PERSONAS[clusterId] : null;
       const inferredPersona = [...stats.personaCounts.entries()]
         .sort((a, b) => b[1] - a[1])[0]?.[0];
       const topActions = [...stats.actionCounts.entries()]
@@ -775,6 +783,7 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     quality: {
       ...qualitySummary(clusters, { noise_count: noiseCount }, sessions.length),
       assigned_sessions: sessions.length - noiseCount,
+      evaluated_sessions: sessions.length,
       ...reliability,
       reliable_rate: sessions.length
         ? Number((reliability.reliable_sessions / sessions.length).toFixed(4))

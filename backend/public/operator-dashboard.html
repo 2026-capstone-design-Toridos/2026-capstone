@@ -1765,7 +1765,7 @@
 
     // 검증 통과/필요, 분리도, 미분류 비율 카드 채우기
     function renderQualitySummary(quality = {}) {
-      const assigned = quality.assigned_sessions ?? quality.sample_count;
+      const assigned = quality.evaluated_sessions ?? quality.total_sessions ?? quality.assigned_sessions ?? quality.sample_count;
       const hasReliability = ["reliable_sessions", "insufficient_behavior_sessions", "ambiguous_sessions"]
         .some((key) => Object.hasOwn(quality, key));
       const reliable = quality.reliable_sessions;
@@ -1815,7 +1815,7 @@
       const total = data.total_sessions || clusters.reduce((sum, c) => sum + c.count, 0);
       const groupedQuality = {
         ...(data.quality || {}),
-        assigned_sessions: data.quality?.assigned_sessions ?? data.total_sessions,
+        evaluated_sessions: data.total_sessions,
         verified_clusters: clusters.filter((cluster) => cluster.validation?.status === "verified").length,
         weak_clusters: clusters.filter((cluster) => cluster.validation?.status === "weak").length,
         insufficient_clusters: clusters.filter((cluster) => cluster.validation?.status === "insufficient").length,
@@ -1833,6 +1833,14 @@
         const delta = Number((recentRate - overallRate).toFixed(1));
         return { name: cluster.label || friendlyClusterName(cluster), overallRate, recentRate, delta };
       });
+      const overallNoise = Number(data.noise_count ?? data.quality?.noise_count ?? Math.max(0, overallTotal - rawClusters.reduce((sum, cluster) => sum + (cluster.count || 0), 0)));
+      const recentClusters = comparison.recent_100?.clusters || rawClusters;
+      const recentNoise = Number(comparison.recent_100?.quality?.noise_count ?? Math.max(0, recentTotal - recentClusters.reduce((sum, cluster) => sum + (cluster.count || 0), 0)));
+      if (overallNoise > 0 || recentNoise > 0) {
+        const overallRate = Number((overallNoise / overallTotal * 100).toFixed(1));
+        const recentRate = Number((recentNoise / recentTotal * 100).toFixed(1));
+        comparisonRows.push({ name: "유형 판정 보류", overallRate, recentRate, delta: Number((recentRate - overallRate).toFixed(1)) });
+      }
       $("type-comparison").innerHTML = comparisonRows.length ? comparisonRows.map((row) => `
         <div class="comparison-row">
           <div class="comparison-head"><span class="comparison-name">${row.name}</span><span class="comparison-value">최근 ${row.delta > 0 ? "+" : ""}${row.delta}%p</span></div>
