@@ -44,6 +44,11 @@ const SITE_CLUSTER_EVENT_LIMIT = Math.min(
   Math.max(Number(process.env.SITE_CLUSTER_EVENT_LIMIT) || 100000, 1000),
   500000,
 );
+// 이벤트 조회가 이 시간을 넘기면 Mongo가 쿼리를 중단하고 에러를 돌려준다.
+// 없으면 느린 쿼리를 무한정 기다린다.
+const SITE_CLUSTER_QUERY_TIMEOUT_MS = Math.max(
+  Number(process.env.SITE_CLUSTER_QUERY_TIMEOUT_MS) || 30000, 1000,
+);
 const SITE_CLUSTER_SESSION_LIMIT = Math.min(
   Math.max(Number(process.env.SITE_CLUSTER_SESSION_LIMIT) || 5000, 100),
   10000,
@@ -568,6 +573,7 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
   const docs = await Event.find(originCondition(origin))
     .sort({ received_at: -1 })
     .limit(SITE_CLUSTER_EVENT_LIMIT)
+    .maxTimeMS(SITE_CLUSTER_QUERY_TIMEOUT_MS)
     .lean();
 
   const grouped = new Map();
