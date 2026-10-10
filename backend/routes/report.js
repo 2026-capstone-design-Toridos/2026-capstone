@@ -40,6 +40,17 @@ const reportCache = new Map();
 const reportGenerationJobs = new Map();
 const reportGenerationStatus = new Map();
 const REPORT_INPUT_DIR = path.join(REPORTS_DIR, 'inputs');
+// 단계별 시한(Mongo 30초 + 분류 서버 120초 + Python 180초)을 다 합쳐도 약 6분이다.
+// 이 값을 넘기면 어느 단계에서 멈췄든 작업을 실패 처리해 "생성 중"이 남지 않게 한다.
+const REPORT_JOB_TIMEOUT_MS = Math.max(Number(process.env.REPORT_JOB_TIMEOUT_MS) || 420000, 60000);
+
+function withDeadline(promise, ms, message) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
 
 // ── 사이트 식별 ───────────────────────────────────────────────────────────────
 // origin을 파일명에 쓸 수 있는 형태로 바꾼다 (clusters.js의 snapshotKey와 같은 규칙)
@@ -238,7 +249,7 @@ async function generatePdfReport(origin) {
   const dateValue = (date) => localDateValue(date);
 
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
-  const job = (async () => {
+  const job = withDeadline((async () => {
     const resultCsv = await writeSiteResultCsv(origin);
     return new Promise((resolve, reject) => {
       execFile(
@@ -287,7 +298,8 @@ async function generatePdfReport(origin) {
         },
       );
     });
-  })().finally(() => reportGenerationJobs.delete(key));
+  })(), REPORT_JOB_TIMEOUT_MS, '보고서 생성 시간이 초과됐습니다. 잠시 후 다시 시도해주세요.')
+    .finally(() => reportGenerationJobs.delete(key));
 
   reportGenerationJobs.set(key, job);
   return job;
