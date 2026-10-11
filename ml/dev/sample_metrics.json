@@ -1,0 +1,175 @@
+{
+ "_sample": true,
+ "_schema": "ml/report_marketing.py 문서 참고. 시간대는 Asia/Seoul 기준.",
+ "overview": {
+  "sessions": 300,
+  "product_sessions": 214,
+  "cart_sessions": 38,
+  "checkout_sessions": 19,
+  "orders": 9,
+  "risky_sessions": 112
+ },
+ "prev_overview": {
+  "sessions": 262,
+  "product_sessions": 190,
+  "cart_sessions": 41,
+  "checkout_sessions": 22,
+  "orders": 10,
+  "risky_sessions": 97
+ },
+ "funnel": [
+  {
+   "stage": "방문",
+   "sessions": 300
+  },
+  {
+   "stage": "상품 조회",
+   "sessions": 214
+  },
+  {
+   "stage": "장바구니",
+   "sessions": 38
+  },
+  {
+   "stage": "결제 시작",
+   "sessions": 19
+  },
+  {
+   "stage": "주문 완료",
+   "sessions": 9
+  }
+ ],
+ "channels": [
+  {
+   "name": "Instagram",
+   "sessions": 118,
+   "product_sessions": 84,
+   "cart_sessions": 9,
+   "orders": 1
+  },
+  {
+   "name": "직접 방문",
+   "sessions": 82,
+   "product_sessions": 60,
+   "cart_sessions": 17,
+   "orders": 6
+  },
+  {
+   "name": "Naver",
+   "sessions": 47,
+   "product_sessions": 35,
+   "cart_sessions": 8,
+   "orders": 2
+  },
+  {
+   "name": "Kakao",
+   "sessions": 28,
+   "product_sessions": 20,
+   "cart_sessions": 3,
+   "orders": 0
+  },
+  {
+   "name": "Google",
+   "sessions": 15,
+   "product_sessions": 10,
+   "cart_sessions": 1,
+   "orders": 0
+  },
+  {
+   "name": "기타",
+   "sessions": 10,
+   "product_sessions": 5,
+   "cart_sessions": 0,
+   "orders": 0
+  }
+ ],
+ "devices": [
+  {
+   "name": "모바일",
+   "sessions": 210,
+   "cart_sessions": 20,
+   "orders": 3
+  },
+  {
+   "name": "데스크톱",
+   "sessions": 85,
+   "cart_sessions": 17,
+   "orders": 6
+  },
+  {
+   "name": "태블릿",
+   "sessions": 5,
+   "cart_sessions": 1,
+   "orders": 0
+  }
+ ],
+ "exit_pages": [
+  {
+   "label": "상품 상세",
+   "sessions": 62,
+   "share": 55
+  },
+  {
+   "label": "홈 화면",
+   "sessions": 31,
+   "share": 28
+  },
+  {
+   "label": "장바구니",
+   "sessions": 14,
+   "share": 13
+  }
+ ],
+ "exit_causes": [
+  {
+   "label": "상품 탐색 중 멈춤",
+   "sessions": 58,
+   "share": 52
+  },
+  {
+   "label": "화면을 보다가 멈춤",
+   "sessions": 29,
+   "share": 26
+  },
+  {
+   "label": "장바구니에서 멈춤",
+   "sessions": 14,
+   "share": 13
+  }
+ ],
+ "hourly": [
+  3,
+  2,
+  1,
+  1,
+  1,
+  2,
+  4,
+  7,
+  9,
+  10,
+  11,
+  12,
+  14,
+  13,
+  12,
+  11,
+  12,
+  14,
+  17,
+  22,
+  26,
+  59,
+  24,
+  13
+ ],
+ "weekday": [
+  38,
+  41,
+  36,
+  40,
+  52,
+  49,
+  44
+ ]
+}
