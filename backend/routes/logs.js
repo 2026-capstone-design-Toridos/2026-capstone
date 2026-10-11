@@ -5,7 +5,7 @@
 const express = require('express');
 const router  = express.Router();
 const Event   = require('../models/Event');
-const { originFilter } = require('../middleware/siteAccess');
+const { originFilter, canonicalOrigin } = require('../middleware/siteAccess');
 
 const RISK_EVENTS = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag'];
 
@@ -59,6 +59,7 @@ function buildSessionPipeline(filter = {}) {
         first_landing: { $first: '$landing_page' },
         last_at: { $last: '$received_at' },
         pathname: { $last: '$pathname' },
+        page_type: { $last: '$page_type' },   // 마지막으로 머문 화면 종류
         count: { $sum: 1 },
         tab_exit_hits: {
           $sum: { $cond: [{ $eq: ['$event_type', 'tab_exit'] }, 1, 0] },
@@ -151,11 +152,47 @@ function buildSessionPipeline(filter = {}) {
             $cond: [{ $in: ['$event_type', RISK_EVENTS] }, 1, 0],
           },
         },
+        // ── 주문 성공 판정 ───────────────────────────────────────
+        //
+        // 1순위: 주문 완료 페이지에 도달했는가 (page_type === 'ORDER_SUCCESS')
+        //
+        // 예전에는 클릭·호버 텍스트에 '주문이 완료'라는 문자열이 있는지로
+        // 판정했다. 그러면 주문 완료 화면에서 사용자가 그 문구를 클릭하거나
+        // 마우스를 올려야만 전환으로 집계된다. 결제하고 창을 닫으면 0건이라
+        // 대시보드의 "주문 성공 수"가 실제 주문 수와 무관했다.
+        //
+        // 이제는 그 화면에 "도달"하기만 하면 잡힌다. 도달은 페이지 로드마다
+        // 반드시 이벤트가 발생하므로 놓칠 수 없다.
+        //
+        // 아래 두 줄은 page_type이 없던 구버전 데이터를 위한 fallback이다.
         completed_hits: {
           $sum: {
             $cond: [
               {
                 $or: [
+                  // 주문 완료 SDK를 심을 수 없는 Cafe24 스킨의 전환 대리 기준
+                  { $eq: ['$event_type', 'guest_purchase'] },
+
+                  // 1순위 — 플랫폼이 알려준 확정값
+                  { $eq: ['$page_type', 'ORDER_SUCCESS'] },
+
+                  // fallback — 주문 완료 페이지 경로
+                  {
+                    $regexMatch: {
+                      input: {
+                        $toLower: {
+                          $concat: [
+                            { $ifNull: ['$pathname', ''] },
+                            ' ',
+                            { $ifNull: ['$page_url', ''] },
+                          ],
+                        },
+                      },
+                      regex: 'order_result|order_complete|/complete|/thank',
+                    },
+                  },
+
+                  // fallback — 구버전 텍스트 판정 (기존 데이터 호환)
                   {
                     $regexMatch: {
                       input: {
@@ -166,20 +203,6 @@ function buildSessionPipeline(filter = {}) {
                         ],
                       },
                       regex: '주문이 완료',
-                    },
-                  },
-                  {
-                    $regexMatch: {
-                      input: {
-                        $toLower: {
-                          $concat: [
-                            { $ifNull: ['$data.hover_target', ''] },
-                            ' ',
-                            { $ifNull: ['$data.click_target', ''] },
-                          ],
-                        },
-                      },
-                      regex: 'complete',
                     },
                   },
                 ],
@@ -204,6 +227,7 @@ function buildSessionPipeline(filter = {}) {
         landing_page: { $ifNull: ['$first_landing', ''] },
         last_at: 1,
         pathname: { $ifNull: ['$pathname', '/'] },
+        page_type: { $ifNull: ['$page_type', ''] },
         count: 1,
         tab_exit_hits: 1,
         inactivity_hits: 1,
@@ -236,12 +260,12 @@ router.get('/sites', async (req, res) => {
   try {
     // 키 모드: 이 요청이 볼 수 있는 사이트는 하나뿐이다
     if (req.siteOrigin) {
-      return res.json([req.siteOrigin]);
+      return res.json([canonicalOrigin(req.siteOrigin)]);
     }
 
     // 개방 모드(SITE_KEYS 미설정, 로컬 개발): 기존처럼 전체 목록
     const sites = await Event.distinct('origin');
-    res.json(sites.filter(Boolean).sort());
+    res.json([...new Set(sites.filter(Boolean).map(canonicalOrigin))].sort());
   } catch (err) {
     res.status(500).json({ error: '서버 오류' });
   }
@@ -286,13 +310,65 @@ router.get('/stats', async (req, res) => {
 });
 
 // pathname을 운영자가 보는 화면 이름으로 단순화
-function screenLabel(pathname = '') {
+/**
+ * 화면 이름을 운영자가 알아보는 말로 바꾼다.
+ *
+ * 1순위는 SDK가 실어 보낸 page_type(Layer 0 — 플랫폼 meta 확정값),
+ * 없으면 pathname으로 추론한다. ml/semantic_event_mapper.py의 infer_page와
+ * 같은 규칙을 쓴다. 두 곳이 어긋나면 대시보드와 분석 결과가 서로 다른
+ * 화면을 가리키게 된다.
+ *
+ * 예전 규칙은 Cafe24에서 크게 틀렸다.
+ *   /order/basket.html       '/order'가 먼저 걸려 장바구니가 '결제 화면'
+ *   /order/order_result.html 주문 완료도 '결제 화면'
+ *   /board/product/list.html 리뷰 게시판이 '상품 상세'
+ *   /myshop, /member         전부 '홈 화면'
+ */
+const PAGE_TYPE_LABEL = {
+  HOME:          '홈 화면',
+  PRODUCT:       '상품 상세',
+  CATEGORY:      '검색/카테고리',
+  SEARCH:        '검색/카테고리',
+  CART:          '장바구니',
+  CHECKOUT:      '결제 화면',
+  ORDER_SUCCESS: '주문 완료',
+  REVIEW:        '리뷰',
+  BOARD:         '게시판',
+  MYPAGE:        '마이페이지',
+  MEMBER:        '로그인/회원',
+};
+
+function firstSegment(path) {
+  return String(path || '').replace(/^\/+/, '').split('/')[0].toLowerCase();
+}
+
+function screenLabel(pathname = '', pageType = '') {
+  // 1순위: 플랫폼이 알려준 확정값
+  const byType = PAGE_TYPE_LABEL[String(pageType || '').toUpperCase()];
+  if (byType) return byType;
+
+  // 2순위: 경로 추론 (구버전 데이터·비지원 플랫폼)
   const path = String(pathname || '').toLowerCase();
-  if (path.includes('checkout') || path.includes('payment') || path.includes('order')) return '결제 화면';
-  if (path.includes('cart') || path.includes('basket')) return '장바구니';
-  if (path.includes('product') || path.includes('item') || path.includes('prod_')) return '상품 상세';
-  if (path.includes('search') || path.includes('category') || path.includes('collection')) return '검색/카테고리';
-  return '홈 화면';
+  const seg  = firstSegment(path);
+
+  // 순서 주의: order_result → basket → orderform 순으로 봐야 한다
+  if (path.includes('order_result') || path.includes('/complete')) return '주문 완료';
+  if (path.includes('basket') || path.includes('/cart'))           return '장바구니';
+  if (path.includes('orderform') || path.includes('checkout')
+      || path.includes('payment') || path.includes('/pay'))        return '결제 화면';
+
+  if (path.includes('/board')) return '게시판';
+  if (seg === 'myshop' || seg === 'mypage') return '마이페이지';
+  if (seg === 'member') return '로그인/회원';
+
+  if (['product', 'products', 'item', 'items', 'goods', 'shop'].includes(seg)) {
+    return path.includes('search') ? '검색/카테고리' : '상품 상세';
+  }
+  if (['category', 'categories', 'collection', 'collections'].includes(seg)) return '검색/카테고리';
+  if (path.includes('search')) return '검색/카테고리';
+
+  if (path === '' || path === '/' || path.includes('index.html')) return '홈 화면';
+  return '기타 화면';
 }
 
 /**
@@ -360,7 +436,7 @@ router.get('/operator-summary', async (req, res) => {
 
     const blockedPagesMap = new Map();
     riskySessions.forEach((session) => {
-      const key = screenLabel(session.pathname);
+      const key = screenLabel(session.pathname, session.page_type);
       blockedPagesMap.set(key, (blockedPagesMap.get(key) || 0) + 1);
     });
     const blocked_pages = [...blockedPagesMap.entries()]
@@ -399,7 +475,7 @@ router.get('/operator-summary', async (req, res) => {
       row.total += 1;
       if (session.completed) row.completed += 1;
       if (session.risky) row.risky += 1;
-      const page = screenLabel(session.pathname);
+      const page = screenLabel(session.pathname, session.page_type);
       row.pageCounts.set(page, (row.pageCounts.get(page) || 0) + 1);
       sourceMap.set(key, row);
     });
@@ -454,6 +530,79 @@ router.get('/operator-summary', async (req, res) => {
   } catch (err) {
     console.error('[operator-summary] 오류:', err.message);
     res.status(500).json({ error: '서버 오류' });
+  }
+});
+
+/**
+ * GET /api/logs/period-report
+ * 선택 기간의 전체 이벤트와 세션을 DB에서 직접 집계한다. 대시보드가 최근
+ * 200개 이벤트/8개 세션만 들고 있으므로 브라우저 상태로 기간 리포트를
+ * 계산하면 모든 기간이 같은 값으로 보이는 문제가 있었다.
+ */
+router.get('/period-report', async (req, res) => {
+  try {
+    const start = new Date(String(req.query.start || ''));
+    const end = new Date(String(req.query.end || ''));
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+      return res.status(400).json({ error: '올바른 시작일과 종료일이 필요합니다.' });
+    }
+
+    const filter = {
+      ...originFilter(req),
+      received_at: { $gte: start, $lte: end },
+    };
+    const [eventCount, sessions] = await Promise.all([
+      Event.countDocuments(filter),
+      Event.aggregate(buildSessionPipeline(filter)),
+    ]);
+    const completed = sessions.filter((session) => session.completed);
+    const risky = sessions.filter((session) => session.risky && !session.completed);
+
+    const blockedMap = new Map();
+    const causeMap = new Map();
+    const sourceMap = new Map();
+    for (const session of sessions) {
+      const source = deriveSourceName(session);
+      const sourceRow = sourceMap.get(source) || { name: source, total: 0, completed: 0, risky: 0 };
+      sourceRow.total += 1;
+      if (session.completed) sourceRow.completed += 1;
+      if (session.risky) sourceRow.risky += 1;
+      sourceMap.set(source, sourceRow);
+      if (!session.risky || session.completed) continue;
+      const page = screenLabel(session.pathname, session.page_type);
+      blockedMap.set(page, (blockedMap.get(page) || 0) + 1);
+      const cause = causeLabel(session);
+      causeMap.set(cause, (causeMap.get(cause) || 0) + 1);
+    }
+
+    const topRows = (map) => [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([label, count]) => ({ label, count }));
+    const sources = [...sourceMap.values()]
+      .map((row) => ({
+        ...row,
+        completion_rate: row.total ? Math.round((row.completed / row.total) * 100) : 0,
+        risk_rate: row.total ? Math.round((row.risky / row.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+    res.json({
+      start: start.toISOString(),
+      end: end.toISOString(),
+      visitor_count: sessions.length,
+      event_count: eventCount,
+      completed_count: completed.length,
+      completion_rate: sessions.length ? Math.round((completed.length / sessions.length) * 100) : 0,
+      risky_count: risky.length,
+      blocked_pages: topRows(blockedMap),
+      issue_causes: topRows(causeMap),
+      source_performance: sources,
+    });
+  } catch (err) {
+    console.error('[period-report] 오류:', err.message);
+    res.status(500).json({ error: '기간 리포트를 집계하지 못했습니다.' });
   }
 });
 

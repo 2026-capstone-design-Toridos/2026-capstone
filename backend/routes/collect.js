@@ -11,6 +11,7 @@
 const express = require('express');
 const router  = express.Router();
 const Event   = require('../models/Event');
+const { isCollectableOrigin } = require('../middleware/siteAccess');
 
 /**
  * 수집 출처를 하나의 사이트로 통일한다.
@@ -51,6 +52,24 @@ router.post('/', async (req, res) => {
 
     if (eventList.length === 0) {
       return res.status(400).json({ error: '저장할 이벤트가 없습니다.' });
+    }
+
+    // 우리가 키를 발급한 쇼핑몰의 이벤트만 저장한다.
+    //
+    // origin은 SDK가 body에 실어 보내는 값이 아니라 브라우저가 붙이는 Origin 헤더라
+    // 웹페이지에서는 위조할 수 없다. 하지만 curl은 헤더를 마음대로 넣을 수 있어서,
+    // 확인하지 않으면 남의 가게 통계에 가짜 이벤트를 섞어 넣을 수 있다.
+    //
+    // 400을 주면 sender.js가 실패로 보고 재시도를 반복한다.
+    // 저장은 하지 않되 성공으로 응답해 재시도 루프를 막는다.
+    if (!(await isCollectableOrigin(origin))) {
+      console.warn(`[collect] 등록되지 않은 origin이라 저장하지 않음: ${origin}`);
+      return res.status(202).json({
+        ok: true,
+        saved: 0,
+        rejected: eventList.length,
+        reason: 'unknown_origin',
+      });
     }
 
     // 수신 시점 메타는 서버에서 붙여 원본 이벤트와 분리해 추적한다

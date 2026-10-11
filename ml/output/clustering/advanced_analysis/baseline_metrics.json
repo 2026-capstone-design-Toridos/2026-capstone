@@ -1,0 +1,44 @@
+{
+  "n": 222,
+  "assigned": 137,
+  "coverage": 0.6171171171171171,
+  "k": 7,
+  "noise": 85,
+  "counts": {
+    "0": 11,
+    "1": 18,
+    "2": 25,
+    "3": 11,
+    "4": 20,
+    "5": 29,
+    "6": 23
+  },
+  "silhouette": 0.43223458528518677,
+  "silhouette_cosine": 0.6018478870391846,
+  "db": 0.8743085643426348,
+  "ch": 100.14519500732422,
+  "negative_fraction": 0.0072992700729927005,
+  "macro_silhouette": 0.45602065324783325,
+  "min_cluster": 11,
+  "largest_share": 0.2116788321167883,
+  "reproduction_ari": 1.0,
+  "checkpoint": {
+    "config": {
+      "vocab_size": 213,
+      "max_len": 128,
+      "pad_id": 0,
+      "embed_dim": 64,
+      "num_heads": 4,
+      "num_layers": 2,
+      "ff_dim": 128,
+      "dropout": 0.1
+    },
+    "pooling": "mean",
+    "checkpoint_keys": [
+      "model_state_dict",
+      "model_config",
+      "vocab",
+      "input_config"
+    ]
+  }
+}

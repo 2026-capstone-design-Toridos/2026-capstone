@@ -56,6 +56,7 @@ GET /health
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -64,6 +65,14 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from flask import Flask, jsonify, request
+
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THIS_DIR not in sys.path:
+    sys.path.insert(0, _THIS_DIR)
+from build_session_sequences import (  # noqa: E402
+    build_semantic_sequence_for_session,
+    event_sort_key,
+)
 
 # ── PyTorch 로드 시도 ─────────────────────────────────────────────────────────
 try:
@@ -112,71 +121,64 @@ PAGE_MAP: Dict[str, str] = {
     "search":    "SEARCH",
 }
 
+LIFECYCLE_ACTIONS = {
+    "START_SESSION", "EXIT_SESSION", "EXIT_BOUNCE", "TAB_OUT", "TAB_RETURN", "INACTIVE",
+}
+
+FORCED_CLUSTER_LABELS = {
+    "0": "리뷰 관련 신호 중심 고객",
+    "1": "상품·가격 확인 중심 고객",
+    "2": "다양한 상호작용·구매 시도 고객",
+    "3": "상품·카테고리 반복 탐색 고객",
+    "4": "짧은 방문·행동 정보 부족형",
+}
+
 
 def events_to_tokens(events: List[dict]) -> List[str]:
-    """원시 이벤트 리스트 → PAGE|SEMANTIC|CONTEXTUAL 토큰 리스트"""
-    tokens = []
-    for ev in events:
-        et   = ev.get("event_type", "")
-        page = PAGE_MAP.get(str(ev.get("page", "")).lower(), "UNKNOWN")
-        sem  = EVENT_TO_SEMANTIC.get(et, "CLICK_ELEMENT")
-        tokens.append(f"{page}|{sem}|NONE")
-    return tokens
+    """학습 파이프라인과 같은 규칙으로 raw event를 semantic token으로 바꾼다."""
+    if not events:
+        return []
+
+    # 기존 API 사용자가 이미 변환한 대문자 semantic event를 보내는 경우는
+    # 계속 지원한다. SDK의 소문자 raw event는 공통 전처리기로 보낸다.
+    event_types = [str(ev.get("event_type", "")) for ev in events]
+    if event_types and all(et in EVENT_TO_SEMANTIC for et in event_types):
+        return [
+            f"{PAGE_MAP.get(str(ev.get('page', '')).lower(), 'UNKNOWN')}|"
+            f"{EVENT_TO_SEMANTIC[str(ev.get('event_type'))]}|NONE"
+            for ev in events
+        ]
+
+    return build_semantic_sequence_for_session(sorted(events, key=event_sort_key))["sequence"]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TransformerMLM – Colab colab_pretrain_cluster.ipynb의 실제 모델 구조
-# (bert_encoder.pt state_dict 키 이름과 정확히 일치해야 함)
+# 학습 모델 정의 재사용
+#
+# 과거에는 이 파일이 TransformerMLM 이라는 별도 클래스를 자체 정의했다.
+# 그러나 실제 학습은 train_transformer_encoder.SessionTransformerEncoder 로
+# 이루어지고 두 클래스는 state_dict 키가 다르다.
+#     학습:  token_embedding / position_embedding / output_head  (LayerNorm 없음)
+#     서버:  token_emb       / pos_emb            / head + norm
+# 겹치는 키가 encoder.layers.* 뿐이라 load_state_dict(strict=False) 가
+# 임베딩을 랜덤 초기값으로 남긴 채 조용히 통과했다.
+#
+# 모델 정의는 한 곳에만 존재해야 한다. 학습 코드에서 직접 import 한다.
 # ══════════════════════════════════════════════════════════════════════════════
+
+SessionTransformerEncoder = None
 
 if HAS_TORCH:
-    class TransformerMLM(nn.Module):
-        """
-        Colab 학습 모델과 동일한 구조.
-        state_dict 키: token_emb, pos_emb, norm, encoder, head
-        forward() → [CLS] 위치(index 0)의 hidden state 반환
-        """
-        def __init__(
-            self,
-            vocab_size: int,
-            embed_dim: int    = 64,
-            nhead: int        = 4,
-            num_layers: int   = 2,
-            max_len: int      = 60,
-            dim_feedforward: int = 128,
-            dropout: float    = 0.1,
-        ):
-            super().__init__()
-            self.embed_dim = embed_dim
-            self.max_len   = max_len
-
-            self.token_emb = nn.Embedding(vocab_size, embed_dim)
-            self.pos_emb   = nn.Embedding(max_len + 5, embed_dim)
-            self.norm      = nn.LayerNorm(embed_dim)
-
-            enc_layer = nn.TransformerEncoderLayer(
-                d_model=embed_dim, nhead=nhead,
-                dim_feedforward=dim_feedforward,
-                dropout=dropout, batch_first=True,
-            )
-            self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
-            self.head     = nn.Linear(embed_dim, vocab_size)   # MLM head (inference에서는 무시)
-
-        def forward(
-            self,
-            input_ids: "torch.Tensor",       # (B, L)
-            attention_mask: "torch.Tensor",  # (B, L), 1=실제 토큰 0=패드
-        ) -> "torch.Tensor":                 # (B, embed_dim) – index 0 ([CLS]) hidden state
-            B, L = input_ids.shape
-            positions = torch.arange(L, device=input_ids.device).unsqueeze(0)
-
-            x = self.token_emb(input_ids) + self.pos_emb(positions)
-            x = self.norm(x)
-
-            src_key_padding_mask = (attention_mask == 0)  # True = 무시
-            x = self.encoder(x, src_key_padding_mask=src_key_padding_mask)
-
-            return x[:, 0, :]   # (B, embed_dim) – [CLS] 임베딩
+    try:
+        _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+        if _THIS_DIR not in sys.path:
+            sys.path.insert(0, _THIS_DIR)
+        from train_transformer_encoder import (  # noqa: E402
+            SessionTransformerEncoder as _SessionTransformerEncoder,
+        )
+        SessionTransformerEncoder = _SessionTransformerEncoder
+    except Exception as _e:  # pragma: no cover
+        print(f"[ClusterServer] 학습 모델 정의 import 실패: {_e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -191,6 +193,7 @@ class ClusterPredictor:
 
     MODE_BERT  = "bert"
     MODE_TFIDF = "tfidf"
+    MODE_FACTORIZED = "factorized_tfidf"
 
     def __init__(self, model_dir: str, device: str = "cpu"):
         self.model_dir = model_dir
@@ -200,6 +203,13 @@ class ClusterPredictor:
         meta_path      = os.path.join(model_dir, "cluster_meta.json")
         centroids_path = os.path.join(model_dir, "cluster_centroids.npy")
         encoder_path   = os.path.join(model_dir, "bert_encoder.pt")
+        advanced_path  = os.getenv(
+            "ADVANCED_CLUSTER_MODEL",
+            os.path.abspath(os.path.join(
+                model_dir, "..", "clustering", "advanced_analysis", "advanced_model.json",
+            )),
+        )
+        pattern_path = os.path.join(os.path.dirname(advanced_path), "known_pattern_labels.json")
 
         # ── 공통: cluster_meta.json ─────────────────────────────────────────
         if not os.path.exists(meta_path):
@@ -209,6 +219,24 @@ class ClusterPredictor:
             )
         with open(meta_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
+
+        # 중심점에 가장 가깝다는 이유만으로 모든 세션을 강제 배정하지 않는다.
+        # 메타파일 또는 환경변수로 운영 데이터에 맞게 조정할 수 있다.
+        configured_gate = meta.get("inference_quality_gate", {})
+        self.quality_gate = {
+            "min_tokens": int(os.getenv(
+                "CLUSTER_MIN_TOKENS", configured_gate.get("min_tokens", 3)
+            )),
+            "min_similarity": float(os.getenv(
+                "CLUSTER_MIN_SIMILARITY", configured_gate.get("min_similarity", 0.55)
+            )),
+            "min_margin": float(os.getenv(
+                "CLUSTER_MIN_MARGIN", configured_gate.get("min_margin", 0.05)
+            )),
+            "max_unknown_ratio": float(os.getenv(
+                "CLUSTER_MAX_UNKNOWN_RATIO", configured_gate.get("max_unknown_ratio", 0.20)
+            )),
+        }
 
         self.vocab: Dict[str, int] = meta["vocab"]   # token → id
         self.id2tok = {v: k for k, v in self.vocab.items()}
@@ -232,6 +260,28 @@ class ClusterPredictor:
 
         self.n_clusters = len(self.cluster_labels) or meta.get("num_clusters", 0)
         print(f"[ClusterServer] vocab_size={len(self.vocab)}, n_clusters={self.n_clusters}")
+
+        # 해석 가능한 factorized TF-IDF 모델이 있으면 이를 운영 분류에 우선 사용한다.
+        # 의미 행동 4개 군집 + 행동 정보 부족 전용 군집 하나로 모든 세션을 배정한다.
+        self.factorized_model = None
+        self.known_pattern_labels = {}
+        if os.path.exists(advanced_path):
+            with open(advanced_path, "r", encoding="utf-8") as f:
+                candidate = json.load(f)
+            cluster_count = len(candidate.get("cluster_ids", []))
+            if candidate.get("mode") == "factorized" and 2 <= cluster_count <= 4:
+                self.factorized_model = candidate
+                if os.path.exists(pattern_path):
+                    with open(pattern_path, "r", encoding="utf-8") as f:
+                        self.known_pattern_labels = json.load(f)
+                self.cluster_labels = dict(FORCED_CLUSTER_LABELS)
+                self.n_clusters = cluster_count + 1
+                self.mode = self.MODE_FACTORIZED
+                print(
+                    f"[ClusterServer] factorized TF-IDF 모드 "
+                    f"({cluster_count}개 행동 군집 + 정보 부족 군집)"
+                )
+                return
 
         # ── TF-IDF 중심점 (항상 로드, fallback용) ─────────────────────────
         self.tfidf_centroids: Optional[np.ndarray] = None
@@ -276,56 +326,62 @@ class ClusterPredictor:
     def _load_bert(self, encoder_path: str, centroids_path: str, meta: dict):
         import torch
 
+        if SessionTransformerEncoder is None:
+            raise RuntimeError(
+                "train_transformer_encoder.SessionTransformerEncoder 를 import 하지 못했습니다."
+            )
+
         ckpt = torch.load(encoder_path, map_location=self.device, weights_only=False)
 
-        # 체크포인트에서 하이퍼파라미터 추출
-        embed_dim  = ckpt.get("embed_dim",   meta.get("embedding_dim", 64))
-        max_len    = ckpt.get("max_len",     meta.get("max_len", 60))
-        vocab_size = ckpt.get("vocab_size",  len(self.vocab))
+        state = ckpt.get("model_state_dict", ckpt.get("encoder_state"))
+        if state is None:
+            raise RuntimeError(
+                "체크포인트에 model_state_dict 가 없습니다. "
+                "train_transformer_encoder.py 로 학습한 파일인지 확인하세요."
+            )
 
-        # state_dict 키로 num_layers, dim_feedforward 역산
-        state = ckpt.get("model_state_dict", ckpt.get("encoder_state", ckpt))
-        layer_indices = sorted(set(
-            int(k.split(".")[2])
-            for k in state if k.startswith("encoder.layers.")
-        ))
-        num_layers = len(layer_indices) or 2
+        # 하이퍼파라미터는 체크포인트의 model_config를 신뢰한다.
+        # meta 값으로 추측하면 학습과 다른 구조를 만들 수 있다.
+        cfg = ckpt.get("model_config")
+        if not cfg:
+            raise RuntimeError(
+                "체크포인트에 model_config 가 없습니다. 모델 구조를 복원할 수 없습니다."
+            )
 
-        ff_key = f"encoder.layers.0.linear1.weight"
-        dim_feedforward = state[ff_key].shape[0] if ff_key in state else embed_dim * 2
+        self.pooling = ckpt.get("pooling", meta.get("pooling", "mean"))
 
-        pos_key = "pos_emb.weight"
-        if pos_key in state:
-            # The model allocates max_len + 5 positions. Infer this value from
-            # the checkpoint so older exported metadata cannot cause a mismatch.
-            max_len = int(state[pos_key].shape[0]) - 5
-
-        # nhead: embed_dim의 약수 중 가장 큰 값 (최대 8)
-        nhead = next(
-            (n for n in [8, 4, 2, 1] if embed_dim % n == 0),
-            4,
-        )
-
-        self.bert = TransformerMLM(
-            vocab_size      = vocab_size,
-            embed_dim       = embed_dim,
-            nhead           = nhead,
-            num_layers      = num_layers,
-            max_len         = max_len,
-            dim_feedforward = dim_feedforward,
-            dropout         = 0.0,
+        self.bert = SessionTransformerEncoder(
+            vocab_size = cfg["vocab_size"],
+            max_len    = cfg["max_len"],
+            pad_id     = cfg["pad_id"],
+            embed_dim  = cfg["embed_dim"],
+            num_heads  = cfg["num_heads"],
+            num_layers = cfg["num_layers"],
+            ff_dim     = cfg["ff_dim"],
+            dropout    = 0.0,
         ).to(self.device)
 
-        missing, unexpected = self.bert.load_state_dict(state, strict=False)
-        if missing:
-            print(f"[ClusterServer] 누락 키 (무시 가능): {missing[:3]}")
-        if unexpected:
-            print(f"[ClusterServer] 예상치 못한 키 (무시): {unexpected[:3]}")
+        # strict=True — 키가 하나라도 어긋나면 즉시 실패한다.
+        # strict=False 로 두면 임베딩이 랜덤인 채 서버가 정상 기동해
+        # 근거 없는 분류 결과를 내놓는다. 조용한 오작동이 가장 위험하다.
+        self.bert.load_state_dict(state, strict=True)
 
         self.bert.eval()
-        self.max_len = max_len
-        print(f"[ClusterServer] TransformerMLM 로드 완료 "
-              f"(d={embed_dim}, layers={num_layers}, nhead={nhead}, max_len={max_len})")
+        self.max_len = cfg["max_len"]
+
+        if cfg["vocab_size"] != len(self.vocab):
+            raise RuntimeError(
+                f"vocab 불일치: 체크포인트 {cfg['vocab_size']} vs "
+                f"cluster_meta.json {len(self.vocab)}. "
+                "artifacts를 같은 학습 실행에서 함께 export 했는지 확인하세요."
+            )
+
+        print(
+            f"[ClusterServer] SessionTransformerEncoder 로드 완료 "
+            f"(d={cfg['embed_dim']}, layers={cfg['num_layers']}, "
+            f"heads={cfg['num_heads']}, max_len={cfg['max_len']}, "
+            f"vocab={cfg['vocab_size']}, pooling={self.pooling})"
+        )
 
         # 중심점: (n_clusters, embed_dim) float32
         self.bert_centroids = torch.tensor(
@@ -339,22 +395,33 @@ class ClusterPredictor:
 
     # ── BERT 임베딩 ──────────────────────────────────────────────────────────
     def _embed_bert(self, token_ids: List[int]) -> np.ndarray:
+        """
+        prepare_transformer_input.encode_sequence 와 동일한 규칙으로 인코딩한다.
+          - [CLS] 를 맨 앞에 붙인다
+          - 길이 초과 시 뒤쪽(최근 행동)을 보존한다 (truncate_side="left")
+          - 오른쪽 패딩, attention_mask 는 실제 토큰만 1
+        인코딩 규칙이 학습과 다르면 임베딩이 다른 공간에 놓여
+        centroid 비교가 무의미해진다.
+        """
         import torch
         PAD = self.vocab.get("[PAD]", 0)
-        CLS = self.vocab.get("[CLS]", 2)
+        CLS = self.vocab.get("[CLS]", 3)
 
-        # [CLS] 앞에 추가 후 max_len-1 개 토큰 잘라내기
         ids = [CLS] + token_ids[-(self.max_len - 1):]
 
-        # 오른쪽 패딩 (Colab 학습 방식과 동일)
+        attn = [1] * len(ids)
         pad_len = self.max_len - len(ids)
-        ids = ids + [PAD] * pad_len
+        if pad_len > 0:
+            ids = ids + [PAD] * pad_len
+            attn = attn + [0] * pad_len
 
         id_t = torch.tensor([ids], dtype=torch.long, device=self.device)
-        mask = (id_t != PAD).long()
+        mask = torch.tensor([attn], dtype=torch.long, device=self.device)
 
         with torch.no_grad():
-            emb = self.bert(id_t, mask)   # (1, embed_dim)
+            # 학습 시 session_embeddings.npy 를 만든 것과 같은 pooling 을 써야
+            # centroid 와 같은 공간에 놓인다 (기본 mean).
+            emb = self.bert.encode(id_t, mask, pooling=getattr(self, "pooling", "mean"))
         return emb[0].cpu().numpy()
 
     # ── TF-IDF 벡터 ─────────────────────────────────────────────────────────
@@ -369,6 +436,119 @@ class ClusterPredictor:
             vec /= norm
         return vec
 
+    @staticmethod
+    def _factorized_terms(tokens: List[str], kind: str) -> List[str]:
+        parsed = [token.split("|") for token in tokens if len(token.split("|")) == 3]
+        actions = [parts[1] for parts in parsed if parts[1] not in LIFECYCLE_ACTIONS]
+        if kind == "actions":
+            return actions or ["NO_ACTION"]
+        if kind == "pages":
+            pages = [parts[0] for parts in parsed if parts[1] not in LIFECYCLE_ACTIONS]
+            return pages or [parts[0] for parts in parsed] or ["UNKNOWN"]
+        if kind == "transitions":
+            compact = [action for i, action in enumerate(actions) if i == 0 or action != actions[i - 1]]
+            return [f"{a}>{b}" for a, b in zip(compact, compact[1:])] or ["NO_TRANSITION"]
+        return tokens
+
+    def _embed_factorized(self, tokens: List[str]) -> np.ndarray:
+        blocks = []
+        for config in self.factorized_model["vectorizers"]:
+            vocabulary = config["vocabulary"]
+            idf = np.asarray(config["idf"], dtype=np.float32)
+            vector = np.zeros(len(vocabulary), dtype=np.float32)
+            counts: Dict[str, int] = {}
+            for term in self._factorized_terms(tokens, config["kind"]):
+                counts[term] = counts.get(term, 0) + 1
+            for term, count in counts.items():
+                index = vocabulary.get(term)
+                if index is not None:
+                    vector[index] = (1.0 + math.log(count)) * idf[index]
+            norm = np.linalg.norm(vector)
+            if norm > 0:
+                vector /= norm
+            blocks.append(vector * math.sqrt(float(config["weight"])))
+        result = np.concatenate(blocks)
+        norm = np.linalg.norm(result)
+        return result / norm if norm > 0 else result
+
+    def _classify_factorized(self, tokens: List[str]) -> dict:
+        parsed = [token.split("|") for token in tokens if len(token.split("|")) == 3]
+        meaningful = [parts for parts in parsed if parts[1] not in LIFECYCLE_ACTIONS]
+        action_counts: Dict[str, int] = {}
+        page_counts: Dict[str, int] = {}
+        for page, action, _ in parsed:
+            action_counts[action] = action_counts.get(action, 0) + 1
+            page_counts[page] = page_counts.get(page, 0) + 1
+
+        # 정보가 거의 없는 방문도 버리지 않고 전용 유형으로 포함한다.
+        if len(parsed) < 3 or not meaningful:
+            return {
+                "cluster_id": 4,
+                "candidate_cluster_id": 4,
+                "persona": FORCED_CLUSTER_LABELS["4"],
+                "confidence": 0.0,
+                "margin": 0.0,
+                "accepted": True,
+                "reliability": "low",
+                "assignment_status": "insufficient_behavior",
+                "quality_reasons": ["too_few_or_uninformative_actions"],
+                "rejection_reasons": [],
+                "semantic_action_counts": action_counts,
+                "page_counts": page_counts,
+                "distances": {},
+                "seq_len": len(tokens),
+                "mode": self.mode,
+            }
+
+        vector = self._embed_factorized(tokens)
+        centroids = np.asarray(self.factorized_model["centroids"], dtype=np.float32)
+        distances = np.linalg.norm(centroids - vector, axis=1)
+        best_index = int(np.argmin(distances))
+        cluster_id = int(self.factorized_model["cluster_ids"][best_index])
+        ordered = np.sort(distances)
+        margin = (
+            float((ordered[1] - ordered[0]) / max(ordered[1], 1e-12))
+            if len(ordered) > 1 else 1.0
+        )
+        radius = float(self.factorized_model.get("radii", {}).get(str(cluster_id), 1.0))
+        within_reference = float(distances[best_index]) <= radius and margin >= 0.05
+        signature = hashlib.sha256(" ".join(tokens).encode("utf-8")).hexdigest()
+        known_cluster = self.known_pattern_labels.get(signature)
+        if known_cluster is not None:
+            cluster_id = int(known_cluster)
+            best_index = self.factorized_model["cluster_ids"].index(cluster_id)
+            within_reference = True
+        reasons = []
+        if known_cluster is None:
+            if float(distances[best_index]) > radius:
+                reasons.append("outside_reference_radius")
+            if margin < 0.05:
+                reasons.append("ambiguous_between_clusters")
+        confidence = max(0.0, min(1.0, 1.0 - float(distances[best_index]) / max(2 * radius, 1e-12)))
+        return {
+            "cluster_id": cluster_id,
+            "candidate_cluster_id": cluster_id,
+            "persona": FORCED_CLUSTER_LABELS[str(cluster_id)],
+            "confidence": round(confidence, 4),
+            "margin": round(margin, 4),
+            "accepted": True,
+            "reliability": "high" if within_reference else "low",
+            "assignment_status": (
+                "known_pattern" if known_cluster is not None
+                else ("reliable" if within_reference else "out_of_reference_or_ambiguous")
+            ),
+            "quality_reasons": reasons,
+            "rejection_reasons": [],
+            "semantic_action_counts": action_counts,
+            "page_counts": page_counts,
+            "distances": {
+                str(cid): round(float(distance), 4)
+                for cid, distance in zip(self.factorized_model["cluster_ids"], distances)
+            },
+            "seq_len": len(tokens),
+            "mode": self.mode,
+        }
+
     # ── 코사인 유사도 ────────────────────────────────────────────────────────
     @staticmethod
     def _cosine_distances(vec: np.ndarray, centroids: np.ndarray) -> np.ndarray:
@@ -381,7 +561,12 @@ class ClusterPredictor:
     # ── 메인 분류 ────────────────────────────────────────────────────────────
     def classify(self, tokens: List[str]) -> dict:
         if not tokens:
+            if self.mode == self.MODE_FACTORIZED:
+                return self._classify_factorized(tokens)
             return {"error": "tokens 리스트가 비어 있습니다."}
+
+        if self.mode == self.MODE_FACTORIZED:
+            return self._classify_factorized(tokens)
 
         if self.mode == self.MODE_BERT:
             ids  = self._tokens_to_ids(tokens)
@@ -395,17 +580,56 @@ class ClusterPredictor:
         best_id = int(np.argmin(dists))
         best_d  = float(dists[best_id])
 
+        sorted_distances = np.sort(dists)
+        margin = (
+            float(sorted_distances[1] - sorted_distances[0])
+            if len(sorted_distances) > 1 else 1.0
+        )
+        known_count = sum(1 for token in tokens if token in self.vocab)
+        unknown_ratio = 1.0 - (known_count / len(tokens))
+
         # confidence: 1 - normalized_distance (0~1)
         confidence = max(0.0, round(1.0 - best_d, 4))
 
         distances_map = {
             str(i): round(float(d), 4) for i, d in enumerate(dists)
         }
+        semantic_action_counts: Dict[str, int] = {}
+        page_counts: Dict[str, int] = {}
+        for token in tokens:
+            parts = token.split("|")
+            if len(parts) != 3:
+                continue
+            page, action, _ = parts
+            semantic_action_counts[action] = semantic_action_counts.get(action, 0) + 1
+            page_counts[page] = page_counts.get(page, 0) + 1
+
+        rejection_reasons = []
+        if len(tokens) < self.quality_gate["min_tokens"]:
+            rejection_reasons.append("too_few_semantic_tokens")
+        if confidence < self.quality_gate["min_similarity"]:
+            rejection_reasons.append("low_similarity")
+        if margin < self.quality_gate["min_margin"]:
+            rejection_reasons.append("ambiguous_between_clusters")
+        if unknown_ratio > self.quality_gate["max_unknown_ratio"]:
+            rejection_reasons.append("too_many_unknown_tokens")
+
+        accepted = not rejection_reasons
 
         return {
-            "cluster_id": best_id,
-            "persona":    self.cluster_labels.get(str(best_id), f"Cluster {best_id}"),
+            "cluster_id": best_id if accepted else -1,
+            "candidate_cluster_id": best_id,
+            "persona": (
+                self.cluster_labels.get(str(best_id), f"Cluster {best_id}")
+                if accepted else None
+            ),
             "confidence": confidence,
+            "margin": round(margin, 4),
+            "unknown_ratio": round(unknown_ratio, 4),
+            "accepted": accepted,
+            "rejection_reasons": rejection_reasons,
+            "semantic_action_counts": semantic_action_counts,
+            "page_counts": page_counts,
             "distances":  distances_map,
             "seq_len":    len(tokens),
             "mode":       self.mode,
@@ -430,6 +654,7 @@ def health():
         "mode":       predictor.mode,
         "n_clusters": predictor.n_clusters,
         "model":      "ghosttracker_cluster",
+        "quality_gate": predictor.quality_gate,
     })
 
 

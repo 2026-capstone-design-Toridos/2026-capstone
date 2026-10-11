@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 from collections import Counter, defaultdict
+from datetime import datetime
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -99,6 +101,88 @@ def run_hdbscan(embeddings: np.ndarray, min_cluster_size: int, min_samples: int)
     probs = getattr(clusterer, "probabilities_", np.ones(len(labels)))
 
     return labels, probs, clusterer
+
+
+# ── 품질 지표 ────────────────────────────────────────────────
+
+def evaluate_clusters(x: np.ndarray, labels: np.ndarray, meta_rows) -> dict:
+    """
+    클러스터링 결과의 품질을 수치로 산출한다.
+
+    silhouette / davies_bouldin 은 노이즈(-1)를 제외하고 계산한다.
+    노이즈를 하나의 클러스터로 넣으면 흩어진 점들이 한 덩어리로 취급돼
+    지표가 실제보다 나쁘게 나온다.
+    """
+    labels = np.asarray(labels)
+    mask = labels != -1
+    n_total = len(labels)
+    n_noise = int((~mask).sum())
+    clustered = labels[mask]
+    sizes = Counter(clustered.tolist())
+
+    metrics: dict = {
+        "n_sessions": n_total,
+        "n_clusters": len(sizes),
+        "n_noise": n_noise,
+        "noise_ratio": round(n_noise / n_total, 4) if n_total else None,
+        "cluster_sizes": {str(k): v for k, v in sorted(sizes.items())},
+        "min_cluster_size_observed": min(sizes.values()) if sizes else None,
+        "max_cluster_size_observed": max(sizes.values()) if sizes else None,
+        "silhouette": None,
+        "davies_bouldin": None,
+        "calinski_harabasz": None,
+        "duplicate_sequence_ratio": None,
+    }
+
+    # 동일 토큰 시퀀스 비율 — 높으면 입력이 서로 구분되지 않는다는 뜻이므로
+    # 지표가 좋게 나와도 신뢰할 수 없다. (레이아웃 재생 버그 재발 감지용)
+    try:
+        seqs = [tuple(get_tokens(r)) for r in meta_rows]
+        counts = Counter(seqs)
+        dup = sum(c for c in counts.values() if c > 1)
+        metrics["duplicate_sequence_ratio"] = round(dup / len(seqs), 4) if seqs else None
+        metrics["unique_sequences"] = len(counts)
+    except Exception:
+        pass
+
+    if len(sizes) >= 2 and mask.sum() > len(sizes):
+        try:
+            from sklearn.metrics import (
+                silhouette_score,
+                davies_bouldin_score,
+                calinski_harabasz_score,
+            )
+            metrics["silhouette"] = round(float(silhouette_score(x[mask], clustered)), 4)
+            metrics["davies_bouldin"] = round(float(davies_bouldin_score(x[mask], clustered)), 4)
+            metrics["calinski_harabasz"] = round(float(calinski_harabasz_score(x[mask], clustered)), 2)
+        except Exception as exc:  # sklearn 미설치 등
+            metrics["metric_error"] = str(exc)
+
+    return metrics
+
+
+def format_metrics(m: dict) -> str:
+    def fmt(v, nd=3):
+        return "n/a" if v is None else (f"{v:.{nd}f}" if isinstance(v, float) else str(v))
+
+    lines = [
+        "=== Cluster Quality Metrics ===",
+        f"  세션 수            : {m['n_sessions']}",
+        f"  클러스터 수        : {m['n_clusters']}  (크기 {m['min_cluster_size_observed']}~{m['max_cluster_size_observed']})",
+        f"  노이즈(미분류)     : {m['n_noise']} ({fmt((m['noise_ratio'] or 0) * 100, 1)}%)   낮을수록 좋음 / 30% 넘으면 재검토",
+        f"  silhouette         : {fmt(m['silhouette'])}   -1~1, 높을수록 좋음 / 0.5 이상 양호",
+        f"  davies_bouldin     : {fmt(m['davies_bouldin'])}   낮을수록 좋음 / 1.0 이하 양호",
+        f"  calinski_harabasz  : {fmt(m['calinski_harabasz'], 1)}   높을수록 좋음",
+    ]
+    if m.get("duplicate_sequence_ratio") is not None:
+        ratio = m["duplicate_sequence_ratio"] * 100
+        warn = "   ⚠ 입력이 서로 구분되지 않음 — 지표 신뢰 불가" if ratio >= 30 else ""
+        lines.append(
+            f"  동일 시퀀스 비율   : {fmt(ratio, 1)}%  (고유 {m.get('unique_sequences', '?')}개){warn}"
+        )
+    if m.get("metric_error"):
+        lines.append(f"  ! 지표 계산 실패: {m['metric_error']}")
+    return "\n".join(lines)
 
 
 # ── 결과 저장 / 리포트 ───────────────────────────────────────
@@ -330,9 +414,23 @@ def main():
     for label, c in sorted(Counter(labels).items(), key=lambda x: x[0]):
         print(f"  {label}: {c}")
 
+    metrics = evaluate_clusters(x, labels, meta_rows)
+    print("\n" + format_metrics(metrics))
+
     result_csv = os.path.join(args.output_dir, "cluster_results.csv")
     plot_path = os.path.join(args.output_dir, "cluster_plot_pca.png")
     summary_path = os.path.join(args.output_dir, "cluster_summary.txt")
+    metrics_path = os.path.join(args.output_dir, "cluster_metrics.json")
+
+    metrics_out = dict(metrics)
+    metrics_out["generated_at"] = datetime.now().isoformat(timespec="seconds")
+    metrics_out["params"] = {
+        "min_cluster_size": args.min_cluster_size,
+        "min_samples": args.min_samples,
+        "l2_normalized": not args.no_normalize,
+    }
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(metrics_out, f, ensure_ascii=False, indent=2)
 
     save_cluster_results(meta_rows, labels, probs, pca_points, result_csv)
     plot_clusters(pca_points, labels, plot_path)
@@ -350,6 +448,7 @@ def main():
     print(f"  Results CSV : {result_csv}")
     print(f"  PCA Plot    : {plot_path}")
     print(f"  Summary     : {summary_path}")
+    print(f"  Metrics     : {metrics_path}")
 
 
 if __name__ == "__main__":

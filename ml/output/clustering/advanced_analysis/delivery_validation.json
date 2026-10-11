@@ -1,0 +1,12 @@
+{
+  "source_hashes_unchanged": {
+    "output\\clustering\\dignolucir_all_sessions.csv": true,
+    "output\\clustering\\cluster_results.csv": true,
+    "output\\unsupervised_semantic\\cluster_meta.json": true,
+    "output\\unsupervised_semantic\\bert_encoder.pt": true
+  },
+  "csv_roundtrip": true,
+  "source_columns_preserved": true,
+  "rows": 1023,
+  "columns": 42
+}

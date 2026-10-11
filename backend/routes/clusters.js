@@ -15,11 +15,19 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const Event = require('../models/Event');
-const { originCondition, normalizeOrigin } = require('../middleware/siteAccess');
+const {
+  originCondition,
+  originVariants,
+  normalizeOrigin,
+  canonicalOrigin,
+} = require('../middleware/siteAccess');
 
 const CLUSTER_SERVER = process.env.CLUSTER_SERVER_URL || 'http://localhost:5002';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// API 키는 URL이 아니라 x-goog-api-key 헤더로 보낸다.
+// 쿼리 스트링에 실으면 서버 로그·프록시 로그·에러 메시지에 키가 그대로 남는다.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const META_PATH = path.resolve(
   __dirname, '../../ml/output/unsupervised_semantic/cluster_meta.json',
@@ -32,13 +40,26 @@ const SNAPSHOT_DIR = path.resolve(
 );
 const ML_DIR = path.resolve(__dirname, '../../ml');
 const RETRAIN_SCRIPT = path.join(ML_DIR, 'retrain_centroids.py');
+const SITE_CLUSTER_EVENT_LIMIT = Math.min(
+  Math.max(Number(process.env.SITE_CLUSTER_EVENT_LIMIT) || 100000, 1000),
+  500000,
+);
+// 이벤트 조회가 이 시간을 넘기면 Mongo가 쿼리를 중단하고 에러를 돌려준다.
+// 없으면 느린 쿼리를 무한정 기다린다.
+const SITE_CLUSTER_QUERY_TIMEOUT_MS = Math.max(
+  Number(process.env.SITE_CLUSTER_QUERY_TIMEOUT_MS) || 30000, 1000,
+);
+const SITE_CLUSTER_SESSION_LIMIT = Math.min(
+  Math.max(Number(process.env.SITE_CLUSTER_SESSION_LIMIT) || 5000, 100),
+  10000,
+);
 let clusteringJob = null;
 
 // origin URL을 파일명으로 쓸 수 있게 정리
 function snapshotKey(origin = '') {
   // normalizeOrigin으로 끝 슬래시를 먼저 없앤다.
   // 안 그러면 "site.com"과 "site.com/"이 서로 다른 스냅샷 파일로 갈린다.
-  return normalizeOrigin(origin)
+  return canonicalOrigin(origin)
     .replace(/^https?:\/\//, '')
     .replace(/[^a-z0-9._-]+/g, '_');
 }
@@ -50,12 +71,14 @@ function snapshotPath(origin = '') {
 // 사이트별 분류 결과를 마지막 실행 시점 스냅샷으로 저장
 function saveSiteSnapshot(origin, payload) {
   if (!origin) return;
+  const canonical = canonicalOrigin(origin);
   fs.mkdirSync(SNAPSHOT_DIR, { recursive: true });
   fs.writeFileSync(snapshotPath(origin), JSON.stringify({
     ...payload,
     source: 'site_snapshot',
-    origin,
-    snapshot_origin: origin,
+    origin: canonical,
+    snapshot_origin: canonical,
+    origin_variants: originVariants(origin),
     snapshot_saved_at: new Date().toISOString(),
   }, null, 2), 'utf-8');
 }
@@ -81,32 +104,76 @@ function normalizeText(text) {
 }
 
 // 내부 semantic action 코드를 대시보드/리포트용 한국어 라벨로 바꾼다
+// 행동 코드 → 운영자가 읽는 말.
+//
+// 이 사전이 유일한 출처다. 화면에서 다시 번역하지 않는다.
+// (예전에는 대시보드에도 friendlyAction() 사전이 따로 있어
+//  같은 코드가 화면마다 다른 말로 나오거나 영어로 남았다.)
+// semantic_event_mapper.py 가 만들 수 있는 모든 SEMANTIC 값을 덮어야 한다.
 function koAction(action) {
   const labels = {
-    SCROLL_HOME: '홈 화면 스크롤',
-    SCROLL_PRODUCT: '상품 페이지 스크롤',
-    SCROLL_PAGE: '페이지 스크롤',
-    ENTER_CATEGORY: '카테고리 진입',
+    // 진입
+    START_SESSION: '쇼핑몰 방문',
+    ENTER_HOME: '첫 화면 진입',
     ENTER_PRODUCT: '상품 상세 진입',
+    ENTER_CATEGORY: '카테고리 진입',
+    ENTER_CART: '장바구니 진입',
     ENTER_CHECKOUT: '결제 화면 진입',
-    VIEW_PRODUCT: '상품 확인',
+    ENTER_MEMBER: '회원 화면 진입',
+    ENTER_UNKNOWN: '기타 화면 진입',
+
+    // 열람
+    VIEW_PRODUCT: '상품 살펴봄',
     VIEW_DETAIL: '상세정보 확인',
     VIEW_REVIEW: '리뷰 확인',
     VIEW_QNA: '상품 문의 확인',
+    VIEW_IMAGE: '이미지 확인',
+    VIEW_SECTION: '특정 영역 확인',
     ZOOM_IMAGE: '상품 이미지 확대',
-    HOVER_ELEMENT: '요소 위에 머무름',
-    CLICK_ELEMENT: '버튼 또는 메뉴 클릭',
-    SEARCH_USE: '검색 사용',
+
+    // 확인
     CHECK_PRICE: '가격 확인',
     CHECK_SIZE: '사이즈 확인',
     CHECK_SHIPPING: '배송 정보 확인',
+
+    // 스크롤
+    SCROLL_HOME: '첫 화면 스크롤',
+    SCROLL_PRODUCT: '상품 페이지 스크롤',
+    SCROLL_CATEGORY: '카테고리 스크롤',
+    SCROLL_REVIEW: '리뷰 스크롤',
+    SCROLL_PAGE: '페이지 스크롤',
+
+    // 조작
+    HOVER_ELEMENT: '요소 위에 머무름',
+    CLICK_ELEMENT: '버튼 또는 메뉴 클릭',
+    CLICK_BUY: '구매 버튼 클릭',
+    SEARCH_USE: '상품 검색',
+
+    // 장바구니
+    ADD_CART: '장바구니 담기',
+    REMOVE_CART: '장바구니에서 제거',
+    CHANGE_QUANTITY: '수량 변경',
+    CART_ABANDON: '장바구니 두고 나감',
+
+    // 입력
     START_INPUT: '입력 시작',
     EDIT_INPUT: '입력 수정',
-    EXIT_BOUNCE: '빠른 탐색 중지',
-    EXIT_SESSION: '탐색 중지',
+    ABANDON_INPUT: '입력 중단',
+
+    // 이탈 / 주의
+    TAB_OUT: '다른 탭으로 이동',
+    TAB_RETURN: '탭으로 돌아옴',
     INACTIVE: '움직임 없음',
     RAGE_CLICK: '반복 클릭',
-    CHANGE_QUANTITY: '수량 변경',
+    EXIT_SESSION: '탐색 중지',
+    EXIT_BOUNCE: '빠른 탐색 중지',
+
+    // 에피소드 — 같은 의도가 짧은 구간에 반복될 때 승격되는 신호
+    PRICE_REVIEW_EPISODE: '가격을 반복 확인',
+    SIZE_CHECK_EPISODE: '사이즈를 반복 확인',
+    SHIPPING_CHECK_EPISODE: '배송 정보를 반복 확인',
+    REVIEW_EXPLORATION_EPISODE: '리뷰를 집중해서 확인',
+    DISTRACTED_EPISODE: '주의가 흩어짐',
   };
   return labels[action] || String(action || '').replaceAll('_', ' ').toLowerCase();
 }
@@ -270,7 +337,10 @@ async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
   const res = await fetch(GEMINI_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': GEMINI_API_KEY,
+    },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.35, maxOutputTokens: 4096 },
@@ -430,12 +500,80 @@ function inferPage(doc) {
   return 'home';
 }
 
+// 과거 artifact의 active_buyer 명칭은 실제 구매 완료가 아니라 입력/장바구니
+// 비율로 붙은 이름이다. 전환 지표와 혼동되지 않도록 행동 유형으로 교정한다.
+function behaviorOnlyPersona(persona = {}) {
+  if (persona.id !== 'active_buyer') return persona;
+  return {
+    ...persona,
+    id: 'high_engagement',
+    name: '깊게 탐색하는 활동 고객',
+    summary: '여러 화면과 입력·장바구니 행동을 보이는 체류가 긴 고객 유형입니다.',
+    action: '구매 고객으로 단정하지 말고 별도 전환 지표와 함께 결제 경로를 점검하세요.',
+    source: 'corrected_legacy_rule',
+  };
+}
+
+const FORCED_CLUSTER_PERSONAS = {
+  0: {
+    name: '리뷰 관련 신호 중심 고객',
+    summary: '상품 후기와 리뷰 영역을 중심으로 구매 판단에 필요한 근거를 확인하는 고객 유형입니다.',
+    action: '리뷰 요약, 착용 정보와 리뷰 상품 연결을 강화하세요.',
+  },
+  1: {
+    name: '상품·가격 확인 중심 고객',
+    summary: '상품 페이지를 살펴보고 가격과 상세 정보를 반복해서 확인하는 고객 유형입니다.',
+    action: '가격 혜택과 배송·옵션 정보를 상품 화면에서 빠르게 비교할 수 있게 하세요.',
+  },
+  2: {
+    name: '다양한 상호작용·구매 시도 고객',
+    summary: '여러 화면과 기능을 사용하며 장바구니 또는 구매 단계까지 시도하는 활동 고객 유형입니다.',
+    action: '장바구니부터 구매 진입까지의 마찰과 중단 지점을 우선 점검하세요.',
+  },
+  3: {
+    name: '상품·카테고리 반복 탐색 고객',
+    summary: '카테고리와 여러 상품 화면을 오가며 비교 탐색하는 고객 유형입니다.',
+    action: '최근 본 상품, 비교 기능과 카테고리 이동 동선을 강화하세요.',
+  },
+  4: {
+    name: '짧은 방문·행동 정보 부족형',
+    summary: '방문은 확인되지만 고객 의도를 판단할 만큼 의미 있는 행동이 충분히 수집되지 않은 유형입니다.',
+    action: '첫 화면의 다음 행동 유도와 SDK 이벤트 수집 상태를 함께 점검하세요.',
+  },
+};
+
+// 클러스터(행동 유형)와 구매 퍼널(전환 여부)은 서로 다른 축이다.
+// 구매 신호가 한 번 있었다고 구매형 클러스터로 이름 붙이지 않고 별도로 센다.
+function sessionFunnelSignals(events = []) {
+  const types = new Set(events.map((event) => String(event.event_type || '').toLowerCase()));
+  return {
+    guest_purchase: types.has('guest_purchase'),
+    purchase_intent: types.has('purchase_click'),
+    cart: ['add_to_cart', 'add_to_cart_success'].some((type) => types.has(type)),
+    wishlist: ['wishlist_intent', 'add_to_wishlist_success'].some((type) => types.has(type)),
+    review: ['review_click', 'review_image_click', 'review_page_change', 'review_scroll', 'review_area_scroll']
+      .some((type) => types.has(type)),
+  };
+}
+
+function incrementCounts(target, source = {}) {
+  for (const [key, value] of Object.entries(source)) {
+    const count = Number(value) || 0;
+    if (count) target.set(key, (target.get(key) || 0) + count);
+  }
+}
+
 // 사이트 최근 세션을 모아 분류 서버에 한번에 보내고 결과를 클러스터별로 집계
-async function classifySiteSessions(origin, profiles, labels) {
+async function classifySiteSessions(origin, profiles, labels, options = {}) {
+  const sessionLimit = Math.min(
+    Math.max(Number(options.sessionLimit) || SITE_CLUSTER_SESSION_LIMIT, 1),
+    SITE_CLUSTER_SESSION_LIMIT,
+  );
   // 끝 슬래시가 붙은 origin도 같이 매칭한다
   const docs = await Event.find(originCondition(origin))
     .sort({ received_at: -1 })
-    .limit(20000)
+    .limit(SITE_CLUSTER_EVENT_LIMIT)
+    .maxTimeMS(SITE_CLUSTER_QUERY_TIMEOUT_MS)
     .lean();
 
   const grouped = new Map();
@@ -455,19 +593,30 @@ async function classifySiteSessions(origin, profiles, labels) {
 
   const sessions = [...grouped.values()]
     .sort((a, b) => new Date(b.last_at) - new Date(a.last_at))
-    .slice(0, 120)
-    .map((session) => ({
-      session_id: session.session_id,
-      events: session.events
-        .sort((a, b) => (a.event_seq || a.timestamp || 0) - (b.event_seq || b.timestamp || 0))
-        .slice(0, 128)
-        .map((doc) => ({
+    .slice(0, sessionLimit)
+    .map((session) => {
+      const ordered = session.events.sort((a, b) => {
+        const aTime = Number(a.timestamp) || new Date(a.received_at || 0).getTime();
+        const bTime = Number(b.timestamp) || new Date(b.received_at || 0).getTime();
+        return aTime - bTime || Number(a.event_seq || 0) - Number(b.event_seq || 0);
+      });
+      return {
+        session_id: session.session_id,
+        funnel: sessionFunnelSignals(ordered),
+        // 비정상적으로 긴 세션만 안전 상한을 두고 최근 이벤트를 보존한다.
+        // Python 전처리가 noise를 제거한 뒤 모델 길이에 맞춰 다시 자른다.
+        events: ordered.slice(-1000).map((doc) => ({
           event_type: doc.event_type,
-          page: inferPage(doc),
-          section: doc.data?.section || doc.section || '',
-          element_section: doc.data?.element_section || doc.element_section || '',
+          timestamp: Number(doc.timestamp) || new Date(doc.received_at || 0).getTime(),
+          event_seq: doc.event_seq,
+          inter_event_gap: doc.inter_event_gap,
+          pathname: doc.pathname,
+          page_url: doc.page_url,
+          page_type: doc.page_type || doc.data?.page_type,
+          data: doc.data || {},
         })),
-    }))
+      };
+    })
     .filter((session) => session.events.length > 0);
 
   if (!sessions.length) {
@@ -477,7 +626,7 @@ async function classifySiteSessions(origin, profiles, labels) {
       noise_count: 0,
       clusters: [],
       source: 'site_live',
-      origin,
+      origin: canonicalOrigin(origin),
     };
   }
 
@@ -485,7 +634,7 @@ async function classifySiteSessions(origin, profiles, labels) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessions }),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!res.ok) {
@@ -494,31 +643,90 @@ async function classifySiteSessions(origin, profiles, labels) {
   }
 
   const body = await res.json();
+  const modelMode = body.results?.find((result) => result.mode)?.mode || 'unknown';
   const sessionById = new Map(sessions.map((session) => [session.session_id, session]));
   const siteStats = new Map();
   let noiseCount = 0;
+  const rejectionReasons = new Map();
+  const qualityReasons = new Map();
+  const reliability = {
+    reliable_sessions: 0,
+    insufficient_behavior_sessions: 0,
+    ambiguous_sessions: 0,
+    low_confidence_sessions: 0,
+  };
+  const funnel = {
+    guest_purchase_sessions: 0,
+    purchase_intent_sessions: 0,
+    cart_sessions: 0,
+    wishlist_sessions: 0,
+    review_sessions: 0,
+  };
   for (const [index, result] of (body.results || []).entries()) {
+    const session = sessionById.get(result.session_id) || sessions[index];
     const cid = Number(result.cluster_id);
+    if (session?.funnel?.guest_purchase) funnel.guest_purchase_sessions += 1;
+    if (session?.funnel?.purchase_intent) funnel.purchase_intent_sessions += 1;
+    if (session?.funnel?.cart) funnel.cart_sessions += 1;
+    if (session?.funnel?.wishlist) funnel.wishlist_sessions += 1;
+    if (session?.funnel?.review) funnel.review_sessions += 1;
+
+    const status = String(result.assignment_status || '');
+    const reasons = result.rejection_reasons || [];
+    // 이전 분류 서버에는 assignment_status/reliability가 없었다. 배포가
+    // 엇갈려도 모든 세션을 '모호'로 세지 않고 기존 quality gate 결과를 쓴다.
+    const legacyAccepted = modelMode !== 'factorized_tfidf'
+      && Number.isFinite(cid) && cid >= 0 && result.accepted !== false;
+    const insufficientBehavior = status === 'insufficient_behavior'
+      || (modelMode !== 'factorized_tfidf' && reasons.includes('too_few_semantic_tokens'));
+    const reliableAssignment = result.reliability === 'high' || status === 'reliable' || legacyAccepted;
+    if (insufficientBehavior) {
+      reliability.insufficient_behavior_sessions += 1;
+      reliability.low_confidence_sessions += 1;
+    } else if (reliableAssignment) {
+      reliability.reliable_sessions += 1;
+    } else {
+      reliability.ambiguous_sessions += 1;
+      reliability.low_confidence_sessions += 1;
+    }
+    for (const reason of result.quality_reasons || []) {
+      qualityReasons.set(reason, (qualityReasons.get(reason) || 0) + 1);
+    }
+
     if (!Number.isFinite(cid) || cid < 0) {
       noiseCount += 1;
+      for (const reason of result.rejection_reasons || ['unclassified']) {
+        rejectionReasons.set(reason, (rejectionReasons.get(reason) || 0) + 1);
+      }
       continue;
     }
     const stats = siteStats.get(cid) || {
       count: 0,
       actionCounts: new Map(),
       pageCounts: new Map(),
+      personaCounts: new Map(),
+      reliableCount: 0,
+      lowConfidenceCount: 0,
+      funnel: {
+        guest_purchase_sessions: 0,
+        purchase_intent_sessions: 0,
+        cart_sessions: 0,
+      },
     };
     stats.count += 1;
-
-    // 분류 결과의 세션과 원본 세션 순서를 연결해 해당 쇼핑몰에서 실제로
-    // 발생한 행동/페이지 분포를 result.csv에 담는다.
-    const session = sessionById.get(result.session_id) || sessions[index];
-    for (const event of session?.events || []) {
-      const action = String(event.event_type || '').trim();
-      const page = String(event.page || '').trim();
-      if (action) stats.actionCounts.set(action, (stats.actionCounts.get(action) || 0) + 1);
-      if (page) stats.pageCounts.set(page, (stats.pageCounts.get(page) || 0) + 1);
+    if (result.persona) {
+      stats.personaCounts.set(result.persona, (stats.personaCounts.get(result.persona) || 0) + 1);
     }
+    if (reliableAssignment) stats.reliableCount += 1;
+    else stats.lowConfidenceCount += 1;
+
+    if (session?.funnel?.guest_purchase) stats.funnel.guest_purchase_sessions += 1;
+    if (session?.funnel?.purchase_intent) stats.funnel.purchase_intent_sessions += 1;
+    if (session?.funnel?.cart) stats.funnel.cart_sessions += 1;
+
+    // Python이 학습과 같은 규칙으로 만든 semantic 분포를 사용한다.
+    incrementCounts(stats.actionCounts, result.semantic_action_counts);
+    incrementCounts(stats.pageCounts, result.page_counts);
     siteStats.set(cid, stats);
   }
 
@@ -526,7 +734,10 @@ async function classifySiteSessions(origin, profiles, labels) {
     .sort((a, b) => a[0] - b[0])
     .map(([clusterId, stats]) => {
       const profile = profiles[String(clusterId)] || {};
-      const nlp = labels[String(clusterId)] || {};
+      const nlp = behaviorOnlyPersona(labels[String(clusterId)] || {});
+      const forcedPersona = modelMode === 'factorized_tfidf' ? FORCED_CLUSTER_PERSONAS[clusterId] : null;
+      const inferredPersona = [...stats.personaCounts.entries()]
+        .sort((a, b) => b[1] - a[1])[0]?.[0];
       const topActions = [...stats.actionCounts.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 12)
@@ -534,28 +745,110 @@ async function classifySiteSessions(origin, profiles, labels) {
       const pageDist = Object.fromEntries(
         [...stats.pageCounts.entries()].sort((a, b) => b[1] - a[1]),
       );
+      const validation = clusterValidation(clusterId, profile, stats.count, sessions.length, {});
+      if (clusterId === 4) {
+        validation.status = 'insufficient';
+        validation.label = '신뢰 낮음';
+        validation.reasons = ['고객 의도를 판단할 의미 행동이 충분하지 않습니다.'];
+      } else {
+        validation.status = stats.reliableCount >= stats.lowConfidenceCount ? 'verified' : 'weak';
+        validation.label = validation.status === 'verified' ? '신뢰 높음' : '신뢰 낮음';
+      }
       return {
         cluster: clusterId,
-        label: nlp.name || buildLabel(clusterId, profile, labels),
-        summary: nlp.summary || '',
-        action: nlp.action || '',
+        label: forcedPersona?.name || inferredPersona || nlp.name || buildLabel(clusterId, profile, labels),
+        summary: forcedPersona?.summary || nlp.summary || '',
+        action: forcedPersona?.action || nlp.action || '',
+        // 이름이 어디서 왔는지 화면에 알려준다. 없으면 화면이 자체 규칙으로 다시 명명한다.
+        persona_source: forcedPersona ? 'forced_factorized' : (nlp.source || (nlp.name ? 'meta' : null)),
+        persona_id: forcedPersona ? `forced_${clusterId}` : (nlp.id || null),
         count: stats.count,
-        top_actions: topActions.length ? topActions : (profile.top_actions || []),
+        reliability: {
+          high: stats.reliableCount,
+          low: stats.lowConfidenceCount,
+          high_rate: stats.count ? Number((stats.reliableCount / stats.count).toFixed(4)) : 0,
+        },
+        // 번역은 서버에서 붙여 내려보낸다. 화면이 다시 번역하면 사전이 두 개가 된다.
+        top_actions: (topActions.length ? topActions : (profile.top_actions || []))
+          .map((a) => ({ ...a, label: koAction(a.action) })),
         page_dist: Object.keys(pageDist).length ? pageDist : (profile.page_dist || {}),
-        validation: clusterValidation(clusterId, profile, stats.count, sessions.length, {}),
+        funnel: stats.funnel,
+        validation,
       };
     }));
 
-  return {
+  const payload = {
     total_sessions: sessions.length,
     n_clusters: clusters.length,
     noise_count: noiseCount,
+    rejection_reasons: Object.fromEntries(rejectionReasons),
+    quality_reasons: Object.fromEntries(qualityReasons),
+    reliability,
+    funnel,
     clusters,
-    quality: qualitySummary(clusters, { noise_count: noiseCount }, sessions.length),
+    quality: {
+      ...qualitySummary(clusters, { noise_count: noiseCount }, sessions.length),
+      assigned_sessions: sessions.length - noiseCount,
+      evaluated_sessions: sessions.length,
+      ...reliability,
+      reliable_rate: sessions.length
+        ? Number((reliability.reliable_sessions / sessions.length).toFixed(4))
+        : 0,
+    },
     source: 'site_live',
-    origin,
+    model_mode: modelMode,
+    origin: canonicalOrigin(origin),
     sampled_sessions: sessions.length,
+    date_range: {
+      newest_at: sessions[0]?.last_at || null,
+      oldest_at: sessions[sessions.length - 1]?.last_at || null,
+    },
   };
+
+  // 전체 분포와 동일한 모델로 최신 100세션을 다시 배정해 직접 비교할 수 있게 한다.
+  // 분류 기준은 하나만 유지하므로 두 결과의 비율 차이는 실제 최근 행동 변화에 해당한다.
+  if (options.includeComparison !== false) {
+    const cohortView = (result) => ({
+      total_sessions: result.total_sessions,
+      clusters: result.clusters,
+      quality: result.quality,
+      date_range: result.date_range,
+    });
+    const recent = sessions.length > 100
+      ? await classifySiteSessions(origin, profiles, labels, {
+        sessionLimit: 100,
+        includeComparison: false,
+      })
+      : payload;
+    const overallById = new Map(payload.clusters.map((cluster) => [cluster.cluster, cluster]));
+    const recentById = new Map(recent.clusters.map((cluster) => [cluster.cluster, cluster]));
+    const clusterIds = [...new Set([...overallById.keys(), ...recentById.keys()])]
+      .sort((a, b) => a - b);
+
+    payload.comparison = {
+      overall: cohortView(payload),
+      recent_100: cohortView(recent),
+      deltas: clusterIds.map((clusterId) => {
+        const overallCluster = overallById.get(clusterId);
+        const recentCluster = recentById.get(clusterId);
+        const overallRate = payload.total_sessions
+          ? (overallCluster?.count || 0) / payload.total_sessions
+          : 0;
+        const recentRate = recent.total_sessions
+          ? (recentCluster?.count || 0) / recent.total_sessions
+          : 0;
+        return {
+          cluster: clusterId,
+          label: overallCluster?.label || recentCluster?.label || `Cluster ${clusterId}`,
+          overall_rate: Number(overallRate.toFixed(4)),
+          recent_rate: Number(recentRate.toFixed(4)),
+          percentage_point_change: Number(((recentRate - overallRate) * 100).toFixed(1)),
+        };
+      }),
+    };
+  }
+
+  return payload;
 }
 
 // PDF 리포트처럼 사이트별 최신 분류 결과가 필요한 내부 기능에서 재사용한다.
@@ -589,15 +882,24 @@ router.get('/', async (req, res) => {
 
     const totalSessions = Object.values(profiles).reduce((sum, profile) => sum + (profile.count || 0), 0);
     const clusters = ensureUniqueClusterLabels(Object.entries(profiles).map(([clusterId, profile]) => {
-      const nlp = labels[String(clusterId)] || {};
+      const nlp = behaviorOnlyPersona(labels[String(clusterId)] || {});
       const count = profile.count || 0;
       return {
         cluster: Number(clusterId),
         label: nlp.name || buildLabel(clusterId, profile, meta.cluster_labels || {}),
         summary: nlp.summary || '',
         action: nlp.action || '',
+        // 이름이 어디서 왔는지 화면에 알려준다.
+        // 화면은 자체 명명 규칙을 갖고 있어, 서버가 준 이름이 있으면
+        // 그쪽을 우선해야 두 규칙이 어긋나지 않는다.
+        persona_source: nlp.source || (nlp.name ? 'meta' : null),
+        persona_id: nlp.id || null,
         count,
-        top_actions: profile.top_actions || [],
+        // 번역은 서버에서 붙여 내려보낸다. 화면이 다시 번역하면 사전이 두 개가 된다.
+        top_actions: (profile.top_actions || []).map((a) => ({
+          ...a,
+          label: koAction(a.action),
+        })),
         page_dist: profile.page_dist || {},
         validation: clusterValidation(clusterId, profile, count, totalSessions, meta),
       };
@@ -609,7 +911,12 @@ router.get('/', async (req, res) => {
     // 운영자가 "고정" 모드를 선택하면 마지막 저장 스냅샷을 우선 사용한다
     if (req.siteOrigin && frozenMode) {
       const snapshot = loadSiteSnapshot(req.siteOrigin);
-      if (snapshot) {
+      const isCompleteForcedAssignment = snapshot
+        && snapshot.model_mode === 'factorized_tfidf'
+        && Number(snapshot.noise_count || 0) === 0
+        && Number(snapshot.quality?.assigned_sessions || 0) === Number(snapshot.total_sessions || 0)
+        && snapshot.comparison?.recent_100;
+      if (isCompleteForcedAssignment) {
         return res.json({
           ...snapshot,
           meta,
@@ -617,24 +924,30 @@ router.get('/', async (req, res) => {
       }
     }
 
-    // 기본 사이트 필터는 최신 이벤트를 다시 분류해 현재 사이트 기준 분포를 보여준다
-    if (req.siteOrigin && !frozenMode) {
+    // live 모드는 항상 최신 데이터를 분류한다. frozen 모드라도 새 대표 origin의
+    // 통합 스냅샷이 아직 없으면 한 번 생성해 예전 단일-origin 결과를 쓰지 않는다.
+    if (req.siteOrigin) {
       try {
         const result = await classifySiteSessions(req.siteOrigin, profiles, labels);
+        if (frozenMode) {
+          saveSiteSnapshot(req.siteOrigin, {
+            ...result,
+            snapshot_basis: 'auto_refreshed_for_origin_alias_group',
+            last_retrain: meta.last_retrain ?? null,
+          });
+        }
         return res.json({ ...result, meta });
       } catch (siteErr) {
         console.warn('[clusters] site live fallback:', siteErr.message);
         return res.json({
-          total_sessions: totalSessions,
-          n_clusters: meta.num_clusters ?? clusters.length,
-          silhouette: meta.silhouette ?? null,
-          davies_bouldin: meta.davies_bouldin ?? null,
+          total_sessions: 0,
+          n_clusters: 0,
           noise_count: meta.noise_count ?? 0,
-          quality,
-          clusters,
-          source: 'artifact_fallback',
-          origin: req.siteOrigin,
-          warning: '사이트별 실시간 분류를 불러오지 못해 저장된 전체 클러스터 품질을 표시했습니다.',
+          quality: null,
+          clusters: [],
+          source: 'site_unavailable',
+          origin: canonicalOrigin(req.siteOrigin),
+          warning: '사이트 통합 분류를 불러오지 못했습니다. 다른 쇼핑몰 데이터가 섞이지 않도록 전체 결과로 대체하지 않았습니다.',
           meta,
         });
       }
@@ -670,7 +983,26 @@ router.post('/run', async (req, res) => {
 
     // 키 모드에서는 키가 정한 사이트로 고정한다. body의 origin은 신뢰하지 않는다.
     const requestedOrigin = req.siteOrigin || String(req.body?.origin || '').trim();
-    const result = await runPythonClustering({ full: req.body?.full !== false });
+
+    // 기본은 "재분류"다. 기존 인코더·centroid를 그대로 두고 최신 세션만 다시 분류한다.
+    //
+    // 재학습(retrain:true)을 기본으로 두면 안 되는 이유:
+    //   - CPU 학습에 수 분이 걸려 HTTP 요청 안에서 끝나지 않는다
+    //   - 누를 때마다 클러스터 정의가 바뀌어 어제 본 유형과 오늘 본 유형이 달라진다
+    //     운영자에게는 기준이 안정적인 쪽이 중요하다
+    //   - generateNlpLabels(meta, true)가 돌면서 규칙 기반 페르소나 이름을
+    //     Gemini 응답으로 덮어쓴다
+    // 재학습은 데이터가 쌓인 뒤 개발자가 ml/ 파이프라인으로 의도적으로 수행한다.
+    const retrain = req.body?.retrain === true;
+
+    const result = retrain
+      ? await runPythonClustering({ full: req.body?.full !== false })
+      : {
+        ok: true,
+        mode: 'reclassify',
+        message: '기존 고객 유형 기준으로 최신 데이터를 다시 분류했습니다.',
+      };
+
     if (requestedOrigin) {
       const meta = fs.existsSync(META_PATH)
         ? JSON.parse(fs.readFileSync(META_PATH, 'utf-8'))
@@ -686,7 +1018,7 @@ router.post('/run', async (req, res) => {
       });
       return res.json({
         ...result,
-        snapshot_origin: requestedOrigin,
+        snapshot_origin: canonicalOrigin(requestedOrigin),
         snapshot_saved: true,
         snapshot_session_count: siteResult.total_sessions,
         snapshot_cluster_count: siteResult.n_clusters,
@@ -699,19 +1031,83 @@ router.post('/run', async (req, res) => {
   }
 });
 
+/**
+ * CSV 한 줄을 컬럼으로 나눈다. 따옴표 안의 콤마는 구분자로 치지 않는다.
+ *
+ * sequence 컬럼에 콤마가 들어가면 파이썬 csv.DictWriter가 따옴표로 감싸는데,
+ * 단순 split(',')으로 자르면 그 행부터 컬럼이 통째로 밀린다.
+ */
+function splitCsvLine(line) {
+  const out = [];
+  let cur = '';
+  let quoted = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+
+    if (quoted) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i += 1; }   // "" 는 리터럴 따옴표
+        else quoted = false;
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === ',') {
+      out.push(cur);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+
+  out.push(cur);
+  return out;
+}
+
 // ── GET /api/clusters/sessions ────────────────────────────────────
-// 저장된 semantic_cluster_results.csv를 운영자 화면에서 볼 수 있게 JSON으로 변환한다
-router.get('/sessions', (req, res) => {
+// 저장된 semantic_cluster_results.csv를 운영자 화면에서 볼 수 있게 JSON으로 변환한다.
+//
+// 이 CSV에는 origin 컬럼이 없다.
+//   session_id, cluster, probability, pca_x, pca_y, original_length, used_length, sequence
+// 학습 파이프라인이 전 사이트 세션을 한꺼번에 돌려서 만들기 때문이다.
+// 그래서 그대로 내려주면 A몰 사장님 화면에 B몰 세션이 그대로 섞여 나온다.
+// (지금까지 안 터진 건 이 CSV가 아직 생성된 적이 없어서 404였을 뿐이다)
+//
+// 막는 방법: 이 쇼핑몰에 속한 session_id를 Event에서 먼저 뽑고, 그 집합에 든 행만 남긴다.
+// ML 출력 형식을 건드리지 않고 처리할 수 있는 가장 얕은 지점이다.
+// 나중에 파이프라인이 origin 컬럼을 같이 써주면 이 조회는 지워도 된다.
+router.get('/sessions', async (req, res) => {
   try {
     if (!fs.existsSync(RESULTS_PATH)) {
       return res.status(404).json({ error: 'semantic_cluster_results.csv not found.' });
     }
-    const lines = fs.readFileSync(RESULTS_PATH, 'utf-8').trim().split('\n');
-    const headers = lines[0].split(',');
-    const rows = lines.slice(1).map(line => {
-      const cols = line.split(',');
-      return Object.fromEntries(headers.map((h, i) => [h.trim(), cols[i]?.trim()]));
-    });
+
+    // 파이썬이 utf-8-sig로 저장해서 맨 앞에 BOM이 붙는다.
+    // 안 지우면 첫 컬럼 이름이 'session_id'가 아니라 '﻿session_id'가 되어
+    // 아래 session_id 매칭이 전부 빗나간다.
+    const raw = fs.readFileSync(RESULTS_PATH, 'utf-8').replace(/^﻿/, '').trim();
+
+    const lines   = raw.split(/\r?\n/);
+    const headers = splitCsvLine(lines[0]).map((h) => h.trim());
+
+    let rows = lines.slice(1)
+      .filter(Boolean)
+      .map((line) => {
+        const cols = splitCsvLine(line);
+        return Object.fromEntries(headers.map((h, i) => [h, (cols[i] ?? '').trim()]));
+      });
+
+    // 키 모드에서는 자기 쇼핑몰 세션만 남긴다.
+    // 개방 모드(siteOrigin === null)는 기존처럼 전체를 돌려준다.
+    if (req.siteOrigin) {
+      const ownSessions = new Set(
+        await Event.distinct('session_id', originCondition(req.siteOrigin)),
+      );
+      rows = rows.filter((r) => ownSessions.has(r.session_id));
+    }
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

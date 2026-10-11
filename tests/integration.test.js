@@ -106,18 +106,26 @@ class Element {
     this.name     = props.name   || '';
     this.type     = props.type   || '';
     this.innerText = props.innerText || '';
+    this.parentElement = props.parentElement || null;
     this.src      = props.src    || '';
     this.duration = props.duration || 0;
     this.currentTime = props.currentTime || 0;
   }
   closest(selector) {
-    for (const s of selector.split(',').map(x => x.trim())) {
-      if (this._match(s)) return this;
+    let current = this;
+    while (current) {
+      for (const s of selector.split(',').map(x => x.trim())) {
+        if (current._match(s)) return current;
+      }
+      current = current.parentElement;
     }
     return null;
   }
   matches(selector) {
     return selector.split(',').some(s => this._match(s.trim()));
+  }
+  getBoundingClientRect() {
+    return { width: 320, height: 120, top: 0, left: 0, right: 320, bottom: 120 };
   }
   _match(sel) {
     const tag = this.tagName.toLowerCase();
@@ -159,6 +167,13 @@ class IntersectionObserver {
   }
 }
 globalThis.IntersectionObserver = IntersectionObserver;
+
+class MutationObserver {
+  constructor(cb) { this._cb = cb; }
+  observe() {}
+  disconnect() {}
+}
+globalThis.MutationObserver = MutationObserver;
 
 // ── 이벤트 시스템 ────────────────────────────────────────────────
 function addListener(type, handler) {
@@ -206,8 +221,8 @@ const documentMock = {
   removeEventListener() {},
   dispatchEvent(ev) { fireEvent(ev.type, ev); return true; },
   querySelectorAll(sel) {
-    if (sel === '[data-section]')    return _domSections;
-    if (sel === '[data-subsection]') return _domSubsections;
+    if (sel.includes('[data-section]'))    return _domSections;
+    if (sel.includes('[data-subsection]')) return _domSubsections;
     return { forEach() {} };
   },
 };
@@ -254,7 +269,8 @@ Object.defineProperty(globalThis, 'fetch', {
 });
 
 // ── SDK 모듈 import & 초기화 ─────────────────────────────────────
-const base = new URL('file:///Users/parkjoehyun/Desktop/software/4grade/2026-capstone/');
+const { pathToFileURL } = await import('node:url');
+const base = new URL('./', pathToFileURL(process.cwd() + '/'));
 const sdkA   = await import(new URL('./sdk-A.js',     base));
 const sdkB   = await import(new URL('./sdk-B.js',     base));
 const sdkC   = await import(new URL('./sdk-C.js',     base));
@@ -598,6 +614,55 @@ console.log(JSON.stringify({
   assert.ok(result.hasEvent,              'product_click emit됨');
   assert.equal(result.productId, 'SKU-001','product_id 전달됨');
   assert.equal(result.token, 80,          'product_click 토큰 = 80');
+});
+
+test('[C] exact guest purchase click becomes one conversion and keeps product context', () => {
+  const result = run(`
+const product = new Element('a', {
+  dataset: {
+    ghostRole: 'product-link',
+    productId: '170',
+    productName: '자니아 레이스 뷔스티에',
+  },
+});
+fireEvent('click', { target: product, clientX: 0, clientY: 0 });
+getEvents();
+
+window.location.pathname = '/member/login.html';
+window.location.href = 'https://shop.test/member/login.html';
+
+const lookup = new Element('a', { innerText: '비회원 주문조회', className: 'btnNormal' });
+fireEvent('click', { target: lookup, clientX: 0, clientY: 0 });
+const lookupEvents = getEvents();
+
+const guest = new Element('a', { innerText: '비회원 구매', className: 'btnNormal gFull sizeL' });
+const guestLabel = new Element('span', { innerText: '비회원 구매', parentElement: guest });
+fireEvent('click', { target: guestLabel, clientX: 0, clientY: 0 });
+const firstEvents = getEvents();
+fireEvent('click', { target: guestLabel, clientX: 0, clientY: 0 });
+const secondEvents = getEvents();
+
+const conversion = firstEvents.find(e => e.event_type === 'guest_purchase');
+console.log(JSON.stringify({
+  lookupConversions: lookupEvents.filter(e => e.event_type === 'guest_purchase').length,
+  firstConversions: firstEvents.filter(e => e.event_type === 'guest_purchase').length,
+  duplicateConversions: secondEvents.filter(e => e.event_type === 'guest_purchase').length,
+  purchaseClicks: firstEvents.filter(e => e.event_type === 'purchase_click').length,
+  productId: conversion?.data?.product_id,
+  productName: conversion?.data?.product_name,
+  evidence: conversion?.data?.evidence,
+  token: conversion?.event_token,
+}));
+`);
+
+  assert.equal(result.lookupConversions, 0, '비회원 주문조회는 전환에서 제외');
+  assert.equal(result.firstConversions, 1, '비회원 구매 최초 클릭만 전환');
+  assert.equal(result.duplicateConversions, 0, '같은 세션 중복 클릭은 전환에서 제외');
+  assert.equal(result.purchaseClicks, 1, '기존 구매 의도 이벤트도 유지');
+  assert.equal(result.productId, '170', '이전 페이지 상품 ID 유지');
+  assert.equal(result.productName, '자니아 레이스 뷔스티에', '이전 페이지 상품명 유지');
+  assert.equal(result.evidence, 'member_login_exact_guest_purchase_button');
+  assert.equal(result.token, 88, 'guest_purchase 토큰 = 88');
 });
 
 test('[C] add_to_cart click → A tracks cart → cart_abandon_flag on session_end', () => {

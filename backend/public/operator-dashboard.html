@@ -1,15 +1,18 @@
-/*
- * 운영자 화면 전용 HTML 파일
- * - SDK가 보내는 이벤트를 실시간으로 수집하고, 요약/분석하여 운영자에게 보여줌
- * - 운영자가 쉽게 이해할 수 있는 언어로 번역된 인사이트와 액션을 제공
- */
 <!DOCTYPE html>
+<!--
+  운영자 화면 전용 HTML 파일
+  - SDK가 보내는 이벤트를 실시간으로 수집하고, 요약/분석하여 운영자에게 보여줌
+  - 운영자가 쉽게 이해할 수 있는 언어로 번역된 인사이트와 액션을 제공
+
+  주의: 이 주석은 반드시 <!DOCTYPE html> 뒤에 와야 한다.
+  DOCTYPE 앞에 문자가 있으면 브라우저가 quirks mode로 렌더링하고,
+  JS 스타일 /* */ 주석은 HTML에서 그냥 텍스트라 화면 상단에 그대로 출력된다.
+-->
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GhostTracker | 운영자 쉬운 화면</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
     @font-face {
@@ -479,6 +482,45 @@
       border-radius: 11px;
       padding: 14px;
     }
+    .type-comparison { display:grid; gap:14px; }
+    .comparison-row { display:grid; gap:7px; }
+    .comparison-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; font-size:.8rem; }
+    .comparison-name { color:var(--text); font-weight:700; line-height:1.35; }
+    .comparison-value { color:var(--muted); white-space:nowrap; }
+    .comparison-bars { display:grid; grid-template-columns:48px minmax(0,1fr) 45px; gap:8px; align-items:center; color:var(--muted); font-size:.7rem; }
+    .comparison-track { height:9px; overflow:hidden; border-radius:999px; background:#e8eef6; }
+    .comparison-fill { display:block; height:100%; min-width:2px; border-radius:inherit; background:var(--blue); }
+    .comparison-fill.recent { background:var(--mint); }
+    .behavior-list { display:grid; gap:0; max-height:420px; overflow:auto; margin-top:10px; padding-right:4px; }
+    .behavior-row { display:grid; grid-template-columns:62px 22px minmax(0,1fr); gap:8px; align-items:start; padding:9px 0; border-bottom:1px solid var(--line); }
+    .behavior-time { color:var(--muted); font-size:.72rem; }
+    .behavior-index { display:grid; place-items:center; width:22px; height:22px; border-radius:50%; background:var(--blue-soft); color:var(--blue); font-size:.7rem; font-weight:700; }
+    .behavior-action { font-size:.82rem; font-weight:650; line-height:1.4; }
+    .behavior-context { color:var(--muted); font-size:.75rem; line-height:1.45; margin-top:2px; overflow-wrap:anywhere; }
+    .cohort-change-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .cohort-change-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .cohort-change-value { font-weight: 700; white-space: nowrap; }
+    .cohort-change-value.up { color: var(--coral); }
+    .cohort-change-value.down { color: var(--blue); }
+    .cohort-period {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      line-height: 1.45;
+    }
     .chart-label { color: var(--muted); font-family: var(--font-point); font-size: 0.8rem; font-weight: 500; margin-bottom: 10px; }
 
     .session-search {
@@ -655,6 +697,101 @@
       .focus-metric { grid-template-columns: 1fr; }
       .session-search { grid-template-columns: 1fr; }
     }
+
+    /* 4개 업무 메뉴로 재구성한 운영 화면 */
+    body { background: #f4f7fb; }
+    .topbar { padding: 12px 24px; box-shadow: 0 1px 0 rgba(15, 23, 42, .03); }
+    .brand p { display: none; }
+    .logo { width: 36px; height: 36px; box-shadow: none; }
+    .actions button { box-shadow: none; }
+    .actions #rediscover-types { display: none; }
+    main { max-width: 1480px; padding: 0 24px 40px; }
+    .workspace-nav {
+      position: sticky; top: 61px; z-index: 9; display: flex; gap: 6px;
+      margin: 0 -24px 22px; padding: 10px 24px; overflow-x: auto;
+      background: rgba(244, 247, 251, .94); border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+      scrollbar-width: none;
+    }
+    .workspace-nav::-webkit-scrollbar { display:none; }
+    .nav-button {
+      flex: 0 0 auto; height: 38px; padding: 0 16px; border-radius: 9px;
+      border: 1px solid transparent; background: transparent; color: var(--muted);
+      box-shadow: none; font-family: var(--font-body); font-weight: 700;
+    }
+    .nav-button:hover { transform: none; background: #fff; }
+    .nav-button.active { color: var(--blue); background: #fff; border-color: #cdddf7; box-shadow: 0 5px 14px rgba(24,90,219,.08); }
+    .view { display: none; }
+    .view.active { display: block; animation: view-in 160ms ease-out; }
+    @keyframes view-in { from { opacity: .5; transform: translateY(3px); } }
+    .view-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin: 2px 0 16px; }
+    .view-head h2 { margin:0; font-family:var(--font-point); font-size:1.35rem; font-weight:500; }
+    .view-head p { margin:5px 0 0; color:var(--muted); font-size:.9rem; }
+    .hero { grid-template-columns:minmax(0,1fr) 340px; }
+    .hero-card, .recommend-box, .insight-card, .card { border-radius: 10px; box-shadow: 0 8px 24px rgba(23,32,51,.06); }
+    .hero-card { display:flex; flex-direction:column; padding: 22px 24px; }
+    .hero-card .today-summary { margin-top:auto; padding-top:18px; }
+    .hero-card::after { display:none; }
+    .hero-card h2 { font-size:1.55rem; }
+    .hero-card p { font-size:.95rem; }
+    .summary-item .label, .quality-item .label, .mini .label, .chip { font-size:.78rem; }
+    .summary-item .value { font-size:1.45rem; }
+    .insight-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .marketing-grid { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr); gap:16px; align-items:start; }
+    .marketing-side { display:grid; gap:16px; }
+    .visit-workspace { display:grid; grid-template-columns:minmax(340px,.72fr) minmax(0,1.28fr); gap:16px; align-items:start; }
+    .visit-detail { display:grid; gap:16px; }
+    .timeline-shell { margin-bottom:14px; border:1px solid var(--line); border-radius:10px; padding:14px; background:#f8fbff; }
+    .result-box { min-height:150px; }
+    .session-list { max-height:560px; }
+    .activity-list { max-height:420px; }
+    .report-toolbar { display:flex; flex-wrap:wrap; gap:8px; }
+    .report-period.active { color:#fff; background:var(--blue); border-color:var(--blue); }
+    .custom-range { display:none; grid-template-columns:1fr 1fr auto; gap:8px; margin-top:12px; }
+    .custom-range.active { display:grid; }
+    .period-report { min-height:420px; white-space:normal; }
+    .full-report-frame { width:100%; height:980px; border:0; border-radius:10px; background:#fff; }
+    .report-loading { display:grid; place-items:center; min-height:260px; color:var(--muted); }
+    .report-summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0; }
+    .report-section { margin-top:18px; }
+    .report-section h3 { margin:0 0 9px; font-family:var(--font-point); font-size:.95rem; }
+    .error-state { color:var(--red); background:var(--red-soft); border:1px solid #fed7c7; border-radius:9px; padding:12px; }
+    .card-refresh { color:var(--muted); font-size:.78rem; white-space:nowrap; }
+    .chart-wrap { min-height:320px; }
+    .split { align-items:start; }
+    @media (max-width:1120px) {
+      .marketing-grid, .visit-workspace { grid-template-columns:1fr 1fr; }
+      .insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .hero { grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr); }
+    }
+    @media (max-width:820px) {
+      .topbar { position:relative; padding:10px 14px; }
+      .brand h1 { font-size:.98rem; }
+      .actions { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; }
+      .actions #expert-view { display:none; }
+      .live { justify-self:end; padding:0 9px; }
+      main { padding:0 14px 28px; }
+      .workspace-nav { top:0; margin:0 -14px 16px; padding:8px 14px; }
+      .hero, .marketing-grid, .visit-workspace, .insight-grid { grid-template-columns:1fr; }
+      .today-summary, .quality-summary, .report-summary-grid { grid-template-columns:repeat(2,1fr); }
+      .view-head { align-items:flex-start; }
+    }
+    @media (max-width:520px) {
+      .brand { display:none; }
+      .actions { grid-template-columns:minmax(0,1fr) auto; }
+      .live { display:none; }
+      .nav-button { padding:0 12px; }
+      .hero-card, .recommend-box, .card-body, .card-head { padding:16px; }
+      .card-head { flex-direction:column; align-items:stretch; }
+      .report-toolbar { display:grid; grid-template-columns:1fr 1fr; width:100%; }
+      .report-toolbar button { width:100%; padding:0 8px; }
+      .hero-card h2 { font-size:1.25rem; }
+      .today-summary { gap:8px; margin-top:14px; }
+      .summary-item { padding:11px; }
+      .summary-item .value { font-size:1.25rem; }
+      .session-search, .custom-range { grid-template-columns:1fr; }
+      .result-grid { grid-template-columns:1fr; }
+    }
   </style>
 </head>
 <body>
@@ -670,15 +807,26 @@
       <select id="site-filter" aria-label="사이트 선택">
         <option value="">전체 사이트</option>
       </select>
-      <button class="secondary" id="rediscover-types">고객 유형 다시 찾기</button>
-      <button id="download-report">주간 리포트 다운로드</button>
+      <button class="secondary" id="rediscover-types">최신 데이터로 다시 분류</button>
+      <button id="open-reports">리포트 보기</button>
       <button class="secondary" id="expert-view">전문가 화면</button>
+      <button class="secondary" id="open-help">도움말</button>
+      <button class="secondary" id="sign-out">다른 키로 열기</button>
       <span class="live" id="status">연결 확인 중</span>
     </div>
   </header>
 
   <main>
-    <section class="hero">
+    <nav class="workspace-nav" aria-label="대시보드 메뉴">
+      <button class="nav-button active" data-view="overview" aria-current="page">운영 요약</button>
+      <button class="nav-button" data-view="marketing">마케팅 분석</button>
+      <button class="nav-button" data-view="visits">방문 분석</button>
+      <button class="nav-button" data-view="reports">리포트</button>
+    </nav>
+
+    <section class="view active" id="view-overview" data-view-panel="overview">
+      <div class="view-head"><div><h2>운영 요약</h2><p>오늘 먼저 확인할 문제와 실행 순위를 봅니다.</p></div><span class="card-refresh" id="overview-updated">데이터 확인 중</span></div>
+      <section class="hero">
       <div class="hero-card">
         <div class="hero-kicker">오늘의 운영 포커스</div>
         <h2 id="headline">오늘 고객들은 어디서 망설이고 있을까요?</h2>
@@ -721,9 +869,9 @@
           <div class="source-row"><div class="source-name">유입 경로 확인 중</div><div class="source-count">-</div></div>
         </div>
       </aside>
-    </section>
+      </section>
 
-    <section class="insight-grid">
+      <section class="insight-grid">
       <section class="insight-card">
         <div class="insight-head">
           <div class="insight-title">오늘 가장 막히는 화면 TOP</div>
@@ -751,38 +899,35 @@
           <div class="empty">추천 액션을 준비하는 중입니다.</div>
         </div>
       </section>
-      <section class="insight-card">
-        <div class="insight-head">
-          <div class="insight-title">유입 경로별 성과 차이</div>
-          <div class="insight-sub">들어온 경로마다 주문 성공과 중지 비율이 다릅니다.</div>
-        </div>
-        <div class="insight-body" id="source-performance">
-          <div class="empty">유입 경로 비교를 불러오는 중입니다.</div>
-        </div>
       </section>
     </section>
 
-    <section class="grid">
-      <div class="stack">
+    <section class="view" id="view-marketing" data-view-panel="marketing">
+      <div class="view-head"><div><h2>마케팅 분석</h2><p>유입 경로와 고객 유형을 비교해 다음 캠페인을 정합니다.</p></div><button class="secondary" id="marketing-rediscover">최신 데이터로 다시 분류</button></div>
+      <div class="marketing-grid">
         <section class="card">
           <div class="card-head">
             <div>
               <div class="card-title">고객 유형 한눈에 보기</div>
-              <div class="card-sub">마지막으로 고객 유형 다시 찾기를 실행했을 때 확정된 유형을, 비슷한 세부 클러스터끼리 묶어 보여줍니다.</div>
+              <div class="card-sub">마지막으로 다시 분류를 실행했을 때의 결과입니다. 고객 유형 기준 자체는 개발자가 재학습할 때만 바뀝니다.</div>
               <div class="card-sub" id="cluster-snapshot-note">마지막 클러스터링 시점을 불러오는 중입니다.</div>
             </div>
           </div>
           <div class="card-body">
             <div class="quality-summary" id="quality-summary">
-              <div class="quality-item"><div class="label">검증 통과</div><div class="value">-</div></div>
-              <div class="quality-item"><div class="label">검증 필요</div><div class="value">-</div></div>
-              <div class="quality-item"><div class="label">분리도</div><div class="value">-</div></div>
-              <div class="quality-item"><div class="label">미분류 비율</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">전체 배정</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">행동 근거 충분</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">행동 근거 부족</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">유형 경계 모호</div><div class="value">-</div></div>
             </div>
             <div class="split">
               <div class="chart-wrap">
-                <div class="chart-label">고객 유형 비중</div>
-                <canvas id="type-chart" height="190"></canvas>
+                <div class="chart-label">전체 대비 최근 100세션 유형 구성</div>
+                <div class="type-comparison" id="type-comparison"><div class="empty">유형별 비율을 계산하는 중입니다.</div></div>
+                <div class="cohort-period" id="cohort-period">비교 기간을 불러오는 중입니다.</div>
+                <div class="cohort-change-list" id="cohort-change-list">
+                  <div class="empty">최근 변화를 계산하는 중입니다.</div>
+                </div>
               </div>
               <div class="customer-types" id="customer-types">
                 <div class="empty">고객 유형을 불러오는 중입니다.</div>
@@ -790,55 +935,78 @@
             </div>
           </div>
         </section>
-
-        <section class="card">
-          <div class="card-head">
-            <div>
-              <div class="card-title">방금 들어온 고객 행동</div>
-              <div class="card-sub">데모 중 쇼핑몰에서 움직이면 여기에 바로 표시됩니다.</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="activity-list" id="activity-list">
-              <div class="empty">행동 데이터를 기다리는 중입니다.</div>
-            </div>
-          </div>
-        </section>
+        <div class="marketing-side">
+          <section class="insight-card">
+            <div class="insight-head"><div class="insight-title">유입 경로별 성과 차이</div><div class="insight-sub">경로마다 주문 성공과 중지 비율을 비교합니다.</div></div>
+            <div class="insight-body" id="source-performance"><div class="empty">유입 경로 비교를 불러오는 중입니다.</div></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><div><div class="card-title">마케팅 활용 제안</div><div class="card-sub">현재 행동 데이터에서 바로 실행할 수 있는 활용법입니다.</div></div></div>
+            <div class="card-body" id="marketing-recommendations"><div class="empty">고객 유형을 불러오는 중입니다.</div></div>
+          </section>
+        </div>
       </div>
+    </section>
 
+    <section class="view" id="view-visits" data-view-panel="visits">
+      <div class="view-head"><div><h2>방문 분석</h2><p>최근 방문을 고르면 행동 흐름과 분석 결과를 한곳에서 봅니다.</p></div><span class="card-refresh">2.5초마다 자동 갱신</span></div>
+      <div class="visit-workspace">
+        <div class="stack">
+          <section class="card">
+            <div class="card-head"><div><div class="card-title">최근 방문 고객</div><div class="card-sub">고객을 선택해 행동 타임라인을 고정합니다.</div></div></div>
+            <div class="card-body">
+              <div class="session-search"><input id="session-input" placeholder="고객을 선택하거나 참조번호를 입력" /><button id="analyze-session">이 고객 분석</button></div>
+              <div class="session-list" id="session-list"><div class="empty">최근 고객을 불러오는 중입니다.</div></div>
+            </div>
+          </section>
+        </div>
+        <div class="visit-detail">
+          <section class="card">
+            <div class="card-head"><div><div class="card-title">선택한 고객</div><div class="card-sub">자동 갱신 중에도 선택과 행동 흐름을 유지합니다.</div></div></div>
+            <div class="card-body">
+              <div class="timeline-shell" id="timeline-box"><div class="empty">왼쪽 목록에서 고객을 선택해주세요.</div></div>
+              <div class="result-box" id="result-box"><div class="empty">고객을 선택하고 분석 버튼을 눌러주세요.</div></div>
+            </div>
+          </section>
+          <section class="card">
+            <div class="card-head"><div><div class="card-title">방금 들어온 고객 행동</div><div class="card-sub">새 행동은 추가되지만 현재 선택은 바뀌지 않습니다.</div></div></div>
+            <div class="card-body"><div class="activity-list" id="activity-list"><div class="empty">행동 데이터를 기다리는 중입니다.</div></div></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-reports" data-view-panel="reports">
+      <div class="view-head"><div><h2>리포트</h2><p>다운로드 없이 원하는 기간의 결과를 화면에서 바로 확인합니다.</p></div></div>
       <div class="stack">
         <section class="card">
           <div class="card-head">
-            <div>
-              <div class="card-title">고객 1명 자세히 보기</div>
-              <div class="card-sub">최근 고객을 누르고 “이 고객 분석”을 누르면 쉬운 설명이 나옵니다.</div>
+            <div><div class="card-title">기간 리포트 보기</div><div class="card-sub">기간을 바꾸면 현재 수집 데이터 기준으로 다시 계산합니다.</div></div>
+            <div class="report-toolbar">
+              <button class="secondary report-period active" data-period="day">하루 리포트 보기</button>
+              <button class="secondary report-period" data-period="week">주간 리포트 보기</button>
+              <button class="secondary report-period" data-period="month">한달 리포트 보기</button>
+              <button class="secondary report-period" data-period="custom">기간별 리포트 보기</button>
             </div>
           </div>
           <div class="card-body">
-            <div class="session-search">
-              <input id="session-input" placeholder="아래 고객을 선택하거나 참조번호를 입력" />
-              <button id="analyze-session">이 고객 분석</button>
+            <div class="custom-range" id="custom-range">
+              <input type="date" id="report-start" aria-label="리포트 시작일" />
+              <input type="date" id="report-end" aria-label="리포트 종료일" />
+              <button id="apply-report-range">기간 적용</button>
             </div>
-            <div class="session-list" id="session-list">
-              <div class="empty">최근 고객을 불러오는 중입니다.</div>
-            </div>
+            <div class="report period-report" id="period-report"><div class="empty">하루 리포트를 준비하는 중입니다.</div></div>
           </div>
         </section>
-
         <section class="card">
           <div class="card-head">
-            <div>
-              <div class="card-title">선택한 고객 분석 결과</div>
-              <div class="card-sub">AI 모델이 이 고객을 어떤 유형으로 보는지 설명합니다.</div>
-            </div>
+            <div><div class="card-title">전체 주간 고객 행동 분석 보고서</div><div class="card-sub">기존 PDF와 같은 원본으로 전체 요약, 퍼널, 고객 유형별 상세 분석, 운영 제안과 분석 한계를 모두 보여줍니다.</div></div>
           </div>
-          <div class="card-body">
-            <div class="result-box" id="result-box">
-              <div class="empty">고객을 선택하고 분석 버튼을 눌러주세요.</div>
-            </div>
+          <div class="card-body" id="full-report-container">
+            <div class="report-loading" id="full-report-loading">전체 보고서를 준비하는 중입니다.</div>
+            <iframe class="full-report-frame" id="full-report-frame" title="전체 고객 행동 분석 보고서" sandbox="allow-same-origin" hidden></iframe>
           </div>
         </section>
-
         <section class="card">
           <div class="card-head">
             <div>
@@ -848,6 +1016,7 @@
             <div class="report-actions">
               <button class="secondary" id="cluster-report" disabled>유형 리포트</button>
               <button class="secondary" id="session-report" disabled>고객 리포트</button>
+              <button class="secondary" id="download-report">PDF로 내보내기</button>
             </div>
           </div>
           <div class="card-body">
@@ -893,38 +1062,139 @@
       logs: [],
       sessions: [],
       clusters: [],
+      stats: {},
+      operatorSummary: {},
+      clusterPayload: {},
       selectedSessionId: "",
       selectedEvents: [],
       analysis: null,
+      activeView: "overview",
+      reportPeriod: "day",
+      fullReportOrigin: null,
+      sessionEventCache: new Map(),
+      periodReportCache: new Map(),
     };
-
-    Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue("--font-body").trim();
 
     const $ = (id) => document.getElementById(id); // id로 엘리먼트 가져오기
     const fmt = (n) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("ko-KR") : "-"; // 숫자를 천단위 콤마로
     const shortId = (sid) => sid ? `${sid.slice(0, 8)}...${sid.slice(-4)}` : "-"; // 세션ID 앞뒤만 잘라서 표시
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
     const customerNumber = (sessionId) => { // 세션ID를 "최근 고객 n번" 순번으로 변환
       const idx = state.sessions.findIndex((s) => s.session_id === sessionId);
       return idx >= 0 ? idx + 1 : "?";
     };
 
-    // 고객 유형 비중 도넛 차트
-    const chart = new Chart($("type-chart"), {
-      type: "doughnut",
-      data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0 }] },
-      options: {
-        cutout: "58%",
-        plugins: { legend: { position: "bottom", labels: { color: "#475569", boxWidth: 11 } } },
-      },
-    });
+    function switchView(view) {
+      state.activeView = view;
+      document.querySelectorAll("[data-view-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.viewPanel === view));
+      document.querySelectorAll(".nav-button").forEach((button) => {
+        const active = button.dataset.view === view;
+        button.classList.toggle("active", active);
+        if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current");
+      });
+      if (view === "reports") {
+        renderPeriodReport(state.reportPeriod);
+        loadFullReport();
+      }
+      window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}#${view}`);
+    }
+
+    /* ── 접근 키 문제 처리 ───────────────────────────────────────────
+       refresh()가 API를 6개씩 병렬로 부르고 2.5초마다 반복하므로,
+       키가 없거나 폐기되면 실패가 한꺼번에 쏟아진다.
+       한 번만 로그인 화면으로 보내고 나머지는 무시한다.            */
+    let authBounced = false;
+    let pollTimer   = null;   // 2.5초 갱신 타이머 (아래 초기화 블록에서 채운다)
+
+    function bounceToLogin(reason) {
+      if (authBounced) return;
+      authBounced = true;
+
+      // 못 쓰는 키를 남겨두면 로그인 화면에 돌아와도 같은 실패를 반복한다
+      try { localStorage.removeItem(SITE_KEY_STORAGE); } catch {}
+
+      if (pollTimer) clearInterval(pollTimer);
+      location.replace("/login.html?reason=" + encodeURIComponent(reason));
+    }
+
+    const previewMode = new URLSearchParams(window.location.search).get("preview") === "1";
+    const previewNow = Date.now();
+    const previewSessions = [
+      ["demo-01", "/checkout", 14, true, false, "google", "summer_search"],
+      ["demo-02", "/product/linen-jacket", 9, false, true, "instagram", "reels_launch"],
+      ["demo-03", "/cart", 11, false, true, "naver", "brand_keyword"],
+      ["demo-04", "/category/new", 7, false, false, "", ""],
+      ["demo-05", "/product/wide-pants", 18, true, false, "kakao", "friend_coupon"],
+      ["demo-06", "/search", 6, false, true, "google", "autumn_style"],
+    ].map((row, idx) => ({ session_id: row[0], pathname: row[1], count: row[2], completed: row[3], risky: row[4], utm_source: row[5], utm_campaign: row[6], referrer: row[5] ? `https://${row[5]}.com` : "", last_at: new Date(previewNow - idx * 420000).toISOString() }));
+    const previewLogs = previewSessions.flatMap((session, idx) => {
+      const cycle = ["session_start", "navigation", "section_enter", "scroll_depth", "product_click", "section_transition", "hover_dwell", "section_revisit"];
+      return Array.from({ length: session.count }, (_, seq) => {
+        let event_type = cycle[seq % cycle.length];
+        if (session.completed && seq === session.count - 2) event_type = "add_to_cart";
+        if (session.completed && seq === session.count - 1) event_type = "guest_purchase";
+        if (session.risky && seq === session.count - 1) event_type = "inactivity";
+        return { session_id: session.session_id, event_type, event_seq: seq + 1, pathname: seq < 2 ? "/" : session.pathname, received_at: new Date(previewNow - idx * 420000 - (session.count - seq) * 18000).toISOString(), utm_source: session.utm_source, utm_campaign: session.utm_campaign, referrer: session.referrer, data: { section: seq % 2 ? "상품 정보" : "리뷰·구매 영역" } };
+      });
+    }).sort((a, b) => new Date(b.received_at) - new Date(a.received_at));
+    function previewPayload(path, options = {}) {
+      if (path === "/api/logs/sites") return [DEMO_ORIGIN];
+      if (path.startsWith("/api/logs/stats")) return { visitor_count: 37, total: 1248, last_hour: 86, active_sessions: 12, by_type: { product_click: 184, navigation: 142, add_to_cart: 38 } };
+      if (path.startsWith("/api/logs/sessions")) return previewSessions;
+      if (path.startsWith("/api/logs/sources")) return { sources: [{ name: "Google", count: 15 }, { name: "Instagram", count: 11 }, { name: "직접 방문", count: 7 }] };
+      if (path.startsWith("/api/logs/operator-summary")) return {
+        blocked_pages: [{ label: "상품 상세", count: 12, share: 41 }, { label: "장바구니", count: 8, share: 28 }, { label: "검색 결과", count: 5, share: 17 }],
+        issue_causes: [{ label: "움직임 없음", count: 10, share: 34 }, { label: "장바구니 이탈", count: 7, share: 24 }, { label: "탭 떠남", count: 6, share: 21 }],
+        priorities: [{ title: "상품 상세의 배송 안내 강화", detail: "배송비와 도착 예정일을 구매 버튼 가까이에 배치하세요." }, { title: "장바구니 혜택 재노출", detail: "쿠폰과 무료 배송 조건을 장바구니 상단에 보여주세요." }, { title: "검색 결과 정렬 개선", detail: "재고와 인기순 필터를 첫 화면에서 바로 쓰게 하세요." }],
+        source_performance: [{ name: "Google", total: 15, completion_rate: 27, risk_rate: 13, top_page: "상품 상세" }, { name: "Instagram", total: 11, completion_rate: 9, risk_rate: 36, top_page: "신상품" }, { name: "직접 방문", total: 7, completion_rate: 29, risk_rate: 14, top_page: "홈" }],
+      };
+      if (path.startsWith("/api/logs/period-report")) {
+        const query = new URL(path, location.origin).searchParams;
+        const days = Math.max(1, Math.round((new Date(query.get("end")) - new Date(query.get("start"))) / 86400000));
+        return { visitor_count: days * 7 + 1, event_count: days * 83 + 17, completed_count: Math.floor(days / 3), completion_rate: 5, risky_count: days * 2, blocked_pages: [{ label: "상품 상세", count: days * 2 }], issue_causes: [{ label: "화면을 보다가 멈춤", count: days }], source_performance: [{ name: "Google", total: days * 3, completion_rate: 7, risk_rate: 18 }] };
+      }
+      if (path === "/api/clusters/run") return { snapshot_saved: true, snapshot_cluster_count: 5, snapshot_session_count: 222 };
+      if (path.startsWith("/api/clusters")) return {
+        total_sessions: 222, snapshot_saved_at: new Date(previewNow - 86400000).toISOString(), source: "site_snapshot",
+        quality: { assigned_sessions: 222, reliable_sessions: 164, insufficient_behavior_sessions: 31, ambiguous_sessions: 27 },
+        date_range: { oldest_at: new Date(previewNow - 30 * 86400000).toISOString(), newest_at: new Date(previewNow).toISOString() },
+        clusters: [
+          { cluster: 0, label: "구매 의도가 높은 고객", count: 52, reliability: { high: 44, low: 8, high_rate: .85 }, validation: { status: "verified" }, top_actions: [{ action: "ADD_TO_CART", label: "장바구니 담기" }], summary: "상품을 충분히 확인하고 구매 단계까지 진행합니다.", action: "배송과 결제 정보를 간결하게 유지하세요." },
+          { cluster: 1, label: "꼼꼼히 비교하는 고객", count: 67, reliability: { high: 51, low: 16, high_rate: .76 }, validation: { status: "verified" }, top_actions: [{ action: "VIEW_REVIEW", label: "리뷰 확인" }], summary: "리뷰와 상품 정보를 여러 번 비교합니다.", action: "리뷰 요약과 비교 정보를 강조하세요." },
+          { cluster: 2, label: "상품을 찾는 고객", count: 48, reliability: { high: 36, low: 12, high_rate: .75 }, validation: { status: "verified" }, top_actions: [{ action: "SEARCH", label: "검색" }], summary: "검색과 카테고리를 오가며 적합한 상품을 찾습니다.", action: "추천 검색어와 필터를 개선하세요." },
+          { cluster: 3, label: "빠르게 이탈하는 고객", count: 34, reliability: { high: 22, low: 12, high_rate: .65 }, validation: { status: "weak" }, top_actions: [{ action: "TAB_EXIT", label: "탭 떠남" }], summary: "짧게 둘러본 뒤 다음 행동 없이 떠납니다.", action: "첫 화면에서 핵심 혜택을 빠르게 전달하세요." },
+          { cluster: 4, label: "행동 데이터 부족", count: 21, reliability: { high: 11, low: 10, high_rate: .52 }, validation: { status: "weak" }, top_actions: [], summary: "의도를 판단할 행동이 충분하지 않습니다.", action: "수집 이벤트와 첫 행동 유도를 점검하세요." },
+        ],
+        comparison: { recent_100: { total_sessions: 100, date_range: { oldest_at: new Date(previewNow - 12 * 86400000).toISOString(), newest_at: new Date(previewNow).toISOString() }, clusters: [{ cluster: 0, count: 28 }, { cluster: 1, count: 29 }, { cluster: 2, count: 18 }, { cluster: 3, count: 17 }, { cluster: 4, count: 8 }] }, deltas: [{ cluster: 0, label: "구매 의도가 높은 고객", percentage_point_change: 4.6 }, { cluster: 1, label: "꼼꼼히 비교하는 고객", percentage_point_change: -1.2 }, { cluster: 2, label: "상품을 찾는 고객", percentage_point_change: -3.6 }, { cluster: 3, label: "빠르게 이탈하는 고객", percentage_point_change: 1.7 }] },
+      };
+      if (path.startsWith("/api/logs?")) {
+        const requested = new URL(path, location.origin).searchParams.get("session_id");
+        return requested ? previewLogs.filter((event) => event.session_id === requested) : previewLogs;
+      }
+      if (path.startsWith("/api/classify/session/")) return { session_id: state.selectedSessionId, cluster_id: 1, reliability: "high", confidence: .84, seq_len: Math.max(3, Math.floor(state.selectedEvents.length / 2)), raw_event_count: state.selectedEvents.length, meaningful_event_count: Math.max(3, Math.floor(state.selectedEvents.length / 2)) };
+      if (path === "/api/report/session") return { report: "선택 고객은 상품 비교 후 구매 조건을 확인하는 단계입니다. 리뷰 요약과 배송 안내를 같은 화면에 배치해 다음 행동을 돕는 것이 좋습니다." };
+      if (path.startsWith("/api/report/cluster/")) return { report: "이 유형은 상세 정보와 리뷰를 반복 확인합니다. 리뷰 핵심 요약, 실제 착용 사진, 배송 조건을 상품 정보 가까이에 배치하세요." };
+      return {};
+    }
 
     // fetch 감싸서 에러 응답이면 메시지 같이 던져줌 (모든 요청에 사이트 키를 붙임)
     async function api(path, options = {}) {
+      if (previewMode) return previewPayload(path, options);
       const headers = { ...(options.headers || {}) };
       if (siteKey) headers["X-GT-Key"] = siteKey;
 
       const res = await fetch(path, { ...options, headers });
       const body = await res.json().catch(() => ({}));
+
+      // 키 문제는 상태 코드로 판단한다.
+      // 예전에는 서버가 보낸 한국어 메시지에 정규식을 걸었는데,
+      // 문구만 바뀌어도 조용히 깨지는 구조였다.
+      //   401 = 키를 아예 안 보냄, 403 = 보냈지만 무효(폐기·오타)
+      if (res.status === 401 || res.status === 403) {
+        bounceToLogin(res.status === 401 ? "missing" : "invalid");
+        throw new Error(body.error || "접근 키를 확인할 수 없습니다.");
+      }
+
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       return body;
     }
@@ -946,6 +1216,11 @@
       const actions = (cluster.top_actions || []).map((a) => a.action);
       const label = cluster.label || "";
       const top3 = actions.slice(0, 3);
+
+      // 서버(cluster_meta.json의 nlp_labels)가 이름을 주면 그대로 쓴다.
+      // 명명 규칙이 서버와 화면 양쪽에 있으면 반드시 어긋난다.
+      // 아래 규칙들은 label이 없는 옛 artifacts를 위한 하위 호환용이다.
+      if (cluster.persona_source) return label || `고객 유형 ${cluster.cluster}`;
       if (label.includes("행동 데이터 부족")) return "행동 데이터 부족 고객";
       if (label.includes("결제 단계에서 망설이는 고객")) return "결제 단계에서 망설이는 고객";
       if (label.includes("탐색을 빠르게 멈추는 고객")) return "탐색을 빠르게 멈추는 고객";
@@ -1056,15 +1331,18 @@
     // 그룹에 속한 세부 클러스터들의 top_actions를 합쳐서 상위 3개만
     function aggregateTopActions(clusters) {
       const counts = new Map();
+      const labels = new Map();
       clusters.forEach((cluster) => {
         (cluster.top_actions || []).forEach((action) => {
           counts.set(action.action, (counts.get(action.action) || 0) + (action.count || 0));
+          // 서버가 붙여준 한글 라벨을 합치는 과정에서 잃지 않도록 보존한다.
+          if (action.label) labels.set(action.action, action.label);
         });
       });
       return [...counts.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
-        .map(([action, count]) => ({ action, count }));
+        .map(([action, count]) => ({ action, count, label: labels.get(action) }));
     }
 
     // 그룹 안에서 가장 낮은 검증 상태를 대표값으로 사용
@@ -1081,16 +1359,30 @@
       const groups = new Map();
       clusters.forEach((cluster) => {
         const baseName = friendlyClusterName(cluster);
-        const meta = operatorClusterMeta(baseName);
+        // 서버가 이름을 준 경우 operatorClusterMeta의 재명명을 건너뛴다.
+        // 예: "상품 상세를 꼼꼼히 보는 고객"이 "꼼꼼히"에 걸려
+        //     "상품을 찾고 비교하는 고객"으로 덮어써지던 문제.
+        const meta = cluster.persona_source
+          ? {
+              key: `persona-${cluster.persona_id || baseName}`,
+              name: baseName,
+              summary: cluster.summary || "",
+              action: cluster.action || "",
+            }
+          : operatorClusterMeta(baseName);
         const row = groups.get(meta.key) || {
           key: meta.key,
           label: meta.name,
-          summary: meta.summary,
-          action: meta.action,
+          // 서버가 요약·추천을 주면 그것을 쓴다. 화면 문구는 fallback.
+          summary: cluster.summary || meta.summary,
+          action: cluster.action || meta.action,
           count: 0,
+          reliability: { high: 0, low: 0 },
           members: [],
         };
         row.count += cluster.count || 0;
+        row.reliability.high += cluster.reliability?.high || 0;
+        row.reliability.low += cluster.reliability?.low || 0;
         row.members.push(cluster);
         groups.set(meta.key, row);
       });
@@ -1104,6 +1396,10 @@
             summary: group.summary,
             action: group.action,
             count: group.count,
+            reliability: {
+              ...group.reliability,
+              high_rate: group.count ? group.reliability.high / group.count : 0,
+            },
             top_actions: aggregateTopActions(group.members),
             validation: aggregateValidation(group.members),
             members: group.members,
@@ -1111,10 +1407,15 @@
           };
         })
         .sort((a, b) => b.count - a.count)
-        .slice(0, 4);
+        .slice(0, 5);
     }
 
-    // 이벤트 액션 코드를 쉬운 말로 바꾸는 표
+    // 행동 코드 → 쉬운 말 (fallback 전용).
+    //
+    // 정식 사전은 backend/routes/clusters.js 의 koAction() 이고,
+    // 서버가 top_actions[].label 로 번역을 실어 보낸다.
+    // 이 표는 label이 없는 옛 응답을 위한 하위 호환용이므로 확장하지 않는다.
+    // 새 행동 코드는 koAction() 에 추가할 것.
     function friendlyAction(action) {
       const labels = {
         START_SESSION: "쇼핑몰 방문",
@@ -1147,6 +1448,7 @@
         case "product_click": return "상품을 눌러 자세히 봤습니다.";
         case "add_to_cart": return "장바구니에 상품을 담았습니다.";
         case "purchase_click": return "구매 또는 결제 버튼을 눌렀습니다.";
+        case "guest_purchase": return "비회원 구매 버튼을 눌러 구매 진행으로 집계했습니다.";
         case "tab_exit": return "쇼핑몰 탭을 벗어났습니다.";
         case "tab_return": return "쇼핑몰 탭으로 돌아왔습니다.";
         case "inactivity": return "고객 움직임이 멈췄습니다.";
@@ -1162,6 +1464,7 @@
 
     // 별도 "주문 완료" 이벤트가 없어서 클릭/호버 텍스트로 주문 성공 여부를 추정
     function isOrderSuccessEvent(e) {
+      if (e.event_type === "guest_purchase") return true;
       const d = e.data || {};
       const text = `${d.hover_text || ""} ${d.click_text || ""}`;
       const target = `${d.hover_target || ""} ${d.click_target || ""}`.toLowerCase();
@@ -1188,9 +1491,13 @@
         product_click: "상품 클릭",
         add_to_cart: "장바구니 담기",
         purchase_click: "주문 클릭",
+        guest_purchase: "비회원 구매 전환",
         tab_exit: "탭 떠남",
         tab_return: "탭 돌아옴",
         inactivity: "움직임 없음",
+        section_enter: "화면 영역 진입",
+        section_transition: "다음 영역 이동",
+        section_revisit: "이전 영역 다시 확인",
         section_exit: "영역 벗어남",
         scroll_depth: "스크롤",
         hover_dwell: "머무름",
@@ -1201,15 +1508,47 @@
       return labels[e.event_type] || e.event_type.replaceAll("_", " ");
     }
 
-    // 이벤트 목록을 화살표로 이어진 행동 흐름 HTML로 변환
-    function renderBehaviorFlow(events, limit = 6) {
+    function decodedPath(raw) {
+      try { return decodeURIComponent(String(raw || "/")).replace(/\+/g, " "); }
+      catch { return String(raw || "/"); }
+    }
+
+    function eventContext(event) {
+      const data = event.data || {};
+      const named = data.product_name || data.product_title || data.item_name || data.click_text || data.hover_text;
+      if (named && String(named).trim().length > 1) return String(named).trim().replace(/\s+/g, " ").slice(0, 100);
+      const path = decodedPath(event.pathname || (() => { try { return new URL(event.page_url).pathname; } catch { return ""; } })());
+      const productMatch = path.match(/\/product\/([^/]+)/i);
+      if (productMatch) return `상품: ${productMatch[1].replace(/[-_]/g, " ")}`;
+      if (data.section) return String(data.section).trim().replace(/\s+/g, " ").slice(0, 100);
+      return path === "/" ? "홈 화면" : path;
+    }
+
+    function orderedEvents(events) {
+      return [...events].sort((a, b) => {
+        const at = Number(a.timestamp) || new Date(a.received_at || 0).getTime();
+        const bt = Number(b.timestamp) || new Date(b.received_at || 0).getTime();
+        return at - bt || Number(a.event_seq || 0) - Number(b.event_seq || 0);
+      });
+    }
+
+    // 실제 화면·상품 맥락을 포함해 세션의 행동을 시간순으로 보여준다.
+    function renderBehaviorFlow(events, limit = 18) {
       if (!events.length) return `<div class="empty">아직 이 고객의 행동 흐름이 없습니다.</div>`;
       const usefulTypes = new Set([
         "session_start",
         "navigation",
+        "page_view",
         "product_click",
+        "section_enter",
+        "section_transition",
+        "section_revisit",
+        "section_exit",
+        "scroll_depth",
+        "hover_dwell",
         "add_to_cart",
         "purchase_click",
+        "guest_purchase",
         "input_change",
         "field_focus",
         "field_blur",
@@ -1220,25 +1559,24 @@
         "session_end",
       ]);
       const compact = [];
-      events.forEach((event) => {
+      orderedEvents(events).forEach((event) => {
         const hasOrderComplete = `${event.data?.hover_text || ""} ${event.data?.click_text || ""}`.includes("주문이 완료")
           || `${event.data?.hover_target || ""} ${event.data?.click_target || ""}`.toLowerCase().includes("complete");
         if (!usefulTypes.has(event.event_type) && !hasOrderComplete) return;
-        const label = shortEventText(event);
-        if (compact[compact.length - 1] !== label) compact.push(label);
+        const row = { label: shortEventText(event), context: eventContext(event), at: event.received_at || event.timestamp };
+        const previous = compact[compact.length - 1];
+        if (!previous || previous.label !== row.label || previous.context !== row.context) compact.push(row);
       });
-      const meaningful = compact.filter((label) => !["페이지 이동", "탭 떠남", "탭 돌아옴", "움직임 없음"].includes(label));
-      const source = meaningful.length >= 3 ? meaningful : compact;
-      // 흐름이 너무 길면 앞뒤만 보여주고 중간은 생략
-      const display = source.length > limit
-        ? [...source.slice(0, Math.ceil(limit / 2)), `중간 ${source.length - limit}개 생략`, ...source.slice(-(Math.floor(limit / 2)))]
-        : source;
+      const display = compact.slice(0, limit);
       return `
-        <div class="result-title">이 고객의 행동 흐름</div>
-        <div class="flow">
-          ${display.map((label, idx, arr) => `
-            <span class="flow-step">${label}</span>
-            ${idx < arr.length - 1 ? `<span class="flow-arrow">→</span>` : ""}
+        <div class="result-title">이 고객의 행동 흐름 · 수집 ${fmt(events.length)}개${compact.length > limit ? ` · 주요 흐름 ${limit}/${compact.length}개 표시` : ""}</div>
+        <div class="behavior-list">
+          ${display.map((row, idx) => `
+            <div class="behavior-row">
+              <span class="behavior-time">${row.at ? new Date(row.at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-"}</span>
+              <span class="behavior-index">${idx + 1}</span>
+              <div><div class="behavior-action">${escapeHtml(row.label)}</div><div class="behavior-context">${escapeHtml(row.context)}</div></div>
+            </div>
           `).join("")}
         </div>
       `;
@@ -1357,6 +1695,7 @@
 
     // 막히는 화면 / 문제 원인 / 우선순위 / 유입 경로 성과 4개 카드 채우기
     function renderOperatorSummary(summary = {}) {
+      state.operatorSummary = summary;
       renderInsightList(
         "blocked-pages",
         summary.blocked_pages || [],
@@ -1411,6 +1750,11 @@
           </div>`,
         "유입 경로 성과 비교 데이터가 없습니다.",
       );
+
+      const recommendations = (summary.priorities || []).slice(0, 3);
+      $("marketing-recommendations").innerHTML = recommendations.length
+        ? recommendations.map((item, idx) => `<div class="insight-item"><div class="insight-top"><div class="insight-name">${idx + 1}. ${item.title}</div></div><div class="insight-desc">${item.detail}</div></div>`).join("")
+        : `<div class="empty">추천을 만들 만큼 데이터가 아직 충분하지 않습니다.</div>`;
     }
 
     // 값이 없으면 "-"로 표시
@@ -1421,52 +1765,57 @@
 
     // 검증 통과/필요, 분리도, 미분류 비율 카드 채우기
     function renderQualitySummary(quality = {}) {
-      const verified = quality.verified_clusters ?? 0;
-      const needsReview = (quality.weak_clusters ?? 0) + (quality.insufficient_clusters ?? 0);
-      const separation = quality.silhouette !== null && quality.silhouette !== undefined
-        ? Number(quality.silhouette).toFixed(2)
-        : "계산 전";
-      const noiseRate = quality.noise_rate !== null && quality.noise_rate !== undefined
-        ? `${Math.round(Number(quality.noise_rate) * 100)}%`
-        : "-";
+      const assigned = quality.evaluated_sessions ?? quality.total_sessions ?? quality.assigned_sessions ?? quality.sample_count;
+      const hasReliability = ["reliable_sessions", "insufficient_behavior_sessions", "ambiguous_sessions"]
+        .some((key) => Object.hasOwn(quality, key));
+      const reliable = quality.reliable_sessions;
+      const insufficient = quality.insufficient_behavior_sessions;
+      const ambiguous = quality.ambiguous_sessions;
+      const reliableRate = assigned && reliable !== undefined ? Math.round((reliable / assigned) * 100) : null;
+      const measured = (value, rate = null) => value === undefined
+        ? "집계 전"
+        : `${qualityValue(value)}세션${rate === null ? "" : ` · ${rate}%`}`;
       $("quality-summary").innerHTML = `
-        <div class="quality-item"><div class="label">검증 통과</div><div class="value">${qualityValue(verified)}개</div></div>
-        <div class="quality-item"><div class="label">검증 필요</div><div class="value">${qualityValue(needsReview)}개</div></div>
-        <div class="quality-item"><div class="label">분리도</div><div class="value">${separation}</div></div>
-        <div class="quality-item"><div class="label">미분류 비율</div><div class="value">${noiseRate}</div></div>
+        <div class="quality-item"><div class="label">전체 분류 대상</div><div class="value">${measured(assigned)}</div></div>
+        <div class="quality-item"><div class="label">행동 근거 충분</div><div class="value">${measured(reliable, reliableRate)}</div></div>
+        <div class="quality-item"><div class="label">행동 근거 부족</div><div class="value">${measured(insufficient)}</div></div>
+        <div class="quality-item"><div class="label">유형 경계 모호</div><div class="value">${measured(ambiguous)}</div></div>
+        ${!hasReliability ? `<div class="cohort-period" style="grid-column:1/-1">기존 분류 결과에는 행동 근거 품질값이 없습니다. “최신 데이터로 다시 분류”하면 실제 세션별 품질을 집계합니다.</div>` : ""}
       `;
     }
 
-    // 클러스터 결과는 실시간이 아니라 마지막 "고객 유형 다시 찾기" 실행 시점 스냅샷이라는 걸 안내
+    // 클러스터 결과는 실시간이 아니라 마지막 "다시 분류" 실행 시점 스냅샷이라는 걸 안내
     function renderClusterSnapshotInfo(data = {}) {
       const meta = data.meta || {};
-      const stamp = meta.last_retrain
-        ? new Date(meta.last_retrain).toLocaleString("ko-KR")
+      const snapshotStamp = data.snapshot_saved_at || meta.last_retrain;
+      const stamp = snapshotStamp
+        ? new Date(snapshotStamp).toLocaleString("ko-KR")
         : "기록 없음";
       const note = data.source === "artifact_snapshot"
-        ? `선택한 사이트의 새 세션에 따라 바뀌지 않고, 마지막 고객 유형 다시 찾기 실행 시점(${stamp}) 기준으로 유지됩니다.`
+        ? `선택한 사이트의 새 세션에 따라 바뀌지 않고, 마지막 다시 분류 실행 시점(${stamp}) 기준으로 유지됩니다.`
         : data.source === "site_snapshot"
-          ? `현재 선택한 사이트 기준으로 마지막 고객 유형 다시 찾기 실행 시점(${stamp})에 저장한 결과입니다. 새 세션만으로는 바뀌지 않습니다.`
+          ? `현재 선택한 사이트의 전체 세션을 최대 5개 유형에 배정한 마지막 다시 분류 결과(${stamp})입니다. 행동 근거가 약한 배정은 신뢰 낮음으로 구분합니다.`
         : `현재 클러스터 기준은 ${stamp}에 저장된 결과입니다.`;
       $("cluster-snapshot-note").textContent = note;
     }
 
     // 검증 상태를 뱃지 HTML로
     function validationBadge(validation = {}) {
-      if (validation.status === "verified") return `<span class="badge good">검증 통과</span>`;
-      if (validation.status === "insufficient") return `<span class="badge risk">데이터 부족</span>`;
-      return `<span class="badge weak">검증 필요</span>`;
+      if (validation.status === "verified") return `<span class="badge good">신뢰 높음</span>`;
+      return `<span class="badge weak">신뢰 낮음</span>`;
     }
 
     // 클러스터 차트/카드 전체 그리기
     function renderClusters(data) {
       // cluster -1은 노이즈(미분류) 묶음이라 화면에는 제외
       const rawClusters = (data.clusters || []).filter((c) => c.cluster >= 0);
+      state.clusterPayload = data;
       state.clusters = rawClusters;
       const clusters = aggregateOperatorClusters(rawClusters);
       const total = data.total_sessions || clusters.reduce((sum, c) => sum + c.count, 0);
       const groupedQuality = {
         ...(data.quality || {}),
+        evaluated_sessions: data.total_sessions,
         verified_clusters: clusters.filter((cluster) => cluster.validation?.status === "verified").length,
         weak_clusters: clusters.filter((cluster) => cluster.validation?.status === "weak").length,
         insufficient_clusters: clusters.filter((cluster) => cluster.validation?.status === "insufficient").length,
@@ -1474,21 +1823,50 @@
       };
       renderQualitySummary(groupedQuality);
       const displayNames = clusters.map((c) => c.label || friendlyClusterName(c));
-      chart.data.labels = displayNames;
-      chart.data.datasets[0].data = clusters.map((c) => c.count);
-      chart.data.datasets[0].backgroundColor = ["#185adb", "#14b8a6", "#e85d4f", "#f59e0b", "#047857"];
-      chart.update();
+      const comparison = data.comparison || {};
+      const recentMap = new Map((comparison.recent_100?.clusters || rawClusters).map((c) => [String(c.cluster), c]));
+      const overallTotal = comparison.overall?.total_sessions || total || 1;
+      const recentTotal = comparison.recent_100?.total_sessions || total || 1;
+      const comparisonRows = rawClusters.map((cluster) => {
+        const overallRate = Number(((cluster.count || 0) / overallTotal * 100).toFixed(1));
+        const recentRate = Number(((recentMap.get(String(cluster.cluster))?.count || 0) / recentTotal * 100).toFixed(1));
+        const delta = Number((recentRate - overallRate).toFixed(1));
+        return { name: cluster.label || friendlyClusterName(cluster), overallRate, recentRate, delta };
+      });
+      const overallNoise = Number(data.noise_count ?? data.quality?.noise_count ?? Math.max(0, overallTotal - rawClusters.reduce((sum, cluster) => sum + (cluster.count || 0), 0)));
+      const recentClusters = comparison.recent_100?.clusters || rawClusters;
+      const recentNoise = Number(comparison.recent_100?.quality?.noise_count ?? Math.max(0, recentTotal - recentClusters.reduce((sum, cluster) => sum + (cluster.count || 0), 0)));
+      if (overallNoise > 0 || recentNoise > 0) {
+        const overallRate = Number((overallNoise / overallTotal * 100).toFixed(1));
+        const recentRate = Number((recentNoise / recentTotal * 100).toFixed(1));
+        comparisonRows.push({ name: "유형 판정 보류", overallRate, recentRate, delta: Number((recentRate - overallRate).toFixed(1)) });
+      }
+      $("type-comparison").innerHTML = comparisonRows.length ? comparisonRows.map((row) => `
+        <div class="comparison-row">
+          <div class="comparison-head"><span class="comparison-name">${row.name}</span><span class="comparison-value">최근 ${row.delta > 0 ? "+" : ""}${row.delta}%p</span></div>
+          <div class="comparison-bars"><span>전체</span><span class="comparison-track"><span class="comparison-fill" style="width:${Math.max(row.overallRate, 1)}%"></span></span><b>${row.overallRate}%</b></div>
+          <div class="comparison-bars"><span>최근</span><span class="comparison-track"><span class="comparison-fill recent" style="width:${Math.max(row.recentRate, 1)}%"></span></span><b>${row.recentRate}%</b></div>
+        </div>`).join("") : `<div class="empty">비교할 고객 유형이 아직 없습니다.</div>`;
+
+      const dateRange = comparison.recent_100?.date_range || data.date_range || {};
+      $("cohort-period").textContent = dateRange.oldest_at && dateRange.newest_at
+        ? `최근 비교 기간 ${new Date(dateRange.oldest_at).toLocaleDateString("ko-KR")} ~ ${new Date(dateRange.newest_at).toLocaleDateString("ko-KR")}`
+        : "전체 분포와 최근 최대 100세션을 비교합니다.";
+      const deltas = (comparison.deltas || []).sort((a, b) => Math.abs(b.percentage_point_change) - Math.abs(a.percentage_point_change)).slice(0, 4);
+      $("cohort-change-list").innerHTML = deltas.length
+        ? deltas.map((item) => { const v = Number(item.percentage_point_change || 0); return `<div class="cohort-change-row"><span>${item.label}</span><span class="cohort-change-value ${v > 0 ? "up" : (v < 0 ? "down" : "")}">${v > 0 ? "+" : ""}${v.toFixed(1)}%p</span></div>`; }).join("")
+        : `<div class="empty">비교할 최근 데이터가 아직 없습니다.</div>`;
 
       $("customer-types").innerHTML = clusters.map((c, idx) => {
         const pct = total ? Math.round(c.count / total * 100) : 0;
-        const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${friendlyAction(a.action)}</span>`).join("");
+        const chips = (c.top_actions || []).slice(0, 3).map((a) => `<span class="chip">${a.label || friendlyAction(a.action)}</span>`).join("");
         return `
           <div class="type-card ${typeTone(c)}" data-cluster="${c.representative_cluster ?? c.cluster}">
             <div class="type-top">
               <div class="type-name">${displayNames[idx]}</div>
               <div class="type-count">${fmt(c.count)}명 · ${pct}%</div>
             </div>
-            <div class="chips">${validationBadge(c.validation)}</div>
+            <div class="chips">${validationBadge(c.validation)} <span class="chip">${c.reliability?.high_rate === undefined ? "신뢰도 집계 전" : `신뢰 높은 세션 ${Math.round(c.reliability.high_rate * 100)}%`}</span></div>
             <div class="type-desc">${c.summary || friendlyClusterDesc(c)}</div>
             <div class="chips">${chips}</div>
             ${c.action ? `<div class="type-desc"><b>추천:</b> ${c.action}</div>` : ""}
@@ -1505,11 +1883,12 @@
         $("session-list").innerHTML = `<div class="empty">아직 최근 고객이 없습니다.</div>`;
         return;
       }
+      const focusedSession = document.activeElement?.dataset?.session || "";
       $("session-list").innerHTML = state.sessions.slice(0, 8).map((s, idx) => `
-        <div class="session-row ${s.session_id === state.selectedSessionId ? "active" : ""}" data-session="${s.session_id}">
+        <div class="session-row ${s.session_id === state.selectedSessionId ? "active" : ""}" data-session="${s.session_id}" tabindex="0" role="button">
           <div>
             <div class="sid">최근 고객 ${idx + 1}</div>
-            <div class="session-meta">${new Date(s.last_at).toLocaleTimeString("ko-KR")} · ${s.pathname} · 행동 ${s.count}개 · 참조 ${shortId(s.session_id)}</div>
+            <div class="session-meta">${new Date(s.last_at).toLocaleTimeString("ko-KR")} · ${escapeHtml(eventContext({ pathname: s.pathname }))} · 행동 ${s.count}개 · 참조 ${shortId(s.session_id)}</div>
             <div class="session-tags">${sourceTags(s).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
           </div>
           <span class="badge ${s.completed ? "good" : (s.risky ? "risk" : "ok")}">${s.completed ? "주문 성공" : (s.risky ? "탐색 중지 신호" : "탐색 중")}</span>
@@ -1517,7 +1896,9 @@
       `).join("");
       $("session-list").querySelectorAll(".session-row").forEach((row) => {
         row.addEventListener("click", () => selectSession(row.dataset.session));
+        row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectSession(row.dataset.session); } });
       });
+      if (focusedSession) $("session-list").querySelector(`[data-session="${CSS.escape(focusedSession)}"]`)?.focus({ preventScroll: true });
     }
 
     // 방금 들어온 행동 목록 렌더링
@@ -1534,25 +1915,48 @@
       `).join("");
     }
 
-    // 고객 선택 시 분석 결과 초기화하고 행동 흐름부터 보여주기
-    function selectSession(sessionId) {
+    async function loadSessionEvents(sessionId, force = false) {
+      if (!force && state.sessionEventCache.has(sessionId)) return state.sessionEventCache.get(sessionId);
+      const params = new URLSearchParams({ limit: "1000", session_id: sessionId });
+      if (state.origin) params.set("origin", state.origin);
+      const events = orderedEvents(await api(`/api/logs?${params.toString()}`));
+      state.sessionEventCache.set(sessionId, events);
+      return events;
+    }
+
+    // 고객 선택 시 해당 세션의 전체 이벤트를 DB에서 다시 읽어 행동 흐름을 보여준다.
+    async function selectSession(sessionId) {
       state.selectedSessionId = sessionId;
       $("session-input").dataset.sessionId = sessionId;
       $("session-input").value = `최근 고객 ${customerNumber(sessionId)}`;
-      state.selectedEvents = state.logs
-        .filter((e) => e.session_id === sessionId)
-        .sort((a, b) => (a.event_seq || 0) - (b.event_seq || 0));
       state.analysis = null;
       const selectedSession = state.sessions.find((s) => s.session_id === sessionId);
-      $("result-box").innerHTML = `
-        ${renderBehaviorFlow(state.selectedEvents)}
-        <div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>
-        <div class="type-desc">“이 고객 분석”을 누르면 이 행동 흐름이 어떤 고객 유형에 가까운지 보여줍니다.</div>
-      `;
+      $("timeline-box").innerHTML = `<div class="empty">이 고객의 전체 행동을 불러오는 중입니다.</div>`;
+      $("result-box").innerHTML = `<div class="empty">“이 고객 분석”을 누르면 이 행동 흐름이 어떤 고객 유형에 가까운지 보여줍니다.</div>`;
       $("report-box").textContent = "고객 분석 후 리포트를 볼 수 있습니다.";
       $("cluster-report").disabled = true;
       $("session-report").disabled = true;
       renderSessions();
+      try {
+        state.selectedEvents = await loadSessionEvents(sessionId);
+        if (state.selectedSessionId !== sessionId) return;
+        $("timeline-box").innerHTML = `${renderBehaviorFlow(state.selectedEvents)}<div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>`;
+      } catch (err) {
+        if (state.selectedSessionId === sessionId) $("timeline-box").innerHTML = `<div class="error-state">행동 흐름을 불러오지 못했습니다: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function refreshSelectedTimeline() {
+      if (!state.selectedSessionId) return;
+      const cached = state.sessionEventCache.get(state.selectedSessionId) || state.selectedEvents;
+      const incoming = state.logs.filter((event) => event.session_id === state.selectedSessionId);
+      const eventKey = (event) => event.event_id || `${event.timestamp || event.received_at}:${event.event_seq || 0}:${event.event_type}:${event.pathname || ""}`;
+      const byId = new Map(cached.map((event) => [eventKey(event), event]));
+      incoming.forEach((event) => byId.set(eventKey(event), event));
+      state.selectedEvents = orderedEvents([...byId.values()]);
+      state.sessionEventCache.set(state.selectedSessionId, state.selectedEvents);
+      const selectedSession = state.sessions.find((session) => session.session_id === state.selectedSessionId);
+      $("timeline-box").innerHTML = `${renderBehaviorFlow(state.selectedEvents)}<div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>`;
     }
 
     // 선택한 세션을 분류 API로 분석
@@ -1561,32 +1965,32 @@
       if (!sessionId) return;
       $("result-box").innerHTML = `<div class="empty">고객 행동을 분석하는 중입니다.</div>`;
       try {
-        if (!state.selectedEvents.length) {
-          state.selectedEvents = await api(`/api/logs?limit=200&session_id=${encodeURIComponent(sessionId)}`);
-        }
+        state.selectedEvents = await loadSessionEvents(sessionId, true);
         const result = await api(`/api/classify/session/${encodeURIComponent(sessionId)}`, { method: "POST" });
-        const details = clusterDetails(result.cluster_id);
+        const isUnassigned = !Number.isFinite(Number(result.cluster_id)) || Number(result.cluster_id) < 0;
+        const details = isUnassigned ? null : clusterDetails(result.cluster_id);
+        const reliabilityLabel = result.reliability === "high" ? "신뢰 높음" : "신뢰 낮음";
         const completed = result.completed || state.selectedEvents.some((event) => isOrderSuccessEvent(event));
         // 실제로 주문까지 완료한 세션은 AI가 분류한 유형 대신 "주문 완료" 설명으로 덮어씀
         const displayDetails = completed ? completedSessionInsight(details) : details;
         state.analysis = {
           ...result,
           completed,
-          persona: displayDetails?.label || result.persona || `고객 유형 ${result.cluster_id}`,
-          summary: displayDetails?.summary || "이 고객은 현재 사이트의 상위 유형 목록에는 없지만, AI 분류 기준에 따라 가장 가까운 고객 유형으로 분류됐습니다.",
-          action: displayDetails?.action || "고객 리포트를 열어 실제 행동 흐름을 기준으로 추천 액션을 확인하세요.",
+          persona: isUnassigned ? "현재 고객 유형 판정 보류" : (displayDetails?.label || result.persona || `고객 유형 ${result.cluster_id}`),
+          summary: isUnassigned ? `수집 행동 ${result.raw_event_count || state.selectedEvents.length}개 중 유형 판정에 쓰인 핵심 행동이 ${result.meaningful_event_count ?? result.seq_len ?? 0}개라 기존 유형으로 확정하기 어렵습니다.` : (displayDetails?.summary || "수집된 행동과 가장 가까운 고객 유형입니다."),
+          action: isUnassigned ? "아래 실제 행동 흐름에서 확인한 상품과 멈춘 지점을 기준으로 다음 행동 유도 문구를 점검하세요." : (displayDetails?.action || "실제 행동 흐름을 기준으로 추천 액션을 확인하세요."),
         };
         $("result-box").innerHTML = `
-          <div class="result-title">이 고객은 이런 유형에 가깝습니다</div>
+          <div class="result-title">${isUnassigned ? "이 고객은 아직 유형을 확정하기 어렵습니다" : "이 고객은 이런 유형에 가깝습니다"}</div>
           <div class="persona">${state.analysis.persona}</div>
           <div class="type-desc">${state.analysis.summary}</div>
           ${state.analysis.action ? `<div class="type-desc"><b>추천:</b> ${state.analysis.action}</div>` : ""}
           <div class="result-grid">
-            <div class="mini"><div class="label">${completed ? "기준 유형" : "유형 ID"}</div><div class="value">C${result.cluster_id}</div></div>
-            <div class="mini"><div class="label">확신도</div><div class="value">${Math.round((result.confidence || 0) * 100)}%</div></div>
-            <div class="mini"><div class="label">행동 수</div><div class="value">${result.seq_len || "-"}</div></div>
+            <div class="mini"><div class="label">분류 결과</div><div class="value">${isUnassigned ? "판정 보류" : `C${result.cluster_id}`}</div></div>
+            <div class="mini"><div class="label">배정 신뢰</div><div class="value">${reliabilityLabel} · ${Math.round((result.confidence || 0) * 100)}%</div></div>
+            <div class="mini"><div class="label">수집 / 핵심 행동</div><div class="value">${fmt(result.raw_event_count || state.selectedEvents.length)} / ${fmt(result.meaningful_event_count ?? result.seq_len)}</div></div>
           </div>`;
-        $("cluster-report").disabled = false;
+        $("cluster-report").disabled = isUnassigned;
         $("session-report").disabled = false;
         $("report-box").textContent = "이제 “고객 리포트” 또는 “유형 리포트”를 눌러 운영 액션을 확인하세요.";
       } catch (err) {
@@ -1603,7 +2007,10 @@
         summary: state.analysis?.summary,
         action: state.analysis?.action,
         confidence: state.analysis?.confidence,
-        prefer_local: true,
+        // prefer_local을 여기서 고정하지 않는다.
+        // AI 요약 사용 여부는 서버가 판단한다 — GEMINI_API_KEY가 없거나
+        // 호출이 실패하면 서버가 알아서 로컬 문장으로 대체한다(fallback 필드로 표시).
+        // 화면이 강제하면 키를 넣어도 AI 리포트가 영영 안 쓰인다.
         events: state.selectedEvents.map((e) => ({
           event_type: e.event_type,
           page: eventPage(e),
@@ -1633,11 +2040,14 @@
       if (clusterId === undefined || clusterId === null || clusterId === "") return;
       $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
       try {
-        const params = new URLSearchParams({ prefer_local: "1" });
+        // prefer_local 고정 제거 — AI 사용 여부는 서버가 판단하고 실패 시 대체한다.
+        const params = new URLSearchParams();
         if (state.analysis?.persona) params.set("persona", state.analysis.persona);
         if (state.analysis?.completed) params.set("completed", "1");
-        const result = await api(`/api/report/cluster/${clusterId}?${params.toString()}`);
+        const query = params.toString();
+        const result = await api(`/api/report/cluster/${clusterId}${query ? `?${query}` : ""}`);
         $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
+        if (result.warning) $("report-box").textContent += `\n\n(${result.warning})`;
       } catch (err) {
         $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
       }
@@ -1668,6 +2078,129 @@
       }
     }
 
+    function reportRange(period) {
+      const now = new Date();
+      let end = new Date(now);
+      let start = new Date(now);
+      if (period === "day") start.setHours(0, 0, 0, 0);
+      if (period === "week") start = new Date(now.getTime() - 6 * 86400000);
+      if (period === "month") start = new Date(now.getTime() - 29 * 86400000);
+      if (period === "custom") {
+        const startValue = $("report-start").value;
+        const endValue = $("report-end").value;
+        if (startValue) start = new Date(`${startValue}T00:00:00`);
+        if (endValue) end = new Date(`${endValue}T23:59:59`);
+      }
+      return { start, end };
+    }
+
+    async function renderPeriodReport(period = state.reportPeriod) {
+      state.reportPeriod = period;
+      const { start, end } = reportRange(period);
+      const reportTarget = $("period-report");
+      reportTarget.innerHTML = `<div class="empty">선택한 기간의 전체 데이터를 집계하는 중입니다.</div>`;
+      const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString() });
+      if (state.origin) params.set("origin", state.origin);
+      const cacheKey = `${state.origin}:${params.get("start")}:${params.get("end")}`;
+      try {
+        let payload = state.periodReportCache.get(cacheKey);
+        if (!payload) {
+          payload = await api(`/api/logs/period-report?${params.toString()}`);
+          state.periodReportCache.set(cacheKey, payload);
+        }
+        if (state.reportPeriod !== period) return;
+      const sources = payload.source_performance || [];
+      const topSource = [...sources].sort((a, b) => (b.completion_rate || 0) - (a.completion_rate || 0))[0];
+      const topIssue = payload.blocked_pages?.[0];
+      const periodNames = { day: "하루", week: "주간", month: "한달", custom: "선택 기간" };
+      const actions = [
+        topIssue ? `${topIssue.label} 화면에서 중지 신호 ${fmt(topIssue.count)}건의 원인을 점검하세요.` : null,
+        payload.issue_causes?.[0] ? `${payload.issue_causes[0].label} 패턴(${fmt(payload.issue_causes[0].count)}건)에 맞춘 안내를 보강하세요.` : null,
+        topSource ? `${topSource.name} 유입의 성공률 ${topSource.completion_rate}%와 중지율 ${topSource.risk_rate}%를 캠페인별로 비교하세요.` : null,
+      ].filter(Boolean);
+      reportTarget.innerHTML = `
+        <div class="result-title">${periodNames[period] || "기간"} 리포트 · ${start.toLocaleDateString("ko-KR")} ~ ${end.toLocaleDateString("ko-KR")}</div>
+        <div class="report-summary-grid">
+          <div class="mini"><div class="label">확인된 방문</div><div class="value">${fmt(payload.visitor_count)}명</div></div>
+          <div class="mini"><div class="label">수집 행동</div><div class="value">${fmt(payload.event_count)}개</div></div>
+          <div class="mini"><div class="label">주문 성공</div><div class="value">${fmt(payload.completed_count)}명 · ${payload.completion_rate}%</div></div>
+          <div class="mini"><div class="label">중지 신호</div><div class="value">${fmt(payload.risky_count)}명</div></div>
+        </div>
+        <div class="report-section"><h3>핵심 관찰</h3><div class="type-desc">${topIssue ? `${topIssue.label}에서 탐색 중지 신호가 가장 많이 확인됐습니다.` : "막힘 데이터를 더 수집하면 핵심 관찰을 보여드립니다."} ${topSource ? `${topSource.name} 유입의 주문 성공률은 ${topSource.completion_rate}%입니다.` : ""}</div></div>
+        <div class="report-section"><h3>추천 운영 액션</h3>${actions.map((item, idx) => `<div class="insight-item"><div class="insight-name">${idx + 1}. ${escapeHtml(item)}</div></div>`).join("") || `<div class="empty">추천할 운영 액션이 아직 없습니다.</div>`}</div>
+        <div class="cohort-period">${start.toLocaleString("ko-KR")}부터 ${end.toLocaleString("ko-KR")}까지 서버에 저장된 전체 행동을 집계했습니다.</div>`;
+      } catch (err) {
+        reportTarget.innerHTML = `<div class="error-state">기간 리포트를 불러오지 못했습니다: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function previewFullReportHtml() {
+      const types = [
+        ["구매 의도가 높은 고객", "52건 · 23%", "높음", "장바구니 담기 · 구매 클릭", "배송·결제 정보를 가까이 배치하세요."],
+        ["꼼꼼히 비교하는 고객", "67건 · 30%", "중간", "리뷰 확인 · 가격 확인", "리뷰 요약과 비교 정보를 강화하세요."],
+        ["상품을 찾는 고객", "48건 · 22%", "중간", "검색 · 카테고리 이동", "검색 필터와 추천 상품을 개선하세요."],
+        ["빠르게 탐색을 멈추는 고객", "34건 · 15%", "낮음", "탭 떠남 · 움직임 없음", "첫 화면에서 핵심 혜택을 빠르게 알리세요."],
+        ["행동 데이터 부족 고객", "21건 · 9%", "판단 보류", "짧은 방문", "이벤트 수집 범위와 첫 행동 유도를 점검하세요."],
+      ];
+      const rows = types.map((item) => `<tr><td><b>${item[0]}</b></td><td>${item[1]}</td><td>${item[2]}</td><td>${item[3]}</td><td>${item[4]}</td></tr>`).join("");
+      const details = types.map((item, idx) => `<section><div class="eyebrow">고객 유형 ${idx + 1}</div><h2>${item[0]}</h2><div class="kpis"><b>${item[1]}</b><b>구매 가능성 ${item[2]}</b><b>주요 화면 ${idx < 2 ? "상품 상세" : "홈·검색"}</b></div><h3>이 유형으로 분류한 근거</h3><p>${item[3]} 행동이 같은 세션에서 반복적으로 나타났습니다.</p><h3>행동 패턴 분석 및 AI 인사이트</h3><p>${item[4]} 고객이 다음 단계로 이동하기 전에 필요한 정보와 혜택을 같은 화면에서 확인할 수 있게 구성하는 것이 좋습니다.</p></section>`).join("");
+      return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;background:#eef3f8;color:#172033;font:15px/1.65 Pretendard,Arial,sans-serif}main{max-width:980px;margin:auto;padding:24px}section{background:#fff;border:1px solid #dce6f1;border-radius:12px;padding:28px;margin-bottom:18px}h1{font-size:34px;margin:6px 0}h2{font-size:24px;margin:4px 0 18px}h3{font-size:17px;margin:22px 0 5px}.eyebrow{color:#185adb;font-weight:800}.period{color:#65758b}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.kpis>*{padding:16px;border-radius:9px;background:#f3f7fd}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:11px;border-bottom:1px solid #e3eaf2;text-align:left;vertical-align:top}.funnel{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.funnel div{padding:15px 8px;text-align:center;background:#eaf2ff;border-radius:9px}.note{padding:16px;background:#fff7e8;border-left:4px solid #f59e0b}@media(max-width:700px){main{padding:10px}section{padding:18px}.kpis,.funnel{grid-template-columns:1fr 1fr}table{display:block;overflow:auto}}</style></head><body><main><section><div class="eyebrow">GhostTracker Analytics</div><h1>고객 행동 분석 보고서</h1><p class="period">분석 기간 · 최근 7일</p><div class="kpis"><b>222<br><small>총 분석 방문</small></b><b>5<br><small>고객 유형</small></b><b>1<br><small>구매 가능성 높은 유형</small></b></div></section><section><div class="eyebrow">전체 요약</div><h2>비교 탐색 고객이 가장 많고, 구매 직전 정보 보강이 우선입니다.</h2><p>유형 분포와 구매 가능성을 함께 보면 상세 정보 비교 단계에서 결정을 돕는 운영 액션이 가장 큰 영향을 줄 수 있습니다.</p><table><thead><tr><th>고객 유형</th><th>방문 비중</th><th>구매 가능성</th><th>대표 행동</th><th>추천 조치</th></tr></thead><tbody>${rows}</tbody></table></section><section><div class="eyebrow">전환 퍼널 분석</div><h2>상품 조회 이후 장바구니 진입에서 가장 크게 줄어듭니다.</h2><div class="funnel"><div>방문<br><b>100%</b></div><div>상품 조회<br><b>74%</b></div><div>장바구니<br><b>31%</b></div><div>결제<br><b>18%</b></div><div>구매 클릭<br><b>11%</b></div></div><h3>단계별 탐색 중지 상세</h3><p class="note">상품 조회 → 장바구니 단계가 가장 큰 누수 지점입니다. 가격, 배송, 옵션과 리뷰 정보를 구매 버튼 가까이에 배치하세요.</p><h3>고객 유형별 단계 도달율</h3><p>구매 의도가 높은 고객은 결제 단계 도달률이 높고, 빠르게 탐색을 멈추는 고객은 상품 조회 이전에 흐름이 끊깁니다.</p></section><section><div class="eyebrow">탐색 중지 집중 화면 예시</div><h2>상품 상세 · 장바구니 · 검색 결과</h2><p>탐색 중지 신호가 집중된 화면과 구역을 캡처해 운영자가 실제 화면에서 점검할 위치를 확인합니다.</p></section>${details}<section><div class="eyebrow">운영 개선 제안</div><h2>고객 유형별 추천 조치</h2><table><thead><tr><th>우선순위</th><th>대상</th><th>실행 제안</th></tr></thead><tbody><tr><td>1</td><td>구매 의도 높음</td><td>결제 단계 단축과 즉시 혜택 제공</td></tr><tr><td>2</td><td>비교 탐색</td><td>리뷰·사이즈·배송 정보 요약</td></tr><tr><td>3</td><td>탐색 중지 위험</td><td>첫 화면 메시지와 재방문 혜택 강화</td></tr></tbody></table></section><section><div class="eyebrow">분석 방법 및 한계</div><h2>분석 기준</h2><p>방문 세션의 행동 시퀀스를 기준으로 고객 유형을 도출하고, 장바구니·결제·구매 클릭 도달률을 전체 평균과 비교해 구매 가능성을 산정합니다.</p><h3>분석의 한계</h3><p>실제 구매 완료와 매출을 직접 예측하는 값이 아니며, 수집된 행동의 범위와 데이터 양에 따라 해석이 달라질 수 있습니다.</p><h3>다음 추적 지표</h3><p>유형별 장바구니 도달률, 결제 단계 전환율, 탐색 중지 집중 화면, 유입 경로별 성과 변화를 추적합니다.</p></section></main></body></html>`;
+    }
+
+    async function loadFullReport(force = false) {
+      const reportKey = state.origin || "__all__";
+      const frame = $("full-report-frame");
+      const loading = $("full-report-loading");
+      if (!force && state.fullReportOrigin === reportKey && frame.srcdoc) return;
+      state.fullReportOrigin = reportKey;
+      loading.className = "report-loading";
+      loading.hidden = false;
+      loading.textContent = "전체 보고서를 준비하는 중입니다. 처음 생성할 때는 시간이 걸릴 수 있습니다.";
+      frame.hidden = true;
+      try {
+        let html;
+        if (previewMode) {
+          html = previewFullReportHtml();
+        } else {
+          if (!state.origin) throw new Error("리포트를 볼 쇼핑몰을 먼저 선택해주세요.");
+          const headers = siteKey ? { "X-GT-Key": siteKey } : {};
+          const reportUrl = `/api/report/weekly/view?origin=${encodeURIComponent(state.origin)}`;
+          let response = await fetch(reportUrl, { headers });
+          if (response.status === 202) {
+            loading.textContent = "전체 보고서를 백그라운드에서 생성하고 있습니다. 완료되면 자동으로 표시합니다.";
+            for (let attempt = 0; attempt < 90 && response.status === 202; attempt += 1) {
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              const status = await fetch(`/api/report/weekly/status?origin=${encodeURIComponent(state.origin)}`, { headers });
+              if (status.status >= 400) {
+                const body = await status.json().catch(() => ({}));
+                throw new Error(body.error || "전체 보고서를 생성하지 못했습니다.");
+              }
+              if (status.ok && status.status !== 202) response = await fetch(reportUrl, { headers });
+            }
+          }
+          if (response.status === 202) throw new Error("보고서 생성이 오래 걸리고 있습니다. 잠시 후 리포트 메뉴를 다시 열어주세요.");
+          html = await response.text();
+          if (!response.ok) throw new Error("전체 보고서를 불러오지 못했습니다.");
+        }
+        const responsiveStyle = `<style id="ghosttracker-dashboard-report-view">@media screen{body{background:#eef3f8!important}.page{max-width:100%!important;margin:0 auto 18px!important;box-shadow:0 8px 24px rgba(23,32,51,.08)!important}}@media screen and (max-width:720px){.page{width:100%!important;height:auto!important;min-height:0!important;padding:18px!important}.summary-kpi-row,.charts-row,.stats-row{flex-wrap:wrap!important}.chart-box{min-width:100%!important}.rec-table,table{display:block!important;width:100%!important;overflow-x:auto!important;white-space:nowrap!important;font-size:11px!important}.rec-table tbody,table tbody{display:table!important;min-width:760px!important}}</style>`;
+        if (html.includes("</head>")) html = html.replace("</head>", `${responsiveStyle}</head>`);
+        frame.srcdoc = html;
+        frame.addEventListener("load", () => {
+          try {
+            const height = frame.contentDocument?.documentElement?.scrollHeight || 980;
+            frame.style.height = `${Math.min(Math.max(height + 8, 700), 20000)}px`;
+          } catch {}
+          loading.hidden = true;
+          frame.hidden = false;
+        }, { once: true });
+      } catch (err) {
+        state.fullReportOrigin = null;
+        loading.className = "error-state";
+        loading.textContent = err.message;
+        loading.hidden = false;
+      }
+    }
+
     // 사이트 필터 옵션 채우기
     async function loadSites() {
       try {
@@ -1679,7 +2212,10 @@
         sites.forEach((site) => {
           const option = document.createElement("option");
           option.value = site;
-          option.textContent = site.replace(/^https?:\/\//, "");
+          const hostname = site.replace(/^https?:\/\//, "");
+          option.textContent = hostname === "dignolucir.co.kr"
+            ? `${hostname} (4개 주소 통합)`
+            : hostname;
           if (site === DEMO_ORIGIN) option.selected = true;
           $("site-filter").appendChild(option);
         });
@@ -1689,12 +2225,11 @@
         state.origin = $("site-filter").value;
       } catch (err) {
         state.origin = "";
-        // 401/403이면 키 문제 — 조용히 넘어가면 원인을 못 찾는다
-        if (/키/.test(err.message)) {
-          setStatus(false, err.message);
-          $("site-filter").innerHTML = `<option value="">접근 불가</option>`;
-          $("site-filter").disabled = true;
-        }
+        // 키 문제(401/403)는 api()가 이미 로그인 화면으로 보냈다.
+        // 여기 오는 건 그 외의 실패이므로 화면에 그대로 드러낸다.
+        setStatus(false, err.message);
+        $("site-filter").innerHTML = `<option value="">접근 불가</option>`;
+        $("site-filter").disabled = true;
       }
     }
 
@@ -1702,57 +2237,77 @@
     async function refresh() {
       const origin = state.origin ? `&origin=${encodeURIComponent(state.origin)}` : "";
       const clusterOrigin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
-      try {
-        // 화면에 필요한 데이터를 한 번에 병렬로 가져옴 (2.5초마다 호출됨)
-        const [stats, logs, sessions, sources, operatorSummary, clusters] = await Promise.all([
+      const results = await Promise.allSettled([
           api(`/api/logs/stats?${origin}`),
           api(`/api/logs?limit=200${origin}`),
           api(`/api/logs/sessions?limit=8${origin}`),
           api(`/api/logs/sources?limit=3${origin}`),
           api(`/api/logs/operator-summary?${origin}`),
           api(`/api/clusters?mode=frozen${state.origin ? `&origin=${encodeURIComponent(state.origin)}` : ""}`),
-        ]);
-        state.logs = logs;
-        state.sessions = Array.isArray(sessions) ? sessions : groupSessions(logs);
-        renderTopSources(sources);
-        renderOperatorSummary(operatorSummary);
+      ]);
+      const [statsResult, logsResult, sessionsResult, sourcesResult, summaryResult, clustersResult] = results;
+      if (logsResult.status === "fulfilled") {
+        state.logs = logsResult.value;
+        renderActivities();
+      } else {
+        $("activity-list").innerHTML = `<div class="error-state">최근 행동을 불러오지 못했습니다. 다음 자동 갱신에서 다시 시도합니다.</div>`;
+      }
+      if (sessionsResult.status === "fulfilled" || logsResult.status === "fulfilled") {
+        const sessions = sessionsResult.status === "fulfilled" ? sessionsResult.value : groupSessions(state.logs);
+        state.sessions = Array.isArray(sessions) ? sessions : groupSessions(state.logs);
+        renderSessions();
+        refreshSelectedTimeline();
+      } else {
+        $("session-list").innerHTML = `<div class="error-state">방문 목록을 불러오지 못했습니다.</div>`;
+      }
+      if (sourcesResult.status === "fulfilled") renderTopSources(sourcesResult.value);
+      else $("source-top").innerHTML = `<div class="error-state">유입 경로를 불러오지 못했습니다.</div>`;
+      if (summaryResult.status === "fulfilled") renderOperatorSummary(summaryResult.value);
+      else ["blocked-pages", "issue-causes", "priority-actions", "source-performance"].forEach((id) => $(id).innerHTML = `<div class="error-state">이 항목을 불러오지 못했습니다.</div>`);
+      if (statsResult.status === "fulfilled") {
+        const stats = statsResult.value;
+        state.stats = stats;
         $("visitor-count").textContent = fmt(stats.visitor_count ?? state.sessions.length);
         $("total-events").textContent = fmt(stats.total);
         $("recent-events").textContent = fmt(stats.last_hour);
         $("active-sessions").textContent = fmt(stats.active_sessions);
-        renderActivities();
-        renderSessions();
-        renderClusters(clusters);
-        renderClusterSnapshotInfo(clusters);
         updateAdvice(stats);
-        setStatus(true, `Live · ${new Date().toLocaleTimeString("ko-KR")}`);
-      } catch (err) {
-        setStatus(false, `연결 오류`);
       }
+      if (clustersResult.status === "fulfilled") {
+        renderClusters(clustersResult.value);
+        renderClusterSnapshotInfo(clustersResult.value);
+      } else {
+        $("customer-types").innerHTML = `<div class="error-state">고객 유형을 불러오지 못했습니다.</div>`;
+      }
+      const successCount = results.filter((result) => result.status === "fulfilled").length;
+      $("overview-updated").textContent = `마지막 갱신 ${new Date().toLocaleTimeString("ko-KR")}`;
+      setStatus(successCount >= 4, successCount === results.length ? `Live · ${new Date().toLocaleTimeString("ko-KR")}` : `일부 연결 지연`);
     }
 
-    // "고객 유형 다시 찾기" 버튼 핸들러 - 클러스터링을 새로 돌리고 스냅샷으로 저장
+    // "최신 데이터로 다시 분류" 버튼 핸들러
+    // 재학습 없이 기존 기준으로 최신 세션만 다시 분류해 스냅샷으로 저장한다.
     async function rediscoverCustomerTypes() {
-      const btn = $("rediscover-types");
+      const btn = $("marketing-rediscover");
       btn.disabled = true;
       const originalText = btn.textContent;
-      btn.textContent = "고객 유형 찾는 중";
-      setStatus(true, "고객 유형을 다시 찾는 중");
-      $("operator-advice").textContent = "누적된 고객 행동을 다시 묶어 새로운 고객 유형이 있는지 확인하고 있습니다. 잠시만 기다려주세요.";
+      btn.textContent = "다시 분류하는 중";
+      setStatus(true, "최신 데이터로 다시 분류하는 중");
+      $("operator-advice").textContent = "기존 고객 유형 기준으로 최근 방문 데이터를 다시 분류하고 있습니다. 잠시만 기다려주세요.";
       try {
+        // retrain은 보내지 않는다. 재학습은 개발자가 ml/ 파이프라인으로 수행한다.
         const result = await api("/api/clusters/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ full: true, origin: state.origin || "" }),
+          body: JSON.stringify({ origin: state.origin || "" }),
         });
         $("operator-advice").textContent = result.snapshot_saved
-          ? `고객 유형 찾기가 완료됐습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 세부 유형, ${fmt(result.snapshot_session_count)}개 세션 스냅샷을 저장했습니다.`
-          : `고객 유형 찾기가 완료됐습니다. 현재 ${fmt(result.n_clusters)}개 유형이 발견됐고, ${fmt(result.retrain_session_count)}개 세션을 반영했습니다.`;
-        $("advice-tag").textContent = "유형 갱신 완료";
+          ? `다시 분류를 완료했습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 유형, ${fmt(result.snapshot_session_count)}개 세션을 반영했습니다.`
+          : "다시 분류를 완료했습니다.";
+        $("advice-tag").textContent = "분류 갱신 완료";
         await refresh();
       } catch (err) {
-        $("operator-advice").textContent = `고객 유형 찾기에 실패했습니다: ${err.message}`;
-        setStatus(false, "유형 찾기 실패");
+        $("operator-advice").textContent = `다시 분류에 실패했습니다: ${err.message}`;
+        setStatus(false, "다시 분류 실패");
       } finally {
         btn.disabled = false;
         btn.textContent = originalText;
@@ -1761,11 +2316,36 @@
 
     $("site-filter").addEventListener("change", (e) => {
       state.origin = e.target.value;
+      state.selectedSessionId = "";
+      state.selectedEvents = [];
+      state.sessionEventCache.clear();
+      state.periodReportCache.clear();
+      state.analysis = null;
+      state.fullReportOrigin = null;
+      $("session-input").value = "";
+      $("session-input").dataset.sessionId = "";
+      $("timeline-box").innerHTML = `<div class="empty">새 사이트의 고객을 선택해주세요.</div>`;
+      $("result-box").innerHTML = `<div class="empty">고객을 선택하고 분석 버튼을 눌러주세요.</div>`;
+      $("report-box").textContent = "새 사이트의 고객을 분석하면 운영 액션 리포트를 볼 수 있습니다.";
+      $("cluster-report").disabled = true;
+      $("session-report").disabled = true;
       refresh();
+      if (state.activeView === "reports") loadFullReport(true);
     });
     // 전문가 화면도 같은 키를 써야 데이터가 보인다 (localStorage 공유라 최초 1회만 필요)
+    // withKey를 붙이는 이유: 시크릿 모드처럼 localStorage 쓰기가 막힌 브라우저에서는
+    // 전문가 화면이 저장소에서 키를 못 읽는다. 쿼리로 넘겨야 그런 경우에도 이어진다.
     $("expert-view").addEventListener("click", () => { window.location.href = withKey("/dashboard.html"); });
-    $("rediscover-types").addEventListener("click", rediscoverCustomerTypes);
+    $("open-help").addEventListener("click", () => { window.location.href = "/help.html"; });
+
+    // 담당자가 여러 쇼핑몰을 번갈아 볼 때 쓰는 버튼.
+    // 이게 없으면 키를 바꾸려고 localStorage를 직접 지우는 수밖에 없었다.
+    $("sign-out").addEventListener("click", () => {
+      try { localStorage.removeItem(SITE_KEY_STORAGE); } catch {}
+      if (pollTimer) clearInterval(pollTimer);
+      window.location.href = "/login.html";
+    });
+    $("marketing-rediscover").addEventListener("click", rediscoverCustomerTypes);
     async function downloadWeeklyReport() {
       const button = $("download-report");
       const original = button.textContent;
@@ -1775,7 +2355,20 @@
       try {
         const headers = siteKey ? { "X-GT-Key": siteKey } : {};
         const origin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
-        const response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+        let response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+        if (response.status === 202) {
+          button.textContent = "백그라운드 생성 중";
+          for (let attempt = 0; attempt < 90 && response.status === 202; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const status = await fetch(`/api/report/weekly/status${origin}`, { headers });
+            if (status.status >= 400) {
+              const body = await status.json().catch(() => ({}));
+              throw new Error(body.error || "보고서 생성에 실패했습니다.");
+            }
+            if (status.ok && status.status !== 202) response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+          }
+        }
+        if (response.status === 202) throw new Error("보고서 생성이 오래 걸리고 있습니다. 잠시 후 다시 시도해주세요.");
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
           throw new Error(body.error || `보고서 다운로드 실패 (HTTP ${response.status})`);
@@ -1803,6 +2396,15 @@
       }
     }
     $("download-report").addEventListener("click", downloadWeeklyReport);
+    $("open-reports").addEventListener("click", () => switchView("reports"));
+    document.querySelectorAll(".nav-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
+    document.querySelectorAll(".report-period").forEach((button) => button.addEventListener("click", () => {
+      document.querySelectorAll(".report-period").forEach((item) => item.classList.toggle("active", item === button));
+      $("custom-range").classList.toggle("active", button.dataset.period === "custom");
+      if (button.dataset.period !== "custom") renderPeriodReport(button.dataset.period);
+      else state.reportPeriod = "custom";
+    }));
+    $("apply-report-range").addEventListener("click", () => renderPeriodReport("custom"));
     $("analyze-session").addEventListener("click", analyzeSession);
     $("cluster-report").addEventListener("click", () => loadClusterReport());
     $("session-report").addEventListener("click", loadSessionReport);
@@ -1815,10 +2417,13 @@
 
     // 사이트 목록 로드 -> 첫 데이터 갱신 -> 최근 세션 자동 선택 -> 2.5초마다 polling
     (async function init() {
+      const initialView = ["overview", "marketing", "visits", "reports"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
+      switchView(initialView);
       await loadSites();
       await refresh();
+      if (state.activeView === "reports") await loadFullReport(true);
       if (state.sessions[0]) selectSession(state.sessions[0].session_id);
-      setInterval(refresh, 2500);
+      pollTimer = setInterval(refresh, 2500);
     })();
   </script>
 </body>

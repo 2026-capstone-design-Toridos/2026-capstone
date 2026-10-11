@@ -35,6 +35,18 @@ function normalizeOrigin(value) {
     .replace(/\/+$/, '');
 }
 
+// Cafe24 기본 도메인, API 도메인, 연결된 독립 도메인은 한 쇼핑몰에서
+// 발생할 수 있다. 사이트 키는 대표 origin 하나에만 발급하되 조회할 때는
+// 검증된 alias 그룹 전체를 같은 tenant로 취급한다.
+const ORIGIN_ALIAS_GROUPS = [
+  [
+    'https://dignolucir.co.kr',
+    'https://www.dignolucir.co.kr',
+    'https://hshh2020.cafe24.com',
+    'https://hshh2020.cafe24api.com',
+  ],
+].map((group) => group.map(normalizeOrigin));
+
 /**
  * DB에 저장된 origin의 표기 흔들림을 흡수하는 값 목록을 만든다.
  *
@@ -48,7 +60,16 @@ function normalizeOrigin(value) {
  */
 function originVariants(origin) {
   const base = normalizeOrigin(origin);
-  return base ? [base, `${base}/`] : [];
+  if (!base) return [];
+  const aliases = ORIGIN_ALIAS_GROUPS.find((group) => group.includes(base)) || [base];
+  return [...new Set(aliases.flatMap((alias) => [alias, `${alias}/`]))];
+}
+
+/** 같은 쇼핑몰의 여러 origin을 대시보드에서 표시할 대표 주소로 통일한다. */
+function canonicalOrigin(origin) {
+  const base = normalizeOrigin(origin);
+  const aliases = ORIGIN_ALIAS_GROUPS.find((group) => group.includes(base));
+  return aliases?.[0] || base;
 }
 
 // SITE_KEYS 환경변수를 { 키: origin } 형태로 파싱한다
@@ -95,26 +116,171 @@ function extractKey(req) {
  * @returns {{ ok: true, origin: string|null, openMode: boolean }
  *          | { ok: false, status: number, error: string }}
  */
-function resolveOrigin(req) {
-  // ── 개방 모드: 키 설정 전까지 기존 동작을 유지한다 ──────────────
-  // 클라이언트가 지정한 origin을 그대로 쓴다. 배포 환경에서는 위험하다.
-  if (isOpenMode()) {
+// ── DB 키 캐시 ──────────────────────────────────────────────────
+// 요청마다 DB를 조회하면 대시보드가 2.5초마다 갱신하는 구조에서 부하가 크다.
+// 짧은 TTL 캐시를 두고, 발급·폐기 시에는 즉시 비운다.
+const KEY_CACHE_TTL_MS = 60 * 1000;
+const _keyCache = new Map();   // key → { origin | null, expires }
+
+/** 발급·폐기 후 호출해 캐시를 즉시 무효화한다 */
+function invalidateKeyCache(key) {
+  if (key) _keyCache.delete(key);
+  else _keyCache.clear();
+
+  // 개방 모드 판정 캐시(_anyKeyCache)도 함께 비운다.
+  //
+  // 이게 없으면 배포 직후 첫 키를 발급해도 최대 60초 동안 서버가 계속
+  // 개방 모드로 동작한다. _hasAnyDbKey()가 "키 없음(false)"을 캐시한 채로
+  // 남아 있어서, resolveOrigin()이 키를 요구하지 않고 통과시키기 때문이다.
+  // 하필 그 60초가 "키를 막 발급한 직후" = 사람들이 링크를 눌러보는 순간이다.
+  _anyKeyCache = { value: false, expires: 0 };
+
+  // 수집 허용 origin 목록도 같이 비운다.
+  // 새 쇼핑몰에 키를 발급하면 그 즉시 그 사이트의 이벤트를 받아야 한다.
+  _knownOrigins = { set: null, expires: 0 };
+}
+
+// last_used_at을 매 요청마다 쓰면 DB 쓰기가 과해진다. 5분에 한 번만 갱신.
+const USED_AT_THROTTLE_MS = 5 * 60 * 1000;
+const _lastUsedWrite = new Map();
+
+function _touchLastUsed(key) {
+  const now = Date.now();
+  if (now - (_lastUsedWrite.get(key) || 0) < USED_AT_THROTTLE_MS) return;
+  _lastUsedWrite.set(key, now);
+
+  try {
+    // 실패해도 조회는 계속돼야 하므로 기다리지 않는다
+    require('../models/SiteKey')
+      .updateOne({ key }, { $set: { last_used_at: new Date() } })
+      .catch(() => {});
+  } catch {
+    /* 모델 로드 실패 시 무시 */
+  }
+}
+
+/** DB에서 키를 찾아 origin을 돌려준다 (폐기된 키는 무효) */
+async function _lookupKeyInDb(key) {
+  const cached = _keyCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.origin;
+
+  let origin = null;
+  try {
+    const SiteKey = require('../models/SiteKey');
+    const doc = await SiteKey.findOne({ key, revoked: false }).lean();
+    origin = doc ? normalizeOrigin(doc.origin) : null;
+  } catch {
+    // DB 연결 문제 등 — 캐시에 담지 않고 이번 요청만 실패 처리
+    return null;
+  }
+
+  _keyCache.set(key, { origin, expires: Date.now() + KEY_CACHE_TTL_MS });
+  if (origin) _touchLastUsed(key);
+  return origin;
+}
+
+/**
+ * 이 요청이 조회할 수 있는 origin을 결정한다.
+ *
+ * 조회 순서: 환경변수(SITE_KEYS) → DB(SiteKey)
+ * 환경변수를 먼저 보는 이유는 기존 배포와의 호환 때문이다.
+ * 서버 시작 시 자동으로 DB에 이관되므로, 이관이 끝나면 환경변수를 지워도 된다.
+ */
+async function resolveOrigin(req) {
+  const key = extractKey(req);
+
+  // ── 개방 모드 판단 ─────────────────────────────────────────────
+  // 환경변수도 없고 DB에도 키가 하나도 없을 때만 개방 모드다.
+  // 예전에는 환경변수만 봤기 때문에, DB로 이관한 뒤 환경변수를 지우면
+  // 갑자기 전체 공개로 풀리는 사고가 날 수 있었다.
+  if (isOpenMode() && !(await _hasAnyDbKey())) {
     const requested = normalizeOrigin(req.query.origin || '');
     return { ok: true, origin: requested || null, openMode: true };
   }
 
-  // ── 키 모드: 키가 origin을 결정한다 ────────────────────────────
-  const key = extractKey(req);
   if (!key) {
     return { ok: false, status: 401, error: '접근 키가 필요합니다.' };
   }
 
-  const origin = SITE_KEY_MAP.get(key);
-  if (!origin) {
-    return { ok: false, status: 403, error: '유효하지 않은 접근 키입니다.' };
+  // 1순위: 환경변수
+  const fromEnv = SITE_KEY_MAP.get(key);
+  if (fromEnv) return { ok: true, origin: fromEnv, openMode: false };
+
+  // 2순위: DB
+  const fromDb = await _lookupKeyInDb(key);
+  if (fromDb) return { ok: true, origin: fromDb, openMode: false };
+
+  return { ok: false, status: 403, error: '유효하지 않은 접근 키입니다.' };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  수집 허용 origin (POST /collect 용)
+// ══════════════════════════════════════════════════════════════
+//
+// /collect은 접근 키를 요구하지 않는다. 쇼핑몰 페이지에서 직접 호출되므로
+// 키를 심으면 그 키가 페이지 소스에 그대로 공개되기 때문이다.
+//
+// 대신 "우리가 키를 발급한 적 있는 쇼핑몰인지"만 본다.
+// Origin 헤더는 브라우저가 붙이는 값이라 웹페이지는 위조할 수 없지만,
+// curl 한 줄이면 아무 origin이나 달 수 있다. 확인하지 않으면 남의 가게
+// 통계에 가짜 이벤트를 섞어 넣을 수 있다.
+
+const KNOWN_ORIGIN_TTL_MS = 60 * 1000;
+let _knownOrigins = { set: null, expires: 0 };
+
+async function _loadKnownOrigins() {
+  if (_knownOrigins.set && _knownOrigins.expires > Date.now()) return _knownOrigins.set;
+
+  // 한 쇼핑몰이 여러 도메인으로 열린다.
+  //   카페24 기본(hshh2020.cafe24.com) / 독립 도메인(dignolucir.co.kr)
+  //   www 붙은 것 / API 도메인(cafe24api.com)
+  // 키는 대표 origin 하나에만 발급하므로 여기서 alias 전체로 펼쳐야 한다.
+  // 펼치지 않으면 손님이 실제로 쓰는 도메인에서 온 이벤트가 조용히 버려진다.
+  // (조회 경로는 이미 originVariants를 쓴다. 읽기와 쓰기가 같은 기준이어야 한다.)
+  const set = new Set();
+  for (const o of SITE_KEY_MAP.values()) {
+    originVariants(o).forEach((v) => set.add(v));
   }
 
-  return { ok: true, origin, openMode: false };
+  try {
+    const docs = await require('../models/SiteKey')
+      .find({ revoked: false }, { origin: 1 })
+      .lean();
+    docs.forEach((d) => originVariants(d.origin).forEach((v) => set.add(v)));
+  } catch {
+    // DB를 못 읽는 상황에서 수집까지 막으면 장애 시간만큼 데이터가 통째로 사라진다.
+    // 조회(requireSite)는 안전한 쪽으로 닫지만, 수집은 열어두는 편이 손실이 적다.
+    return null;
+  }
+
+  _knownOrigins = { set, expires: Date.now() + KNOWN_ORIGIN_TTL_MS };
+  return set;
+}
+
+/**
+ * 이 origin으로 들어온 이벤트를 저장해도 되는지 판단한다.
+ * 등록된 쇼핑몰이 하나도 없으면(개방 모드/로컬 개발) 전부 허용한다.
+ */
+async function isCollectableOrigin(origin) {
+  const known = await _loadKnownOrigins();
+  if (!known || known.size === 0) return true;   // 판정 불가 또는 개방 모드
+  return known.has(normalizeOrigin(origin));
+}
+
+// DB에 유효한 키가 하나라도 있는지 (개방 모드 판정용). 짧게 캐시한다.
+let _anyKeyCache = { value: false, expires: 0 };
+
+async function _hasAnyDbKey() {
+  if (_anyKeyCache.expires > Date.now()) return _anyKeyCache.value;
+  let value = false;
+  try {
+    const SiteKey = require('../models/SiteKey');
+    value = (await SiteKey.countDocuments({ revoked: false }).limit(1)) > 0;
+  } catch {
+    value = false;
+  }
+  _anyKeyCache = { value, expires: Date.now() + KEY_CACHE_TTL_MS };
+  return value;
 }
 
 /**
@@ -124,16 +290,64 @@ function resolveOrigin(req) {
  * req.siteOrigin === null 이면 "전체 조회"를 뜻하며,
  * 이는 개방 모드에서만 발생한다.
  */
-function requireSite(req, res, next) {
-  const result = resolveOrigin(req);
+async function requireSite(req, res, next) {
+  try {
+    const result = await resolveOrigin(req);
 
-  if (!result.ok) {
-    return res.status(result.status).json({ error: result.error });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    req.siteOrigin   = result.origin;
+    req.siteOpenMode = result.openMode;
+    next();
+  } catch (err) {
+    // 판정 자체가 실패하면 열어주지 않는다 (안전한 쪽으로)
+    console.error('[siteAccess] 접근 판정 오류:', err.message);
+    res.status(500).json({ error: '접근 확인 중 오류가 발생했습니다.' });
+  }
+}
+
+/**
+ * 서버 시작 시 환경변수(SITE_KEYS)의 키를 DB로 옮긴다.
+ *
+ * 이미 있는 키는 건드리지 않는다(멱등).
+ * 이관이 끝나면 환경변수를 지워도 되고, 앞으로 사장님이 늘어나도
+ * 서버 환경변수를 다시 만질 일이 없다.
+ */
+async function migrateEnvKeysToDb() {
+  if (SITE_KEY_MAP.size === 0) return { migrated: 0, skipped: 0 };
+
+  let migrated = 0;
+  let skipped  = 0;
+
+  try {
+    const SiteKey = require('../models/SiteKey');
+
+    for (const [key, origin] of SITE_KEY_MAP.entries()) {
+      const exists = await SiteKey.findOne({ key }).lean();
+      if (exists) { skipped += 1; continue; }
+
+      await SiteKey.create({
+        key,
+        origin,
+        label: `(환경변수에서 이관) ${origin.replace(/^https?:\/\//, '')}`,
+        source: 'env',
+      });
+      migrated += 1;
+    }
+
+    if (migrated > 0) {
+      console.log(`[GhostTracker] 환경변수 키 ${migrated}개를 DB로 이관했습니다.`);
+      console.log('               이제 SITE_KEYS 환경변수를 지워도 됩니다.');
+    }
+    invalidateKeyCache();
+    _anyKeyCache = { value: false, expires: 0 };
+  } catch (err) {
+    console.warn('[GhostTracker] 키 이관 실패(무시하고 계속):', err.message);
   }
 
-  req.siteOrigin  = result.origin;
-  req.siteOpenMode = result.openMode;
-  next();
+  return { migrated, skipped };
 }
 
 /**
@@ -154,6 +368,42 @@ function originCondition(origin) {
   return variants.length ? { origin: { $in: variants } } : {};
 }
 
+// ══════════════════════════════════════════════════════════════
+//  관리자 인증 (키 발급 화면용)
+// ══════════════════════════════════════════════════════════════
+//
+// 키를 발급하는 화면은 아무나 열면 안 된다. 누구나 아무 사이트의 키를
+// 만들어 남의 데이터를 볼 수 있게 되어, 접근 제어 자체가 무의미해진다.
+//
+// 사이트 키(읽기)는 미설정 시 개방 모드로 뒀지만, 발급은 쓰기 작업이라
+// 기준이 다르다. ADMIN_KEY가 없으면 관리 API 자체를 막는다.
+// 실수로 설정을 빠뜨렸을 때 아무나 키를 찍어내는 것보다, 아예 안 되는 편이 낫다.
+
+const ADMIN_KEY = String(process.env.ADMIN_KEY || '').trim();
+
+function isAdminEnabled() {
+  return ADMIN_KEY.length > 0;
+}
+
+/** 관리 API 앞에 붙이는 미들웨어 */
+function requireAdmin(req, res, next) {
+  if (!isAdminEnabled()) {
+    return res.status(503).json({
+      error: '키 관리 기능이 비활성 상태입니다. 서버에 ADMIN_KEY를 설정하세요.',
+    });
+  }
+
+  const provided = String(req.get('x-gt-admin-key') || req.query.admin_key || '').trim();
+  if (!provided) {
+    return res.status(401).json({ error: '관리자 키가 필요합니다.' });
+  }
+  if (provided !== ADMIN_KEY) {
+    return res.status(403).json({ error: '관리자 키가 올바르지 않습니다.' });
+  }
+
+  next();
+}
+
 /** 서버 시작 시 현재 보호 상태를 알린다 */
 function logAccessMode() {
   if (isOpenMode()) {
@@ -170,10 +420,16 @@ function logAccessMode() {
 
 module.exports = {
   requireSite,
+  requireAdmin,
+  isAdminEnabled,
+  isCollectableOrigin,
+  migrateEnvKeysToDb,
+  invalidateKeyCache,
   resolveOrigin,
   originFilter,
   originCondition,
   originVariants,
+  canonicalOrigin,
   normalizeOrigin,
   isOpenMode,
   logAccessMode,

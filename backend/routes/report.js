@@ -19,11 +19,14 @@ const fs      = require('fs');
 const path    = require('path');
 const { execFile } = require('child_process');
 const router  = express.Router();
-const { normalizeOrigin } = require('../middleware/siteAccess');
+const { canonicalOrigin } = require('../middleware/siteAccess');
 const clustersRouter = require('./clusters');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// API 키는 URL이 아니라 x-goog-api-key 헤더로 보낸다.
+// 쿼리 스트링에 실으면 서버 로그·프록시 로그·에러 메시지에 키가 그대로 남는다.
+const GEMINI_MODEL   = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 // cluster_meta.json 경로 (ml/output/unsupervised_semantic/)
 const META_PATH = path.join(__dirname, '../../ml/output/unsupervised_semantic/cluster_meta.json');
@@ -35,14 +38,26 @@ const REPLACEMENT_TERM = '탐색 중지';
 // 인메모리 캐시 (서버 재시작 시 초기화)
 const reportCache = new Map();
 const reportGenerationJobs = new Map();
+const reportGenerationStatus = new Map();
 const REPORT_INPUT_DIR = path.join(REPORTS_DIR, 'inputs');
+// 단계별 시한(Mongo 30초 + 분류 서버 120초 + Python 180초)을 다 합쳐도 약 6분이다.
+// 이 값을 넘기면 어느 단계에서 멈췄든 작업을 실패 처리해 "생성 중"이 남지 않게 한다.
+const REPORT_JOB_TIMEOUT_MS = Math.max(Number(process.env.REPORT_JOB_TIMEOUT_MS) || 420000, 60000);
+
+function withDeadline(promise, ms, message) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
 
 // ── 사이트 식별 ───────────────────────────────────────────────────────────────
 // origin을 파일명에 쓸 수 있는 형태로 바꾼다 (clusters.js의 snapshotKey와 같은 규칙)
 function siteKey(origin = '') {
   // 끝 슬래시를 먼저 없앤다. 안 그러면 "site.com"과 "site.com/"이
   // 서로 다른 PDF 파일명으로 갈려서 리포트를 못 찾는다.
-  return normalizeOrigin(origin)
+  return canonicalOrigin(origin)
     .replace(/^https?:\/\//, '')
     .replace(/[^a-z0-9._-]+/g, '_');
 }
@@ -158,6 +173,24 @@ function findCurrentPdfReport(origin) {
   return files[0] || null;
 }
 
+function findCurrentHtmlReport(origin) {
+  if (!fs.existsSync(REPORTS_DIR)) return null;
+  const key = origin ? siteKey(origin) : '';
+  const stamp = localDateValue(new Date(), true);
+  const expectedName = key ? `ghosttracker_report_${key}_${stamp}.html` : '';
+  const files = fs.readdirSync(REPORTS_DIR)
+    .filter((name) => name.toLowerCase().endsWith('.html'))
+    .filter((name) => (key
+      ? name.toLowerCase() === expectedName.toLowerCase()
+      : name.includes(stamp) && !name.includes('.generating.')))
+    .map((name) => {
+      const fullPath = path.join(REPORTS_DIR, name);
+      return { name, fullPath, mtimeMs: fs.statSync(fullPath).mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return files[0] || null;
+}
+
 /**
  * 사이트 전용 PDF가 없을 때 보고서 생성기를 한 번만 실행한다.
  * execFile을 사용해 origin을 셸 문자열로 해석하지 않으며, 동일 사이트의
@@ -189,7 +222,7 @@ async function writeSiteResultCsv(origin) {
     'summary', 'action', 'top_actions_json', 'page_dist_json',
   ];
   const rows = result.clusters.map((cluster) => [
-    normalizeOrigin(origin), result.total_sessions, cluster.cluster, cluster.label,
+    canonicalOrigin(origin), result.total_sessions, cluster.cluster, cluster.label,
     cluster.count, cluster.summary || '', cluster.action || '',
     cluster.top_actions || [], cluster.page_dist || {},
   ].map(csvCell).join(','));
@@ -216,14 +249,14 @@ async function generatePdfReport(origin) {
   const dateValue = (date) => localDateValue(date);
 
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
-  const job = (async () => {
+  const job = withDeadline((async () => {
     const resultCsv = await writeSiteResultCsv(origin);
     return new Promise((resolve, reject) => {
       execFile(
         pythonBin,
         [
           scriptPath,
-          '--origin', normalizeOrigin(origin),
+          '--origin', canonicalOrigin(origin),
           '--result-csv', resultCsv,
           '--start', dateValue(startDate),
           '--end', dateValue(endDate),
@@ -251,8 +284,11 @@ async function generatePdfReport(origin) {
             return;
           }
           try {
+            const outputHtmlPath = outputPath.replace(/\.pdf$/i, '.html');
+            removeGeneratedArtifact(outputPath);
+            removeGeneratedArtifact(outputHtmlPath);
             fs.renameSync(stagingPath, outputPath);
-            removeGeneratedArtifact(stagingHtmlPath);
+            if (fs.existsSync(stagingHtmlPath)) fs.renameSync(stagingHtmlPath, outputHtmlPath);
             resolve(outputPath);
           } catch (moveErr) {
             removeGeneratedArtifact(stagingPath);
@@ -262,18 +298,56 @@ async function generatePdfReport(origin) {
         },
       );
     });
-  })().finally(() => reportGenerationJobs.delete(key));
+  })(), REPORT_JOB_TIMEOUT_MS, '보고서 생성 시간이 초과됐습니다. 잠시 후 다시 시도해주세요.')
+    .finally(() => reportGenerationJobs.delete(key));
 
   reportGenerationJobs.set(key, job);
   return job;
 }
 
+// 웹 요청을 보고서 생성 시간(최대 3분) 동안 붙잡아 두면 프록시가 먼저
+// 504를 반환한다. 생성은 백그라운드에서 계속하고 화면은 상태를 조회한다.
+function queuePdfReport(origin) {
+  const key = siteKey(origin);
+  if (!key) throw new Error('보고서를 생성할 사이트 정보가 없습니다.');
+  if (reportGenerationJobs.has(key)) return;
+  reportGenerationStatus.set(key, { status: 'generating', started_at: new Date().toISOString() });
+  generatePdfReport(origin)
+    .then(() => reportGenerationStatus.set(key, { status: 'ready', finished_at: new Date().toISOString() }))
+    .catch((err) => {
+      console.error('[report/generate/background] 오류:', err.message);
+      reportGenerationStatus.set(key, { status: 'error', error: err.message, finished_at: new Date().toISOString() });
+    });
+}
+
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// "이탈"은 운영자에게 부정적으로 읽혀서 "탐색 중지"로 통일
+// "이탈"은 운영자에게 부정적으로 읽혀서 "탐색 중지"로 통일한다.
+//
+// 단순 치환은 조사를 깨뜨린다.
+// "이탈"은 받침이 있고 "중지"는 없어서 붙는 조사가 달라지기 때문이다.
+//   이탈이 → 탐색 중지이 (X)  → 탐색 중지가 (O)
+//   이탈을 → 탐색 중지을 (X)  → 탐색 중지를 (O)
+// 조사가 붙은 형태를 먼저 처리하고, 남은 것을 마지막에 바꾼다.
+// 반드시 긴 것부터. "이탈이나"가 "이탈이"에 먼저 걸리면 "탐색 중지가나"가 된다.
+const TERM_REPLACEMENTS = [
+  [`${BLOCKED_TERM}이나`, `${REPLACEMENT_TERM}나`],
+  [`${BLOCKED_TERM}이라`, `${REPLACEMENT_TERM}라`],
+  [`${BLOCKED_TERM}으로`, `${REPLACEMENT_TERM}로`],
+  [`${BLOCKED_TERM}이`, `${REPLACEMENT_TERM}가`],
+  [`${BLOCKED_TERM}을`, `${REPLACEMENT_TERM}를`],
+  [`${BLOCKED_TERM}은`, `${REPLACEMENT_TERM}는`],
+  [`${BLOCKED_TERM}과`, `${REPLACEMENT_TERM}와`],
+  [BLOCKED_TERM, REPLACEMENT_TERM],
+];
+
 function normalizeReportText(text) {
-  return String(text || '').replaceAll(BLOCKED_TERM, REPLACEMENT_TERM);
+  let value = String(text || '');
+  for (const [from, to] of TERM_REPLACEMENTS) {
+    value = value.replaceAll(from, to);
+  }
+  return value;
 }
 
 // Gemini 응답이 문장 중간에 끊겼는지 확인
@@ -288,10 +362,19 @@ function looksCompleteReport(text) {
 }
 
 // 재시도해볼 만한 Gemini 쪽 오류인지 판단
+// "Gemini를 못 쓰는 상황"인지 판정한다. true면 로컬 요약으로 조용히 대체한다.
+//
+// GEMINI_API_KEY 미설정을 여기 포함시키는 이유:
+// 키가 없는 환경(로컬 개발, 아직 환경변수를 못 넣은 배포)에서 이게 빠지면
+// 예외가 그대로 올라가 리포트 요청이 500으로 실패한다.
+// 리포트는 없어도 되는 부가 기능이므로, 못 만들면 로컬 문장으로 내려가야지
+// 화면 전체를 깨뜨리면 안 된다.
 function isGeminiUnavailable(err) {
   const message = String(err?.message || '');
-  return message.includes('503')
+  return message.includes('GEMINI_API_KEY')
+    || message.includes('503')
     || message.includes('429')
+    || message.includes('500')
     || message.includes('UNAVAILABLE')
     || message.includes('재시도 초과')
     || message.includes('incomplete');
@@ -424,7 +507,10 @@ async function callGemini(prompt, retries = 3) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const res = await fetch(GEMINI_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY,
+      },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
@@ -598,6 +684,9 @@ router.get('/cluster/:clusterId', async (req, res) => {
       res.json({ cluster_id: clusterId, report, cached: false, origin, profile_source: source });
     } catch (err) {
       if (!isGeminiUnavailable(err)) throw err;
+      // 왜 로컬로 내려갔는지 로그에 남긴다.
+      // 이게 없으면 키 미설정인지 API 장애인지 구분할 방법이 없다.
+      console.warn(`[report] Gemini 미사용 → 로컬 요약: ${err.message}`);
       const report = buildLocalClusterReport(clusterId, profile, labelInfo);
       res.json({
         cluster_id: clusterId, report, cached: false, fallback: true,
@@ -693,6 +782,9 @@ router.post('/session', async (req, res) => {
       }
     } catch (err) {
       if (!isGeminiUnavailable(err)) throw err;
+      // 왜 로컬로 내려갔는지 로그에 남긴다.
+      // 이게 없으면 키 미설정인지 API 장애인지 구분할 방법이 없다.
+      console.warn(`[report] Gemini 미사용 → 로컬 요약: ${err.message}`);
       report = buildLocalSessionReport(body, profile);
       fallback = true;
       warning = 'AI 리포트 서버가 혼잡해 자동 요약을 표시했습니다.';
@@ -714,9 +806,35 @@ router.post('/session', async (req, res) => {
 });
 
 // ── GET /api/report/cache/clear ───────────────────────────────────────────────
+// 자기 쇼핑몰 리포트만 다시 만들게 한다.
+//
+// 예전에는 reportCache.clear()로 전체를 날렸다. 이 라우터는 requireSite만
+// 통과하면 되므로, 사장님 아무나 다른 모든 쇼핑몰의 캐시까지 지울 수 있었다.
+// 그러면 남의 리포트가 전부 Gemini 재호출로 넘어가 비용과 지연이 같이 튄다.
+//
+// 캐시 키가 `${siteKey(origin)}:${clusterId}:${version}` 형태라
+// 앞부분만 보고 자기 것만 골라 지울 수 있다.
 router.get('/cache/clear', (req, res) => {
-  reportCache.clear();
-  res.json({ message: '캐시 초기화 완료' });
+  const origin = req.siteOrigin || null;
+
+  // 개방 모드(로컬 개발)에서는 볼 수 있는 사이트가 고정돼 있지 않으므로 기존대로 전체 삭제
+  if (!origin) {
+    const total = reportCache.size;
+    reportCache.clear();
+    return res.json({ message: '캐시 초기화 완료', cleared: total, scope: 'all' });
+  }
+
+  const prefix = `${siteKey(origin)}:`;
+  let cleared = 0;
+
+  for (const key of [...reportCache.keys()]) {
+    if (key.startsWith(prefix)) {
+      reportCache.delete(key);
+      cleared += 1;
+    }
+  }
+
+  res.json({ message: '캐시 초기화 완료', cleared, scope: origin });
 });
 
 // ── GET /api/report/weekly/download ───────────────────────────────────────────
@@ -729,9 +847,8 @@ router.get('/weekly/download', async (req, res) => {
       if (!origin) {
         return res.status(400).json({ error: '보고서를 생성할 쇼핑몰을 먼저 선택해주세요.' });
       }
-      await generatePdfReport(origin);
-      report = findCurrentPdfReport(origin);
-      if (!report) throw new Error('생성된 PDF 보고서를 찾지 못했습니다.');
+      queuePdfReport(origin);
+      return res.status(202).json({ status: 'generating', message: '주간 보고서를 생성하고 있습니다.' });
     }
 
     const datePart = localDateValue();
@@ -742,6 +859,39 @@ router.get('/weekly/download', async (req, res) => {
   } catch (err) {
     console.error('[report/weekly/download] 오류:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/weekly/status', (req, res) => {
+  const origin = req.siteOrigin || null;
+  if (!origin) return res.status(400).json({ error: '보고서를 생성할 쇼핑몰을 먼저 선택해주세요.' });
+  const pdf = findCurrentPdfReport(origin);
+  const html = findCurrentHtmlReport(origin);
+  if (pdf && html) return res.json({ status: 'ready' });
+  const status = reportGenerationStatus.get(siteKey(origin));
+  if (status?.status === 'error') return res.status(500).json(status);
+  if (!reportGenerationJobs.has(siteKey(origin))) queuePdfReport(origin);
+  return res.status(202).json(status || { status: 'generating' });
+});
+
+// PDF 변환 직전의 동일한 HTML 원본을 대시보드 안에서 보여준다.
+// 화면과 PDF가 서로 다른 요약 규칙을 갖지 않도록 한 생성 결과를 함께 사용한다.
+router.get('/weekly/view', async (req, res) => {
+  try {
+    const origin = req.siteOrigin || null;
+    if (!origin) {
+      return res.status(400).send('<p>리포트를 볼 쇼핑몰을 먼저 선택해주세요.</p>');
+    }
+    let report = findCurrentHtmlReport(origin);
+    if (!report) {
+      queuePdfReport(origin);
+      return res.status(202).json({ status: 'generating', message: '전체 보고서를 생성하고 있습니다.' });
+    }
+    if (!report) throw new Error('생성된 웹 리포트를 찾지 못했습니다.');
+    res.sendFile(report.fullPath);
+  } catch (err) {
+    console.error('[report/weekly/view] 오류:', err.message);
+    res.status(500).send(`<html lang="ko"><body><p>리포트를 준비하지 못했습니다. ${String(err.message).replace(/[<>&"]/g, '')}</p></body></html>`);
   }
 });
 

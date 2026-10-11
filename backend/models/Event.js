@@ -90,4 +90,10 @@ EventSchema.index({ session_id: 1, event_seq: 1 });
 // 운영자 대시보드 집계용 — 이벤트 타입별 최근 구간 조회를 빠르게 한다
 EventSchema.index({ event_type: 1, received_at: -1 });
 
+// 사이트별 최근 이벤트 조회용 — originCondition()의 { origin: { $in } } 필터와
+// received_at 역순 정렬을 한 인덱스로 처리한다. 이게 없으면 received_at 인덱스를
+// 역순으로 훑으면서 문서를 하나씩 열어 origin을 비교한다.
+// (origin 단독 인덱스는 이 복합 인덱스의 앞부분이라 따로 만들지 않는다)
+EventSchema.index({ origin: 1, received_at: -1 });
+
 module.exports = mongoose.model('Event', EventSchema);

@@ -1,0 +1,126 @@
+{
+  "baseline": [
+    [
+      -1,
+      85,
+      "5",
+      "VIEW_PRODUCT 55/85, SCROLL_PRODUCT 42/85, CHECK_PRICE 40/85",
+      1,
+      1
+    ],
+    [
+      0,
+      11,
+      "3",
+      "VIEW_PRODUCT 11/11, SCROLL_CATEGORY 11/11",
+      0,
+      0
+    ],
+    [
+      1,
+      18,
+      "7",
+      "PRICE_REVIEW_EPISODE 18/18, CHECK_PRICE 18/18, VIEW_PRODUCT 16/18",
+      0,
+      0
+    ],
+    [
+      2,
+      25,
+      "52",
+      "VIEW_PRODUCT 25/25, SCROLL_PRODUCT 25/25, CLICK_ELEMENT 22/25",
+      1,
+      0
+    ],
+    [
+      3,
+      11,
+      "69",
+      "VIEW_PRODUCT 11/11, SCROLL_PRODUCT 11/11, SCROLL_HOME 11/11",
+      2,
+      2
+    ],
+    [
+      4,
+      20,
+      "5",
+      "VIEW_REVIEW 20/20, REVIEW_EXPLORATION_EPISODE 19/20, CHECK_PRICE 5/20",
+      0,
+      0
+    ],
+    [
+      5,
+      29,
+      "4",
+      "VIEW_PRODUCT 29/29, CHECK_PRICE 29/29, SCROLL_PRODUCT 24/29",
+      0,
+      0
+    ],
+    [
+      6,
+      23,
+      "4",
+      "VIEW_PRODUCT 23/23, SCROLL_PRODUCT 23/23, CHECK_PRICE 20/23",
+      0,
+      0
+    ]
+  ],
+  "advanced": [
+    [
+      -2,
+      614,
+      "2",
+      "VIEW_REVIEW 75/614, VIEW_PRODUCT 73/614, SCROLL_PAGE 26/614",
+      0,
+      0
+    ],
+    [
+      -1,
+      48,
+      "4",
+      "VIEW_REVIEW 41/48, REVIEW_EXPLORATION_EPISODE 18/48, SCROLL_PAGE 16/48",
+      0,
+      0
+    ],
+    [
+      0,
+      97,
+      "3",
+      "VIEW_REVIEW 97/97, REVIEW_EXPLORATION_EPISODE 34/97, CHECK_PRICE 18/97",
+      0,
+      0
+    ],
+    [
+      1,
+      193,
+      "4",
+      "VIEW_PRODUCT 186/193, CHECK_PRICE 179/193, SCROLL_PRODUCT 162/193",
+      0,
+      0
+    ],
+    [
+      2,
+      36,
+      "27",
+      "VIEW_PRODUCT 31/36, SCROLL_PRODUCT 29/36, SCROLL_HOME 27/36",
+      4,
+      3
+    ],
+    [
+      3,
+      35,
+      "31",
+      "VIEW_PRODUCT 34/35, SCROLL_CATEGORY 33/35, SCROLL_PRODUCT 21/35",
+      0,
+      0
+    ]
+  ],
+  "names": {
+    "-2": "행동 근거 부족",
+    "-1": "기준 밖 또는 배정 불확실",
+    "0": "리뷰 관련 신호 중심",
+    "1": "상품·가격 확인 중심",
+    "2": "다양한 상호작용·구매 시도 포함",
+    "3": "상품·카테고리 반복 탐색"
+  }
+}

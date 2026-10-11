@@ -62,6 +62,18 @@ CONTEXT_ONLY_EVENTS = {
     "subsection_revisit",
 }
 
+# 스크롤로 섹션이 뷰포트에 들어올 때 자동 발생하는 이벤트.
+# 쇼핑몰 상품 페이지는 레이아웃이 고정이라 방문자와 무관하게
+# 항상 같은 순서(product_detail→image→price→shipping→size→review)로 찍힌다.
+# 학습 토큰으로 쓰면 서로 다른 세션이 동일한 시퀀스가 되어 클러스터링이 붕괴한다.
+# 상태 추적에는 계속 쓰되 시퀀스에서는 제외한다.
+# (section_revisit / *_dwell 은 "되돌아옴 / 머무름" = 능동 신호이므로 유지)
+PASSIVE_ENTER_EVENTS = {
+    "section_enter",
+    "subsection_enter",
+    "section_transition",
+}
+
 # TAB_OUT / INACTIVE / TAB_RETURN 연속 반복을 압축할 semantic action 집합
 FOCUS_AWAY_ACTIONS = {"TAB_OUT", "INACTIVE", "TAB_RETURN"}
 
@@ -434,6 +446,11 @@ def update_context(
     if event_type == "section_enter":
         section = data.get("section")
         if section:
+            # 다른 section으로 넘어가면 이전 subsection은 더 이상 유효하지 않다.
+            # subsection_exit 이벤트가 실제로 발생하지 않으므로(수집 데이터 기준 0건)
+            # 여기서 끊어주지 않으면 subsection이 세션 끝까지 고착된다.
+            if current_section != str(section):
+                current_subsection = None
             current_section = str(section)
 
     elif event_type == "section_exit":
@@ -462,6 +479,7 @@ def build_semantic_sequence_for_session(
     collapse_tab_runs: bool = True,
     min_tab_run: int = 3,
     promote_episodes: bool = True,
+    drop_passive_enter: bool = True,
 ) -> Dict[str, Any]:
     """
     세션 하나를 semantic token sequence로 변환.
@@ -500,6 +518,11 @@ def build_semantic_sequence_for_session(
             current_section=current_section,
             current_subsection=current_subsection,
         )
+
+        # 스크롤로 자동 발생하는 진입 이벤트는 위에서 상태만 갱신하고 버린다.
+        # (레이아웃 순서를 그대로 재생해 세션 간 시퀀스를 동일하게 만들기 때문)
+        if drop_passive_enter and event_type in PASSIVE_ENTER_EVENTS:
+            continue
 
         token = map_event_to_semantic_token(
             event,
@@ -562,6 +585,7 @@ def build_all_session_sequences(
     min_tab_run: int = 3,
     max_unknown_ratio: float = 0.5,
     promote_episodes: bool = True,
+    drop_passive_enter: bool = True,
 ) -> List[Dict[str, Any]]:
     sessions = group_by_session(events)
 
@@ -576,6 +600,7 @@ def build_all_session_sequences(
             collapse_tab_runs=collapse_tab_runs,
             min_tab_run=min_tab_run,
             promote_episodes=promote_episodes,
+            drop_passive_enter=drop_passive_enter,
         )
 
         # UNKNOWN 비율이 너무 높은 세션 필터링
@@ -726,8 +751,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="ml/output",
-        help="Output directory.",
+        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "output"),
+        help="Output directory. (기본값: 이 스크립트 옆의 output/ — "
+             "실행 위치와 무관하게 항상 ml/output 에 저장된다)",
+    )
+
+    parser.add_argument(
+        "--keep-passive-enter",
+        action="store_true",
+        help="section_enter/subsection_enter 를 학습 토큰으로 유지한다. "
+             "기본은 제외 — 레이아웃 순서가 그대로 찍혀 세션 시퀀스가 동일해지기 때문.",
     )
 
     parser.add_argument(
@@ -786,6 +819,7 @@ def main() -> None:
         min_tab_run=args.min_tab_run,
         max_unknown_ratio=args.max_unknown_ratio,
         promote_episodes=not args.no_episodes,
+        drop_passive_enter=not args.keep_passive_enter,
     )
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
