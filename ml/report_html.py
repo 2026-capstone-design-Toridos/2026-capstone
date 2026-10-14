@@ -25,6 +25,7 @@ import matplotlib.font_manager as fm
 import numpy as np
 
 from exit_capture import browser_executable, capture_exit_hotspots
+from report_marketing import build_marketing_pages, load_metrics
 
 # ── 경로 ───────────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -546,7 +547,8 @@ def chart_funnel(funnel: dict) -> str:
 # 표지·요약·퍼널·클러스터·제안·방법론 페이지를 조합해 완성된 HTML 문자열을 반환한다
 def build_html(start: str, end: str, profiles: dict,
                ai_reports: dict, font_reg: str, font_bold: str,
-               funnel: dict = None, exit_captures: list = None) -> str:
+               funnel: dict = None, exit_captures: list = None,
+               marketing_html: str = '') -> str:
 
     total_visits = sum(p.get('count', 0) for p in profiles.values())
     _intent = {c: type_intent(type_name(c, p), p, funnel) for c, p in profiles.items()}
@@ -908,8 +910,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     background: linear-gradient(90deg, #185adb 0%, #0f7ae5 58%, #14b8a6 100%);
 }}
 .cover {{
-    align-items: flex-start;
-    justify-content: flex-start;
+    display: block;            /* flex 열 배치는 WeasyPrint 52 이하에서 제목이 세로로 깨진다 */
     text-align: left;
     padding: 32mm 18mm 24mm;
     color: #172033;
@@ -927,9 +928,11 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 .cover .main-title {{ font-size: 30pt; color: #172033; margin-top: 13mm; }}
 .cover .sub-title {{ color: #65758b; opacity: 1; }}
 .cover .period-box {{ color:#1e3a8a; background:#ffffff; border-color:#d9e5f2; box-shadow:0 5px 18px rgba(23,32,51,.07); }}
+.cover .logo-line, .cover .period-box {{ display:inline-block; }}
 .cover .divider {{ margin-left:0; background:#185adb; }}
-.cover .kpi-row {{ width:100%; gap:5mm; }}
-.cover .kpi-item {{ flex:1; min-width:0; background:#fff; border:1px solid #dde7f2; border-top:3px solid #185adb; box-shadow:0 8px 24px rgba(23,32,51,.08); text-align:left; }}
+.cover .kpi-row {{ display:block; width:100%; font-size:0; }}
+.cover .kpi-item {{ display:inline-block; vertical-align:top; box-sizing:border-box; width:31.4%; margin-right:2.9%; min-width:0; background:#fff; border:1px solid #dde7f2; border-top:3px solid #185adb; box-shadow:0 8px 24px rgba(23,32,51,.08); text-align:left; }}
+.cover .kpi-item:nth-child(3) {{ margin-right:0; }}
 .cover .kpi-item:nth-child(2) {{ border-top-color:#14b8a6; }}
 .cover .kpi-item:nth-child(3) {{ border-top-color:#e85d4f; }}
 .cover .kpi-val {{ color:#172033; }}
@@ -1017,7 +1020,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
             act = PRIORITY_ACTION.get(tp['name'], '맞춤 안내·혜택으로 전환을 높이세요.')
             _items.append(f"<li><b>{tag} — {tp['name']}</b> (전체의 {sh}%): {act}</li>")
     priority_html = (
-        '<div class="section-title">이번 달 우선 조치</div>'
+        '<div class="section-title">우선 조치</div>'
         '<ul style="font-size:9.5pt; line-height:1.9; color:#263238; '
         'background:#f5f7ff; border-left:4px solid #3949AB; '
         'padding:5mm 6mm 5mm 11mm; margin:0 0 6mm 0; border-radius:0 8px 8px 0;">'
@@ -1028,20 +1031,19 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 <div class="page">
   <div class="page-header">
     <span class="brand">GHOSTTRACKER</span>
-    <span class="page-title">전체 요약</span>
+    <span class="page-title">고객 유형 요약</span>
     <span class="period">{start} ~ {end}</span>
   </div>
   <div class="page-body">
     <div class="summary-lead">
       <div class="eyebrow">이번 주 핵심 포인트</div>
       <div class="headline">{summary_headline}</div>
-      <div class="copy">{summary_copy}</div>
     </div>
 
     <div class="summary-kpi-row">
       <div class="kpi-card blue">
         <div class="card-val">{total_visits:,}</div>
-        <div class="card-lbl">이번 달 총 방문 건수</div>
+        <div class="card-lbl">분석 기간 방문 건수</div>
       </div>
       <div class="kpi-card green">
         <div class="card-val">{high_pct}%</div>
@@ -1433,6 +1435,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 </head>
 <body>
 {cover_html}
+{marketing_html}
 {summary_html}
 {summary_table_html}
 {funnel_html}
@@ -1455,7 +1458,7 @@ def site_key(origin: str) -> str:
 
 
 def generate_report(start_date: str, end_date: str, output_path: str,
-                    origin: str = '', result_csv: str = ''):
+                    origin: str = '', result_csv: str = '', metrics_json: str = ''):
     print("=" * 55)
     print("  GhostTracker 고객 분석 리포트 생성기 (HTML → PDF)")
     print("=" * 55)
@@ -1506,11 +1509,19 @@ def generate_report(start_date: str, end_date: str, output_path: str,
     for mp in profiles.values():
         for raw in mp.get('members', []):
             cid_to_name[str(raw)] = mp['name']
-    funnel = compute_funnel(SESSION_SEQ_PATH, CLUSTER_RESULT_PATH, cid_to_name)
+    # 마케팅 지표(metrics JSON)가 있으면 그 퍼널을 쓴다. 기존 compute_funnel은 전역 파일을
+    # 읽고 origin을 걸러내지 않아 다른 쇼핑몰 세션이 섞일 수 있다.
+    metrics = load_metrics(metrics_json) if metrics_json else None
+    marketing_html = build_marketing_pages(metrics, start_date, end_date) if metrics else ''
+    if marketing_html:
+        print("  → 마케팅 지표 페이지 3쪽 구성 (기존 전역 퍼널은 사용하지 않음)")
+        funnel = None
+    else:
+        funnel = compute_funnel(SESSION_SEQ_PATH, CLUSTER_RESULT_PATH, cid_to_name)
     if funnel:
         b = funnel['biggest']
         print(f"  → 퍼널: {funnel['total']}세션, 최대 누수 '{b[0]}' {b[1]}명({b[2]}%)")
-    else:
+    elif not marketing_html:
         print("  → 세션 데이터 없음 → 퍼널 페이지 생략")
 
     print("\n[2.5/4] 탐색 중지 집중 화면 캡처 중...")
@@ -1525,7 +1536,8 @@ def generate_report(start_date: str, end_date: str, output_path: str,
 
     # 4. HTML 생성
     print("\n[3/4] HTML 리포트 구성 중...")
-    html = build_html(start_date, end_date, profiles, ai_reports, font_reg, font_bold, funnel, exit_captures)
+    html = build_html(start_date, end_date, profiles, ai_reports, font_reg, font_bold, funnel, exit_captures,
+                      marketing_html=marketing_html)
 
     # HTML 파일도 저장 (디버깅용)
     html_path = output_path.replace('.pdf', '.html')
@@ -1597,6 +1609,8 @@ def main():
                         '지정하지 않으면 전체 사이트가 섞인다.')
     p.add_argument('--result-csv', default='',
                    help='사이트별 고객 유형 집계 CSV. 지정하면 전역 cluster_meta 대신 사용한다.')
+    p.add_argument('--metrics-json', default='',
+                   help='마케팅 지표 JSON(퍼널·채널·기기·시간대). 지정하면 마케팅 지표 4쪽을 앞에 넣는다.')
     args = p.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -1609,7 +1623,8 @@ def main():
                     if args.origin else f"ghosttracker_report_{stamp}.pdf")
 
     out = args.output or os.path.join(OUT_DIR, default_name)
-    generate_report(args.start, args.end, out, origin=args.origin, result_csv=args.result_csv)
+    generate_report(args.start, args.end, out, origin=args.origin, result_csv=args.result_csv,
+                    metrics_json=args.metrics_json)
 
 if __name__ == '__main__':
     main()
