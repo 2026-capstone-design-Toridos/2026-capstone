@@ -14,7 +14,7 @@ function prettySourceName(raw) {
   const value = String(raw || '').trim().toLowerCase();
   if (!value || value === 'direct') return '직접 방문';
   if (value.includes('notion')) return 'Notion';
-  if (value.includes('instagram') || value.includes('insta')) return 'Instagram';
+  if (value === 'ig' || value.includes('instagram') || value.includes('insta')) return 'Instagram';
   if (value.includes('threads')) return 'Threads';
   if (value.includes('facebook') || value.includes('fban')) return 'Facebook';
   if (value.includes('github')) return 'GitHub';
@@ -39,8 +39,10 @@ function hostFromUrl(raw) {
 }
 
 // 세션 단위로 묶어 이탈 위험 여부를 판정한다
-function buildSessionPipeline(filter = {}) {
-  return [
+// extra.group / extra.project 로 세션별 필드를 더 뽑을 수 있다(보고서 지표용).
+// 완료·위험 판정 등 기존 필드는 그대로라 대시보드 결과는 달라지지 않는다.
+function buildSessionPipeline(filter = {}, extra = {}) {
+  const pipeline = [
     { $match: filter },
     { $sort: { received_at: 1 } },
     {
@@ -246,6 +248,9 @@ function buildSessionPipeline(filter = {}) {
       },
     },
   ];
+  if (extra.group) Object.assign(pipeline[2].$group, extra.group);
+  if (extra.project) Object.assign(pipeline[3].$project, extra.project);
+  return pipeline;
 }
 
 /**
@@ -666,3 +671,5 @@ router.get('/', async (req, res) => {
 });
 
 module.exports = router;
+// 보고서 지표 집계(lib/reportMetrics.js)가 대시보드와 같은 세션·채널 정의를 쓰도록 노출한다.
+module.exports.sessionHelpers = { buildSessionPipeline, deriveSourceName, screenLabel, causeLabel };

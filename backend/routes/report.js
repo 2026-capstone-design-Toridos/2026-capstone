@@ -21,6 +21,7 @@ const { execFile } = require('child_process');
 const router  = express.Router();
 const { canonicalOrigin } = require('../middleware/siteAccess');
 const clustersRouter = require('./clusters');
+const { buildReportMetrics, kstDateString } = require('../lib/reportMetrics');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 // API 키는 URL이 아니라 x-goog-api-key 헤더로 보낸다.
@@ -43,6 +44,9 @@ const REPORT_INPUT_DIR = path.join(REPORTS_DIR, 'inputs');
 // 단계별 시한(Mongo 30초 + 분류 서버 120초 + Python 180초)을 다 합쳐도 약 6분이다.
 // 이 값을 넘기면 어느 단계에서 멈췄든 작업을 실패 처리해 "생성 중"이 남지 않게 한다.
 const REPORT_JOB_TIMEOUT_MS = Math.max(Number(process.env.REPORT_JOB_TIMEOUT_MS) || 420000, 60000);
+
+// 마케팅 지표 집계(Mongo 30초 시한 + 여유). 이 단계가 실패해도 보고서 자체는 지표 쪽 없이 만든다.
+const REPORT_METRICS_TIMEOUT_MS = Math.max(Number(process.env.REPORT_METRICS_TIMEOUT_MS) || 45000, 5000);
 
 function withDeadline(promise, ms, message) {
   let timer;
@@ -209,6 +213,27 @@ function removeGeneratedArtifact(filePath) {
   }
 }
 
+/**
+ * 마케팅 지표(이번 주·전주)를 집계해 JSON으로 저장하고 경로를 돌려준다.
+ * 집계가 실패하거나 늦어지면 빈 문자열을 돌려줘 보고서가 지표 쪽 없이 계속 만들어지게 한다.
+ */
+async function writeSiteMetricsJson(origin, startDate, endDate) {
+  try {
+    const metrics = await withDeadline(
+      buildReportMetrics(origin, { startDate, endDate }),
+      REPORT_METRICS_TIMEOUT_MS,
+      '마케팅 지표 집계 시간이 초과됐습니다.',
+    );
+    fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
+    const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_metrics.json`);
+    fs.writeFileSync(jsonPath, JSON.stringify(metrics), 'utf8');
+    return jsonPath;
+  } catch (err) {
+    console.warn('[report/generate] 마케팅 지표 집계 실패 → 해당 쪽 없이 생성:', err.message);
+    return '';
+  }
+}
+
 async function writeSiteResultCsv(origin) {
   const result = await clustersRouter.buildSiteReportData(origin);
   if (!result.total_sessions || !result.clusters?.length) {
@@ -243,14 +268,17 @@ async function generatePdfReport(origin) {
   const oraclePython = '/home/opc/ghosttracker-venv/bin/python3.11';
   const pythonBin = process.env.PYTHON_BIN
     || (fs.existsSync(oraclePython) ? oraclePython : (process.platform === 'win32' ? 'python' : 'python3'));
-  const endDate = new Date();
-  const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - 6);
-  const dateValue = (date) => localDateValue(date);
+  // 보고서 기간은 한국 날짜 기준 최근 7일이다. 서버가 UTC로 돌아도 표지 날짜와
+  // 마케팅 지표의 집계 구간이 같은 날짜를 가리키도록 둘 다 여기서 정한다.
+  const endDate = kstDateString(new Date());
+  const startDate = kstDateString(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
 
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
   const job = withDeadline((async () => {
-    const resultCsv = await writeSiteResultCsv(origin);
+    const [resultCsv, metricsJson] = await Promise.all([
+      writeSiteResultCsv(origin),
+      writeSiteMetricsJson(origin, startDate, endDate),
+    ]);
     return new Promise((resolve, reject) => {
       execFile(
         pythonBin,
@@ -258,8 +286,9 @@ async function generatePdfReport(origin) {
           scriptPath,
           '--origin', canonicalOrigin(origin),
           '--result-csv', resultCsv,
-          '--start', dateValue(startDate),
-          '--end', dateValue(endDate),
+          ...(metricsJson ? ['--metrics-json', metricsJson] : []),
+          '--start', startDate,
+          '--end', endDate,
           '--output', stagingPath,
         ],
         {
