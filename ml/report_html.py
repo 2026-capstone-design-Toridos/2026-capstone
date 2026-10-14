@@ -910,8 +910,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     background: linear-gradient(90deg, #185adb 0%, #0f7ae5 58%, #14b8a6 100%);
 }}
 .cover {{
-    align-items: flex-start;
-    justify-content: flex-start;
+    display: block;            /* flex 열 배치는 WeasyPrint 52 이하에서 제목이 세로로 깨진다 */
     text-align: left;
     padding: 32mm 18mm 24mm;
     color: #172033;
@@ -929,9 +928,11 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 .cover .main-title {{ font-size: 30pt; color: #172033; margin-top: 13mm; }}
 .cover .sub-title {{ color: #65758b; opacity: 1; }}
 .cover .period-box {{ color:#1e3a8a; background:#ffffff; border-color:#d9e5f2; box-shadow:0 5px 18px rgba(23,32,51,.07); }}
+.cover .logo-line, .cover .period-box {{ display:inline-block; }}
 .cover .divider {{ margin-left:0; background:#185adb; }}
-.cover .kpi-row {{ width:100%; gap:5mm; }}
-.cover .kpi-item {{ flex:1; min-width:0; background:#fff; border:1px solid #dde7f2; border-top:3px solid #185adb; box-shadow:0 8px 24px rgba(23,32,51,.08); text-align:left; }}
+.cover .kpi-row {{ display:block; width:100%; font-size:0; }}
+.cover .kpi-item {{ display:inline-block; vertical-align:top; box-sizing:border-box; width:31.4%; margin-right:2.9%; min-width:0; background:#fff; border:1px solid #dde7f2; border-top:3px solid #185adb; box-shadow:0 8px 24px rgba(23,32,51,.08); text-align:left; }}
+.cover .kpi-item:nth-child(3) {{ margin-right:0; }}
 .cover .kpi-item:nth-child(2) {{ border-top-color:#14b8a6; }}
 .cover .kpi-item:nth-child(3) {{ border-top-color:#e85d4f; }}
 .cover .kpi-val {{ color:#172033; }}

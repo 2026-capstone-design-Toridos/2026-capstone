@@ -298,60 +298,78 @@ def _action_items(metrics: dict, steps: list, leak, worsened, channel_rows: list
     return items[:3]
 
 
-# ── 차트 (인라인 SVG) ─────────────────────────────────────────────────────────
-def _funnel_svg(steps: list, leak) -> str:
-    row_h, gap, left, bar_max = 22, 19, 112, 330
+# ── 차트 (HTML/CSS) ───────────────────────────────────────────────────────────
+# 인라인 <svg>는 WeasyPrint 52 이하에서 그려지지 않는다(글자만 남는다). 서버 OS의 Pango가
+# 낮으면 52.x를 써야 하므로, 막대는 display:table + 퍼센트 너비로 그린다. flex/gap도 쓰지 않는다.
+def _cell(width: float, style: str = '') -> str:
+    return f'display:table-cell;width:{width:.4f}%;{style}'
+
+
+def _funnel_html(steps: list, leak) -> str:
     top = max((s['sessions'] for s in steps), default=0) or 1
-    parts = []
-    y = 4
+    rows = []
     for i, s in enumerate(steps):
         if i:
-            lost_txt = f"▼ {_pct(s['step_rate'])} 진행 · {s['lost']:,}명 멈춤"
             is_leak = (i == leak)
-            parts.append(
-                f'<text x="{left}" y="{y + 13}" font-size="11" '
-                f'fill="{RED if is_leak else "#78909c"}" font-weight="{"bold" if is_leak else "normal"}">{lost_txt}</text>')
-            y += gap
-        w = max(s['sessions'] / top * bar_max, 2)
+            lost_txt = f"▼ {_pct(s['step_rate'])} 진행 · {s['lost']:,}명 멈춤"
+            color = RED if is_leak else '#78909c'
+            weight = 'bold' if is_leak else 'normal'
+            rows.append(
+                f'<div style="display:table;table-layout:fixed;width:100%;">'
+                f'<div style="{_cell(18)}"></div>'
+                f'<div style="{_cell(82, f"font-size:8.5pt;line-height:1.7;color:{color};font-weight:{weight};")}">{lost_txt}</div>'
+                f'</div>')
+        w = max(s['sessions'] / top * 100, 1.2)
         color = ORANGE if (leak is not None and i == leak) else BLUE
-        parts.append(f'<text x="{left - 8}" y="{y + 15}" font-size="12" text-anchor="end" fill="#37474f">{_esc(s["stage"])}</text>')
-        parts.append(f'<rect x="{left}" y="{y}" width="{w:.1f}" height="{row_h}" rx="4" fill="{color}"/>')
-        parts.append(f'<text x="{left + w + 8:.1f}" y="{y + 15}" font-size="12" fill="#162252" font-weight="bold">'
-                     f'{s["sessions"]:,}명 <tspan fill="#78909c" font-weight="normal">({_pct(s["of_first"])})</tspan></text>')
-        y += row_h
-    return f'<svg viewBox="0 0 640 {y + 6}" width="100%" xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>'
+        rows.append(
+            f'<div style="display:table;table-layout:fixed;width:100%;">'
+            f'<div style="{_cell(18, "text-align:right;padding-right:3mm;font-size:9pt;color:#37474f;vertical-align:middle;")}">{_esc(s["stage"])}</div>'
+            f'<div style="{_cell(50, "vertical-align:middle;")}">'
+            f'<div style="width:{w:.1f}%;height:5.5mm;background:{color};border-radius:1.2mm;"></div></div>'
+            f'<div style="{_cell(32, "padding-left:3mm;font-size:9pt;font-weight:bold;color:#162252;vertical-align:middle;")}">'
+            f'{s["sessions"]:,}명 <span style="color:#78909c;font-weight:normal;">({_pct(s["of_first"])})</span></div>'
+            f'</div>')
+    return ''.join(rows)
 
 
-def _bars_svg(values: list, labels: list, highlight: set, height: int = 120, bar_w: int = 18, gap: int = 8) -> str:
+def _bars_html(values: list, labels: list, highlight: set, height_mm: float = 24.0, bar_pct: float = 62.0) -> str:
+    """세로 막대. 값마다 같은 너비의 칸을 만들고 칸 아래쪽에 막대를 붙인다."""
     top = max(values) or 1
-    width = len(values) * (bar_w + gap)
-    base = height - 18
-    parts = []
+    col = 100.0 / len(values)
+    bars, lbls = [], []
     for i, v in enumerate(values):
-        h = v / top * (base - 14)
-        x = i * (bar_w + gap) + gap / 2
+        h = max(v / top * height_mm, 0.4)
         color = ORANGE if i in highlight else '#9fb0ff'
-        parts.append(f'<rect x="{x:.1f}" y="{base - h:.1f}" width="{bar_w}" height="{h:.1f}" rx="3" fill="{color}"/>')
-        if labels[i]:
-            parts.append(f'<text x="{x + bar_w / 2:.1f}" y="{height - 4}" font-size="10" text-anchor="middle" fill="#607086">{labels[i]}</text>')
-    return f'<svg viewBox="0 0 {width} {height}" width="100%" xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>'
+        bars.append(
+            f'<div style="{_cell(col, f"vertical-align:bottom;height:{height_mm}mm;")}">'
+            f'<div style="width:{bar_pct:.0f}%;height:{h:.2f}mm;margin:0 auto;background:{color};"></div></div>')
+        lbls.append(
+            f'<div style="{_cell(col, "text-align:center;font-size:7pt;color:#607086;padding-top:0.8mm;line-height:1.3;")}">'
+            f'{labels[i] or "&nbsp;"}</div>')
+    return (f'<div style="display:table;table-layout:fixed;width:100%;">'
+            f'<div style="display:table-row;">{"".join(bars)}</div>'
+            f'<div style="display:table-row;">{"".join(lbls)}</div></div>')
 
 
-def _share_bars_svg(rows: list) -> str:
+def _share_bars_html(rows: list) -> str:
     """채널별 '방문 비중' 대 '주문 비중' 짝막대."""
-    row_h, left, bar_max = 30, 100, 300
     top = max([r['share'] for r in rows] + [r['order_share'] for r in rows] + [1])
-    parts = []
-    for i, r in enumerate(rows):
-        y = i * row_h + 4
-        w1, w2 = r['share'] / top * bar_max, r['order_share'] / top * bar_max
-        parts.append(f'<text x="{left - 8}" y="{y + 12}" font-size="11" text-anchor="end" fill="#37474f">{_esc(r["name"])}</text>')
-        parts.append(f'<rect x="{left}" y="{y}" width="{max(w1, 1.5):.1f}" height="10" rx="3" fill="#9fb0ff"/>')
-        parts.append(f'<text x="{left + max(w1, 1.5) + 6:.1f}" y="{y + 9}" font-size="9" fill="#607086">방문 {_pct(r["share"])}</text>')
-        parts.append(f'<rect x="{left}" y="{y + 12}" width="{max(w2, 1.5):.1f}" height="10" rx="3" fill="{GREEN}"/>')
-        parts.append(f'<text x="{left + max(w2, 1.5) + 6:.1f}" y="{y + 21}" font-size="9" fill="{GREEN}">주문 {_pct(r["order_share"])}</text>')
-    h = len(rows) * row_h + 6
-    return f'<svg viewBox="0 0 520 {h}" width="100%" xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>'
+    out = []
+    for r in rows:
+        w1 = max(r['share'] / top * 66, 1.0)
+        w2 = max(r['order_share'] / top * 66, 1.0)
+        out.append(
+            f'<div style="display:table;table-layout:fixed;width:100%;margin-bottom:2.2mm;">'
+            f'<div style="{_cell(20, "text-align:right;padding-right:3mm;font-size:9pt;color:#37474f;vertical-align:middle;")}">{_esc(r["name"])}</div>'
+            f'<div style="{_cell(80, "vertical-align:middle;")}">'
+            f'<div style="white-space:nowrap;line-height:1;margin-bottom:0.8mm;">'
+            f'<span style="display:inline-block;width:{w1:.1f}%;height:2.6mm;background:#9fb0ff;vertical-align:middle;"></span>'
+            f'<span style="font-size:7.5pt;color:#607086;margin-left:1.5mm;vertical-align:middle;">방문 {_pct(r["share"])}</span></div>'
+            f'<div style="white-space:nowrap;line-height:1;">'
+            f'<span style="display:inline-block;width:{w2:.1f}%;height:2.6mm;background:{GREEN};vertical-align:middle;"></span>'
+            f'<span style="font-size:7.5pt;color:{GREEN};margin-left:1.5mm;vertical-align:middle;">주문 {_pct(r["order_share"])}</span></div>'
+            f'</div></div>')
+    return ''.join(out)
 
 
 def _tag(text: str, color: str) -> str:
@@ -368,20 +386,20 @@ def _time_block(metrics: dict) -> str:
         return ''
     total = sum(hourly)
     a, s = _peak_window(hourly)
-    hour_svg = _bars_svg(hourly, [str(h) if h % 3 == 0 else '' for h in range(24)],
-                         set(range(a, a + 3)), height=104, bar_w=16, gap=7)
-    day_svg, day_line = '', ''
+    hour_chart = _bars_html(hourly, [str(h) if h % 3 == 0 else '' for h in range(24)],
+                          set(range(a, a + 3)), height_mm=24)
+    day_chart, day_line = '', ''
     if len(weekday) == 7 and sum(weekday):
         top = max(range(7), key=lambda i: weekday[i])
         day_line = f" 요일은 <b>{WEEKDAYS[top]}요일</b>({_pct(_rate(weekday[top], sum(weekday)))})이 가장 많습니다."
-        day_svg = _bars_svg(weekday, WEEKDAYS, {top}, height=104, bar_w=22, gap=10)
+        day_chart = _bars_html(weekday, WEEKDAYS, {top}, height_mm=24, bar_pct=58)
     small = '' if total >= 50 else ' (방문이 50세션 미만이라 참고용입니다)'
     return f"""
     <div class="section-block">
       <div class="section-title">방문이 몰리는 시간 (한국 시간)</div>
-      <div style="display:flex;gap:6mm;align-items:flex-end;">
-        <div style="flex:2.3;">{hour_svg}</div>
-        <div style="flex:1;">{day_svg}</div>
+      <div style="display:table;table-layout:fixed;width:100%;">
+        <div style="{_cell(70, 'padding-right:6mm;vertical-align:bottom;')}">{hour_chart}</div>
+        <div style="{_cell(30, 'vertical-align:bottom;')}">{day_chart}</div>
       </div>
       <div style="font-size:9pt;color:#37474f;line-height:1.8;margin-top:2mm;">
         방문은 <b>{a}~{a + 3}시</b>에 가장 몰립니다(전체의 {_pct(_rate(s, total))}).{day_line}
@@ -449,7 +467,7 @@ def _overview_page(metrics, start, end, steps, leak, worsened, channel_rows) -> 
 
 
 def _journey_page(metrics, start, end, steps, leak, worsened) -> str:
-    chart = _funnel_svg(steps, leak)
+    chart = _funnel_html(steps, leak)
     lines = []
     if leak is not None:
         s, p = steps[leak], steps[leak - 1]
@@ -496,14 +514,16 @@ def _journey_page(metrics, start, end, steps, leak, worsened) -> str:
             return ''
         trs = ''.join(f"<tr><td>{_esc(r.get('label'))}</td><td style='text-align:center;'>{int(r.get('sessions') or 0):,}</td>"
                       f"<td style='text-align:center;'>{_pct(float(r.get('share') or 0))}</td></tr>" for r in rows[:3])
-        return (f'<div style="flex:1;"><div class="section-title" style="font-size:10pt;">{title}</div>'
+        return (f'<div><div class="section-title" style="font-size:10pt;">{title}</div>'
                 f'<table class="rec-table"><tr><th>구분</th><th style="text-align:center;">세션</th>'
                 f'<th style="text-align:center;">비중</th></tr>{trs}</table></div>')
 
     stop = mini('고객이 마지막에 머문 화면', metrics.get('exit_pages'))
     why = mini('멈춘 흔적(추정)', metrics.get('exit_causes'))
-    stop_html = (f'<div class="section-block" style="display:flex;gap:6mm;">{stop}{why}'
-                 f'</div>{_note("※ 탐색 중지 세션(주문 없이 창을 닫거나 오래 멈춘 세션) 기준 비중입니다.")}') if (stop or why) else ''
+    stop_html = (f'<div class="section-block"><div style="display:table;table-layout:fixed;width:100%;">'
+                 f'<div style="{_cell(50, "padding-right:3mm;vertical-align:top;")}">{stop}</div>'
+                 f'<div style="{_cell(50, "padding-left:3mm;vertical-align:top;")}">{why}</div>'
+                 f'</div>{_note("※ 탐색 중지 세션(주문 없이 창을 닫거나 오래 멈춘 세션) 기준 비중입니다.")}</div>') if (stop or why) else ''
 
     body = f"""
     {_sample_banner(metrics)}
@@ -563,7 +583,7 @@ def _channel_page(metrics, start, end, rows, total_orders) -> str:
     </div>
     <div class="section-block">
       <div class="section-title">방문 비중 대 주문 비중</div>
-      <div style="padding:0 2mm;">{_share_bars_svg(rows)}</div>
+      <div style="padding:0 2mm;">{_share_bars_html(rows)}</div>
       {_note('※ 파란 막대(방문)보다 초록 막대(주문)가 짧을수록 방문은 많은데 주문으로 이어지지 않는 채널입니다.')}
     </div>
     {reading}"""
