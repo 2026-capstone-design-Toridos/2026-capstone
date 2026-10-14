@@ -530,7 +530,7 @@ def _journey_page(metrics, start, end, steps, leak, worsened) -> str:
     <div class="section-block">
       <div class="section-title">단계별 고객 수</div>
       <div style="padding:0 2mm;">{chart}</div>
-      {_note('※ 각 단계는 해당 화면에 한 번이라도 도달한 세션 수입니다. 주황색 막대는 가장 많이 멈춘 구간을 지나 도착한 단계입니다.')}
+      {_note('※ 각 단계는 그 화면 또는 그 이후 화면에 도달한 세션 수입니다(주문을 완료한 세션은 앞 단계를 모두 거친 것으로 셉니다). 주황색 막대는 가장 많이 멈춘 구간을 지나 도착한 단계입니다.')}
     </div>
     <div class="section-block">
       <div class="insight-box"><div class="insight-label">읽는 법</div>{diag}</div>
@@ -561,7 +561,10 @@ def _channel_page(metrics, start, end, rows, total_orders) -> str:
                          f"평균 전환율이면 약 {r['expected']:.1f}건이 기대되고, 평균이라면 이렇게 적을 확률은 약 {_pct(r['p_low'] * 100)}입니다.</li>")
         elif r['tag'] == '확대 후보':
             notes.append(f"<li><b>{_esc(r['name'])}</b>: 주문 {r['orders']}건, 평균이라면 이만큼 많을 확률은 약 {_pct(r['p_high'] * 100)}입니다.</li>")
-    if total_orders < 10:
+    if total_orders == 0:
+        notes.append("<li>이번 기간에는 주문이 없어 채널 간 주문 전환율을 비교할 수 없습니다. "
+                     "상품 조회율과 장바구니율로 채널을 먼저 비교하고, 주문이 쌓인 뒤 판단하세요.</li>")
+    elif total_orders < 10:
         notes.append(f"<li>이번 기간 주문이 {total_orders}건뿐이라 채널 간 전환율 차이는 우연일 수 있습니다. "
                      f"방문·장바구니 도달률과 함께 보고, 주문이 쌓인 뒤 판단하세요.</li>")
     reading = (f'<div class="insight-box" style="margin-top:3mm;"><div class="insight-label">읽을 때 참고</div>'
