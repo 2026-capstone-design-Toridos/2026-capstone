@@ -241,6 +241,70 @@
   "noise_count": 85,
   "session_count": 132,
   "cluster_profiles": {
+    "0": {
+      "count": 11,
+      "top_actions": [
+        {
+          "action": "SCROLL_CATEGORY",
+          "count": 13
+        },
+        {
+          "action": "START_SESSION",
+          "count": 11
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 11
+        },
+        {
+          "action": "EXIT_BOUNCE",
+          "count": 2
+        }
+      ],
+      "page_dist": {
+        "CATEGORY": 37
+      }
+    },
+    "1": {
+      "count": 18,
+      "top_actions": [
+        {
+          "action": "CHECK_PRICE",
+          "count": 68
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 23
+        },
+        {
+          "action": "START_SESSION",
+          "count": 18
+        },
+        {
+          "action": "PRICE_REVIEW_EPISODE",
+          "count": 18
+        },
+        {
+          "action": "EXIT_BOUNCE",
+          "count": 7
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 6
+        },
+        {
+          "action": "VIEW_REVIEW",
+          "count": 6
+        },
+        {
+          "action": "INACTIVE",
+          "count": 2
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 148
+      }
+    },
     "2": {
       "count": 25,
       "top_actions": [
@@ -290,130 +354,6 @@
         "PRODUCT": 470,
         "HOME": 119,
         "CART": 5
-      }
-    },
-    "6": {
-      "count": 23,
-      "top_actions": [
-        {
-          "action": "START_SESSION",
-          "count": 23
-        },
-        {
-          "action": "VIEW_PRODUCT",
-          "count": 23
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 23
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 21
-        },
-        {
-          "action": "SCROLL_REVIEW",
-          "count": 2
-        },
-        {
-          "action": "PRICE_REVIEW_EPISODE",
-          "count": 1
-        }
-      ],
-      "page_dist": {
-        "PRODUCT": 93
-      }
-    },
-    "5": {
-      "count": 29,
-      "top_actions": [
-        {
-          "action": "VIEW_PRODUCT",
-          "count": 44
-        },
-        {
-          "action": "CHECK_PRICE",
-          "count": 29
-        },
-        {
-          "action": "START_SESSION",
-          "count": 28
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 24
-        },
-        {
-          "action": "SCROLL_REVIEW",
-          "count": 2
-        }
-      ],
-      "page_dist": {
-        "PRODUCT": 127
-      }
-    },
-    "1": {
-      "count": 18,
-      "top_actions": [
-        {
-          "action": "CHECK_PRICE",
-          "count": 68
-        },
-        {
-          "action": "VIEW_PRODUCT",
-          "count": 23
-        },
-        {
-          "action": "START_SESSION",
-          "count": 18
-        },
-        {
-          "action": "PRICE_REVIEW_EPISODE",
-          "count": 18
-        },
-        {
-          "action": "EXIT_BOUNCE",
-          "count": 7
-        },
-        {
-          "action": "SCROLL_PRODUCT",
-          "count": 6
-        },
-        {
-          "action": "VIEW_REVIEW",
-          "count": 6
-        },
-        {
-          "action": "INACTIVE",
-          "count": 2
-        }
-      ],
-      "page_dist": {
-        "PRODUCT": 148
-      }
-    },
-    "0": {
-      "count": 11,
-      "top_actions": [
-        {
-          "action": "SCROLL_CATEGORY",
-          "count": 13
-        },
-        {
-          "action": "START_SESSION",
-          "count": 11
-        },
-        {
-          "action": "VIEW_PRODUCT",
-          "count": 11
-        },
-        {
-          "action": "EXIT_BOUNCE",
-          "count": 2
-        }
-      ],
-      "page_dist": {
-        "CATEGORY": 37
       }
     },
     "3": {
@@ -502,6 +442,66 @@
       "page_dist": {
         "PRODUCT": 104
       }
+    },
+    "5": {
+      "count": 29,
+      "top_actions": [
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 44
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 29
+        },
+        {
+          "action": "START_SESSION",
+          "count": 28
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 24
+        },
+        {
+          "action": "SCROLL_REVIEW",
+          "count": 2
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 127
+      }
+    },
+    "6": {
+      "count": 23,
+      "top_actions": [
+        {
+          "action": "START_SESSION",
+          "count": 23
+        },
+        {
+          "action": "VIEW_PRODUCT",
+          "count": 23
+        },
+        {
+          "action": "SCROLL_PRODUCT",
+          "count": 23
+        },
+        {
+          "action": "CHECK_PRICE",
+          "count": 21
+        },
+        {
+          "action": "SCROLL_REVIEW",
+          "count": 2
+        },
+        {
+          "action": "PRICE_REVIEW_EPISODE",
+          "count": 1
+        }
+      ],
+      "page_dist": {
+        "PRODUCT": 93
+      }
     }
   },
   "silhouette": 0.4322,
@@ -518,15 +518,15 @@
     "davies_bouldin": 0.8743,
     "metrics_note": "",
     "stability": {
-      "avg_profile_stability": 1.0,
+      "avg_profile_stability": 1,
       "per_cluster": {
-        "2": 1.0,
-        "6": 1.0,
-        "5": 1.0,
-        "1": 1.0,
-        "0": 1.0,
-        "3": 1.0,
-        "4": 1.0
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1
       },
       "method": "top_actions/page_dist Jaccard similarity against previous run"
     }
@@ -553,5 +553,50 @@
     "https://hshh2020.cafe24api.com/",
     "https://www.dignolucir.co.kr",
     "https://www.dignolucir.co.kr/"
-  ]
+  ],
+  "nlp_labels": {
+    "0": {
+      "name": "관심사 탐색 후 중단 고객",
+      "summary": "카테고리를 둘러보고 상품을 몇 개 살펴본 후 빠르게 탐색을 중단하는 고객입니다.",
+      "action": "메인 페이지에 인기 카테고리나 신상품 추천을 강화하여 초기 탐색 중지를 줄이세요.",
+      "source": "gemini"
+    },
+    "1": {
+      "name": "가격 민감형 비교 탐색 고객",
+      "summary": "상품 페이지에서 가격을 반복적으로 확인하며 가격에 매우 민감하게 반응하는 고객입니다.",
+      "action": "가격 경쟁력 강조, 할인 프로모션 알림, 또는 가격 비교 정보를 제공하여 구매를 유도하세요.",
+      "source": "gemini"
+    },
+    "2": {
+      "name": "적극적 다방면 심층 탐색 고객",
+      "summary": "카테고리와 상품 페이지를 넘나들며 다양한 상품을 매우 적극적으로 탐색하고 정보를 수집하는 고객입니다.",
+      "action": "개인화된 상품 추천, 위시리스트 기능 안내, 또는 장바구니에 담기 유도 메시지로 구매 전환을 촉진하세요.",
+      "source": "gemini"
+    },
+    "3": {
+      "name": "꼼꼼한 상세 정보 확인 고객",
+      "summary": "상품 페이지에서 이미지 확대, 사이즈 확인 등 상품의 상세 정보를 매우 꼼꼼하게 확인하는 고객입니다.",
+      "action": "상세 페이지의 정보 충실도를 높이고, 관련 상품 추천이나 추가 이미지/영상 정보를 제공하여 구매를 확정시키세요.",
+      "source": "gemini"
+    },
+    "4": {
+      "name": "리뷰 기반 구매 고려 고객",
+      "summary": "상품 구매 전 다른 고객들의 리뷰를 집중적으로 확인하며 구매 결정을 내리는 고객입니다.",
+      "action": "베스트 리뷰를 상단에 노출하고, 리뷰 작성 시 혜택을 제공하여 리뷰 콘텐츠를 풍부하게 만드세요.",
+      "source": "gemini"
+    },
+    "5": {
+      "name": "가격 고려 일반 탐색 고객",
+      "summary": "상품을 살펴보고 가격을 확인하며 일반적인 수준으로 상품 페이지를 탐색하는 고객입니다.",
+      "action": "관심 상품과 유사한 상품을 추천하고, 가격 비교가 용이하도록 관련 정보를 제공하여 구매를 유도하세요.",
+      "source": "gemini"
+    },
+    "6": {
+      "name": "단순 상품 가격 확인 고객",
+      "summary": "쇼핑몰에 방문하여 특정 상품의 가격을 빠르게 확인한 후 탐색을 중지하는 고객입니다.",
+      "action": "가격 변동 알림 서비스나 한정 특가 상품 정보를 제공하여 재방문 및 구매를 유도하세요.",
+      "source": "gemini"
+    }
+  },
+  "nlp_labels_updated_at": "2026-10-26T09:49:10.839Z"
 }

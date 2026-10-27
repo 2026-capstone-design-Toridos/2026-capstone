@@ -148,6 +148,7 @@ const cafe24Adapter = {
 
     const priceRaw = _metaByProperty('product:price:amount');
     const price = priceRaw && Number.isFinite(Number(priceRaw)) ? Number(priceRaw) : null;
+    const currency = _metaByProperty('product:price:currency').toUpperCase();
 
     return {
       platform:      'cafe24',
@@ -155,6 +156,7 @@ const cafe24Adapter = {
       platform_role: pathRole || '',      // 원본 값도 남긴다 (매핑 누락 추적용)
       product_id:    productId || null,
       product_price: price,
+      product_currency: currency || null,
     };
   },
 };
@@ -172,7 +174,7 @@ let _resolved = false;
  * 어떤 어댑터도 감지되지 않으면 null (→ 기존 Layer 1/2로 동작).
  *
  * 페이지 로드마다 DOM은 고정이므로 한 번만 계산하고 캐시한다.
- * @returns {{platform, page_type, platform_role, product_id, product_price}|null}
+ * @returns {{platform, page_type, platform_role, product_id, product_price, product_currency}|null}
  */
 function getPlatformContext() {
   if (_resolved) return _cached;

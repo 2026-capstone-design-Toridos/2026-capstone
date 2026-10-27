@@ -41,7 +41,9 @@ const SNAPSHOT_DIR = path.resolve(
 const ML_DIR = path.resolve(__dirname, '../../ml');
 const RETRAIN_SCRIPT = path.join(ML_DIR, 'retrain_centroids.py');
 const SITE_CLUSTER_EVENT_LIMIT = Math.min(
-  Math.max(Number(process.env.SITE_CLUSTER_EVENT_LIMIT) || 100000, 1000),
+  // 운영 화면은 최근 행동 변화가 목적이므로 원문 10만 건 대신 최근 1만 건을 기본 표본으로 쓴다.
+  // 필요하면 환경변수로 확장할 수 있다.
+  Math.max(Number(process.env.SITE_CLUSTER_EVENT_LIMIT) || 10000, 1000),
   500000,
 );
 // 이벤트 조회가 이 시간을 넘기면 Mongo가 쿼리를 중단하고 에러를 돌려준다.
@@ -54,6 +56,7 @@ const SITE_CLUSTER_SESSION_LIMIT = Math.min(
   10000,
 );
 let clusteringJob = null;
+const siteClassificationJobs = new Map();
 
 // origin URL을 파일명으로 쓸 수 있게 정리
 function snapshotKey(origin = '') {
@@ -546,13 +549,23 @@ const FORCED_CLUSTER_PERSONAS = {
 // 구매 신호가 한 번 있었다고 구매형 클러스터로 이름 붙이지 않고 별도로 센다.
 function sessionFunnelSignals(events = []) {
   const types = new Set(events.map((event) => String(event.event_type || '').toLowerCase()));
+  const completed = types.has('guest_purchase') || types.has('order_complete')
+    || types.has('order_completed') || types.has('order_success')
+    || events.some((event) => String(event.page_type || event.data?.page_type || '').toUpperCase() === 'ORDER_SUCCESS');
+  const cart = ['add_to_cart', 'add_to_cart_success'].some((type) => types.has(type))
+    || events.some((event) => inferPage(event) === 'cart');
+  const review = ['review_click', 'review_image_click', 'review_page_change', 'review_scroll', 'review_area_scroll']
+    .some((type) => types.has(type))
+    || events.some((event) => /review|reviews|리뷰|후기/i.test(`${event.data?.subsection_id || ''} ${event.data?.subsection || ''} ${event.data?.subsection_label || ''}`));
+  const endedWithoutPurchase = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag']
+    .some((type) => types.has(type)) && !completed;
   return {
     guest_purchase: types.has('guest_purchase'),
     purchase_intent: types.has('purchase_click'),
-    cart: ['add_to_cart', 'add_to_cart_success'].some((type) => types.has(type)),
+    cart,
     wishlist: ['wishlist_intent', 'add_to_wishlist_success'].some((type) => types.has(type)),
-    review: ['review_click', 'review_image_click', 'review_page_change', 'review_scroll', 'review_area_scroll']
-      .some((type) => types.has(type)),
+    review,
+    abandoned: endedWithoutPurchase,
   };
 }
 
@@ -571,6 +584,18 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
   );
   // 끝 슬래시가 붙은 origin도 같이 매칭한다
   const docs = await Event.find(originCondition(origin))
+    // 의미 행동 분류에 실제로 쓰는 필드만 조회한다. data.source에는 페이지 HTML
+    // 전체가 들어올 수 있어 문서 전체를 읽으면 스냅샷 생성이 지나치게 느려진다.
+    .select([
+      'session_id', 'event_type', 'timestamp', 'event_seq', 'inter_event_gap',
+      'pathname', 'page_url', 'page_type', 'received_at',
+      'data.bounce_flag', 'data.section', 'data.element_section',
+      'data.subsection_id', 'data.subsection', 'data.subsection_label', 'data.depth_pct',
+      'data.scroll_depth_pct', 'data.milestone', 'data.max_scroll_depth',
+      'data.dwell_ms', 'data.dwell_time_ms', 'data.revisit_count',
+      'data.hover_text', 'data.hover_target', 'data.hover_dwell_time_ms',
+      'data.click_text', 'data.click_target',
+    ].join(' '))
     .sort({ received_at: -1 })
     .limit(SITE_CLUSTER_EVENT_LIMIT)
     .maxTimeMS(SITE_CLUSTER_QUERY_TIMEOUT_MS)
@@ -661,6 +686,7 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     cart_sessions: 0,
     wishlist_sessions: 0,
     review_sessions: 0,
+    abandoned_sessions: 0,
   };
   for (const [index, result] of (body.results || []).entries()) {
     const session = sessionById.get(result.session_id) || sessions[index];
@@ -670,6 +696,7 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     if (session?.funnel?.cart) funnel.cart_sessions += 1;
     if (session?.funnel?.wishlist) funnel.wishlist_sessions += 1;
     if (session?.funnel?.review) funnel.review_sessions += 1;
+    if (session?.funnel?.abandoned) funnel.abandoned_sessions += 1;
 
     const status = String(result.assignment_status || '');
     const reasons = result.rejection_reasons || [];
@@ -711,6 +738,8 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
         guest_purchase_sessions: 0,
         purchase_intent_sessions: 0,
         cart_sessions: 0,
+        review_sessions: 0,
+        abandoned_sessions: 0,
       },
     };
     stats.count += 1;
@@ -723,6 +752,8 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     if (session?.funnel?.guest_purchase) stats.funnel.guest_purchase_sessions += 1;
     if (session?.funnel?.purchase_intent) stats.funnel.purchase_intent_sessions += 1;
     if (session?.funnel?.cart) stats.funnel.cart_sessions += 1;
+    if (session?.funnel?.review) stats.funnel.review_sessions += 1;
+    if (session?.funnel?.abandoned) stats.funnel.abandoned_sessions += 1;
 
     // Python이 학습과 같은 규칙으로 만든 semantic 분포를 사용한다.
     incrementCounts(stats.actionCounts, result.semantic_action_counts);
@@ -773,11 +804,17 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
           .map((a) => ({ ...a, label: koAction(a.action) })),
         page_dist: Object.keys(pageDist).length ? pageDist : (profile.page_dist || {}),
         funnel: stats.funnel,
+        behavior_rates: {
+          review_rate: stats.count ? Number((stats.funnel.review_sessions / stats.count).toFixed(4)) : 0,
+          cart_rate: stats.count ? Number((stats.funnel.cart_sessions / stats.count).toFixed(4)) : 0,
+          abandonment_rate: stats.count ? Number((stats.funnel.abandoned_sessions / stats.count).toFixed(4)) : 0,
+        },
         validation,
       };
     }));
 
   const payload = {
+    snapshot_version: 2,
     total_sessions: sessions.length,
     n_clusters: clusters.length,
     noise_count: noiseCount,
@@ -814,12 +851,31 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
       quality: result.quality,
       date_range: result.date_range,
     });
-    const recent = sessions.length > 100
-      ? await classifySiteSessions(origin, profiles, labels, {
-        sessionLimit: 100,
-        includeComparison: false,
-      })
-      : payload;
+    // 전체 배치 응답은 sessions와 같은 순서를 유지한다. 최근 100세션 비교를 위해
+    // DB 조회와 Python 분류를 다시 반복하지 않고 이미 받은 앞 100개 결과를 집계한다.
+    const recentResults = (body.results || []).slice(0, 100);
+    const recentCounts = new Map();
+    let recentNoise = 0;
+    for (const result of recentResults) {
+      const clusterId = Number(result.cluster_id);
+      if (!Number.isFinite(clusterId) || clusterId < 0) recentNoise += 1;
+      else recentCounts.set(clusterId, (recentCounts.get(clusterId) || 0) + 1);
+    }
+    const recent = sessions.length <= 100 ? payload : {
+      total_sessions: recentResults.length,
+      clusters: clusters
+        .map((cluster) => ({ ...cluster, count: recentCounts.get(cluster.cluster) || 0 }))
+        .filter((cluster) => cluster.count > 0),
+      quality: {
+        noise_count: recentNoise,
+        assigned_sessions: recentResults.length - recentNoise,
+        evaluated_sessions: recentResults.length,
+      },
+      date_range: {
+        newest_at: sessions[0]?.last_at || null,
+        oldest_at: sessions[Math.min(recentResults.length, sessions.length) - 1]?.last_at || null,
+      },
+    };
     const overallById = new Map(payload.clusters.map((cluster) => [cluster.cluster, cluster]));
     const recentById = new Map(recent.clusters.map((cluster) => [cluster.cluster, cluster]));
     const clusterIds = [...new Set([...overallById.keys(), ...recentById.keys()])]
@@ -849,6 +905,16 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
   }
 
   return payload;
+}
+
+// 대시보드 폴링이 겹쳐도 같은 사이트의 무거운 전체 분류는 한 번만 실행한다.
+function classifySiteSessionsShared(origin, profiles, labels) {
+  const key = canonicalOrigin(origin);
+  if (siteClassificationJobs.has(key)) return siteClassificationJobs.get(key);
+  const job = classifySiteSessions(origin, profiles, labels)
+    .finally(() => siteClassificationJobs.delete(key));
+  siteClassificationJobs.set(key, job);
+  return job;
 }
 
 // PDF 리포트처럼 사이트별 최신 분류 결과가 필요한 내부 기능에서 재사용한다.
@@ -912,6 +978,7 @@ router.get('/', async (req, res) => {
     if (req.siteOrigin && frozenMode) {
       const snapshot = loadSiteSnapshot(req.siteOrigin);
       const isCompleteForcedAssignment = snapshot
+        && Number(snapshot.snapshot_version || 0) >= 2
         && snapshot.model_mode === 'factorized_tfidf'
         && Number(snapshot.noise_count || 0) === 0
         && Number(snapshot.quality?.assigned_sessions || 0) === Number(snapshot.total_sessions || 0)
@@ -928,7 +995,7 @@ router.get('/', async (req, res) => {
     // 통합 스냅샷이 아직 없으면 한 번 생성해 예전 단일-origin 결과를 쓰지 않는다.
     if (req.siteOrigin) {
       try {
-        const result = await classifySiteSessions(req.siteOrigin, profiles, labels);
+        const result = await classifySiteSessionsShared(req.siteOrigin, profiles, labels);
         if (frozenMode) {
           saveSiteSnapshot(req.siteOrigin, {
             ...result,
@@ -942,7 +1009,9 @@ router.get('/', async (req, res) => {
         return res.json({
           total_sessions: 0,
           n_clusters: 0,
-          noise_count: meta.noise_count ?? 0,
+          // 사이트 분류에 실패한 상태에서 전체 모델의 noise_count를 섞으면
+          // 0세션을 분모로 비율을 만들게 된다. 실패 응답은 사이트 값만 0으로 둔다.
+          noise_count: 0,
           quality: null,
           clusters: [],
           source: 'site_unavailable',

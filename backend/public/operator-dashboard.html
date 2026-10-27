@@ -12,7 +12,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GhostTracker | 운영자 쉬운 화면</title>
+  <title>SEER | 운영자 쉬운 화면</title>
   <style>
     @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
     @font-face {
@@ -359,6 +359,56 @@
       font-size: 0.79rem;
       line-height: 1.5;
     }
+    .commerce-section { margin-bottom: 16px; }
+    .commerce-kpis {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .commerce-kpi {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: linear-gradient(180deg, #fff, #f7faff);
+      padding: 13px 14px;
+    }
+    .commerce-kpi .label { color: var(--muted); font-family: var(--font-point); font-size: 0.74rem; }
+    .commerce-kpi .value { margin-top: 6px; font-family: var(--font-point); font-size: 1.28rem; font-weight: 600; }
+    .commerce-layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.8fr 1fr;
+      gap: 12px;
+    }
+    .commerce-panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fff;
+      padding: 14px;
+    }
+    .commerce-panel-title { font-family: var(--font-point); font-size: 0.84rem; font-weight: 600; margin-bottom: 10px; }
+    .commerce-list { display: grid; gap: 8px; }
+    .commerce-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border-bottom: 1px solid #edf1f6;
+      padding-bottom: 8px;
+    }
+    .commerce-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .commerce-name { min-width: 0; font-family: var(--font-point); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .commerce-meta { color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
+    .tracking-note {
+      margin-top: 12px;
+      border: 1px solid #f2d39a;
+      border-radius: 10px;
+      background: #fffaf0;
+      color: #7c5414;
+      padding: 11px 13px;
+      font-size: 0.8rem;
+      line-height: 1.55;
+    }
     .stack { display: grid; gap: 16px; min-width: 0; }
     .card {
       background: rgba(255, 255, 255, 0.9);
@@ -522,6 +572,13 @@
       line-height: 1.45;
     }
     .chart-label { color: var(--muted); font-family: var(--font-point); font-size: 0.8rem; font-weight: 500; margin-bottom: 10px; }
+    .behavior-rate-block { margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+    .behavior-rate-table-wrap { overflow-x:auto; }
+    .behavior-rate-table { width:100%; border-collapse:collapse; font-size:.74rem; }
+    .behavior-rate-table th, .behavior-rate-table td { padding:8px 6px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+    .behavior-rate-table th:first-child, .behavior-rate-table td:first-child { text-align:left; white-space:normal; min-width:130px; }
+    .behavior-rate-table th { color:var(--muted); font-weight:600; }
+    .behavior-rate-table td:not(:first-child) { font-weight:700; color:var(--text); }
 
     .session-search {
       display: grid;
@@ -687,13 +744,15 @@
       .hero, .grid, .split, .insight-grid { grid-template-columns: 1fr; }
       .today-summary { grid-template-columns: repeat(2, 1fr); }
       .quality-summary { grid-template-columns: repeat(2, 1fr); }
+      .commerce-kpis { grid-template-columns: repeat(3, 1fr); }
+      .commerce-layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 720px) {
       .topbar, .actions { flex-direction: column; align-items: stretch; }
       main { padding: 16px; }
       .hero-card { padding: 22px; }
       .hero-card h2 { font-size: 1.55rem; }
-      .today-summary, .result-grid, .quality-summary { grid-template-columns: 1fr; }
+      .today-summary, .result-grid, .quality-summary, .commerce-kpis { grid-template-columns: 1fr; }
       .focus-metric { grid-template-columns: 1fr; }
       .session-search { grid-template-columns: 1fr; }
     }
@@ -746,7 +805,9 @@
     .session-list { max-height:560px; }
     .activity-list { max-height:420px; }
     .report-toolbar { display:flex; flex-wrap:wrap; gap:8px; }
-    .report-period.active { color:#fff; background:var(--blue); border-color:var(--blue); }
+    .report-mode.active { color:#fff; background:var(--blue); border-color:var(--blue); }
+    .report-mode-pane { display:none; }
+    .report-mode-pane.active { display:block; }
     .custom-range { display:none; grid-template-columns:1fr 1fr auto; gap:8px; margin-top:12px; }
     .custom-range.active { display:grid; }
     .period-report { min-height:420px; white-space:normal; }
@@ -793,13 +854,16 @@
       .result-grid { grid-template-columns:1fr; }
     }
   </style>
+<style id="seer-brand-logo-style">.seer-brand-logo{display:block;width:52px;height:52px;object-fit:contain;flex:0 0 auto;background:transparent;border:0;box-shadow:none;border-radius:0}@media(max-width:520px){.topbar .brand{display:flex}.seer-brand-logo{width:42px;height:42px}}</style>
+<link rel="stylesheet" href="/operator-revenue.css">
+<link rel="icon" type="image/png" href="/assets/seer-logo.png">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">GT</div>
+      <img class="seer-brand-logo" src="/assets/seer-logo.png" alt="SEER" width="52" height="52" decoding="async">
       <div>
-        <h1>쇼핑몰 운영자 화면</h1>
+        <h1>SEER · 쇼핑몰 운영자 화면</h1>
         <p>고객 행동을 쉬운 말로 보고, 바로 할 일을 확인합니다.</p>
       </div>
     </div>
@@ -818,13 +882,39 @@
 
   <main>
     <nav class="workspace-nav" aria-label="대시보드 메뉴">
-      <button class="nav-button active" data-view="overview" aria-current="page">운영 요약</button>
+      <button class="nav-button active" data-view="loss" aria-current="page">손실 요약</button>
+      <button class="nav-button" data-view="overview">운영 요약</button>
       <button class="nav-button" data-view="marketing">마케팅 분석</button>
       <button class="nav-button" data-view="visits">방문 분석</button>
       <button class="nav-button" data-view="reports">리포트</button>
     </nav>
 
-    <section class="view active" id="view-overview" data-view-panel="overview">
+    <section class="view active" id="view-loss" data-view-panel="loss">
+      <div class="view-head"><div><h2>손실 요약</h2><p>오늘의 실제 상품 관심 행동과 구매 미완료 신호를 확인합니다.</p></div><span class="card-refresh" id="loss-updated">데이터 확인 중</span></div>
+      <section class="ra-loss-hero revenue-addition">
+        <article class="card ra-loss-card">
+          <div class="card-body">
+            <div class="ra-kicker">오늘의 추정 손실 금액</div>
+            <div class="ra-amount" id="ra-loss">—</div>
+            <div id="ra-loss-summary" class="ra-note">실제 수집 데이터를 불러오는 중입니다.</div>
+            <div class="today-summary">
+              <div class="summary-item"><div class="label">구매 없이 종료된 방문</div><div class="value" id="ra-people">—</div></div>
+              <div class="summary-item"><div class="label">찜·장바구니 미전환</div><div class="value" id="ra-strong">—</div></div>
+              <div class="summary-item"><div class="label">가격 연결률</div><div class="value" id="ra-price-rate">—</div></div>
+            </div>
+          </div>
+        </article>
+        <aside class="recommend-box"><h3>금액을 볼 때 확인할 점</h3><div class="text" id="ra-loss-caution">판매가가 실제 이벤트에 함께 수집된 상품만 금액에 포함합니다.</div><span class="tag">실제 수집값 기준</span></aside>
+      </section>
+      <section class="ra-loss-middle revenue-addition">
+        <article class="card"><div class="card-head"><div><div class="card-title">보고 떠난 상품 TOP 5</div><div class="card-sub">대표 관심 상품 기준입니다.</div></div></div><div class="card-body" id="ra-loss-top5"><div class="empty">상품 데이터를 불러오는 중입니다.</div></div></article>
+        <article class="card"><div class="card-head"><div><div class="card-title">구매 미완료 관심 금액이 매출로 전환된다면?</div><div class="card-sub">오늘의 추정 손실 금액에 가정 전환율을 적용합니다.</div></div></div><div class="card-body ra-scenario"><label>가정 전환율 <b id="ra-rate-label">10%</b></label><input class="ra-range" id="ra-rate" type="range" min="1" max="30" value="10"><div class="ra-scenario-output">예상 회복 금액<strong id="ra-recovery">—</strong><div class="ra-note" id="ra-recovery-note">실제 가격 데이터가 있어야 계산할 수 있습니다.</div></div></div></article>
+        <aside class="recommend-box"><h3>놓친 관심을 매출로 연결하려면?</h3><div class="text" id="ra-action-advice">실제 행동이 집계되면 관심 단계에 맞는 점검 항목을 보여드립니다.</div><div class="focus-metric"><div><strong id="ra-cart-count">—</strong><span>장바구니 후 종료</span></div><div><strong id="ra-wish-count">—</strong><span>찜 후 종료</span></div></div></aside>
+      </section>
+      <section class="card revenue-addition"><div class="card-head"><div><div class="card-title"><span id="ra-loss-heading">추정 손실 금액</span>의 계산 내역</div><div class="card-sub">관찰된 행동과 포함·제외 기준을 함께 확인합니다.</div></div></div><div class="card-body ra-explain-grid"><div><div class="ra-stage-list" id="ra-stage-list"><div class="empty">계산 내역을 불러오는 중입니다.</div></div><div class="ra-formula-line" id="ra-formula">실제 상품 판매가와 구매 없이 종료된 방문을 연결해 계산합니다.</div></div><div id="ra-reasons"><div class="empty">관찰 근거를 불러오는 중입니다.</div></div></div></section>
+    </section>
+
+    <section class="view" id="view-overview" data-view-panel="overview">
       <div class="view-head"><div><h2>운영 요약</h2><p>오늘 먼저 확인할 문제와 실행 순위를 봅니다.</p></div><span class="card-refresh" id="overview-updated">데이터 확인 중</span></div>
       <section class="hero">
       <div class="hero-card">
@@ -900,10 +990,48 @@
         </div>
       </section>
       </section>
+      <section class="ov-info-grid">
+        <section class="card"><div class="card-head"><div><div class="card-title">구매 전 많이 확인한 정보</div><div class="card-sub">실제 구역 진입·재진입 이벤트를 집계합니다.</div></div></div><div class="card-body" id="ov-information"><div class="empty">정보 구역을 분석하는 중입니다.</div></div></section>
+        <section class="card"><div class="card-head"><div><div class="card-title">반복 확인·종료가 많은 구간</div><div class="card-sub">원인으로 단정하지 않고 점검이 필요한 신호로 봅니다.</div></div></div><div class="card-body" id="ov-observations"><div class="empty">반복 행동을 분석하는 중입니다.</div></div></section>
+      </section>
     </section>
 
     <section class="view" id="view-marketing" data-view-panel="marketing">
       <div class="view-head"><div><h2>마케팅 분석</h2><p>유입 경로와 고객 유형을 비교해 다음 캠페인을 정합니다.</p></div><button class="secondary" id="marketing-rediscover">최신 데이터로 다시 분류</button></div>
+    <section class="card commerce-section">
+      <div class="card-head">
+        <div>
+          <div class="card-title">상품 행동 데이터</div>
+          <div class="card-sub">고객이 어떤 상품·카테고리·후기를 보고 장바구니와 주문 단계까지 어디까지 갔는지 보여줍니다.</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="commerce-kpis" id="commerce-kpis">
+          <div class="commerce-kpi"><div class="label">상품 클릭</div><div class="value">-</div></div>
+          <div class="commerce-kpi"><div class="label">리뷰 확인</div><div class="value">-</div></div>
+          <div class="commerce-kpi"><div class="label">카트 방문</div><div class="value">-</div></div>
+          <div class="commerce-kpi"><div class="label">장바구니 담기</div><div class="value">-</div></div>
+          <div class="commerce-kpi"><div class="label">찜하기</div><div class="value">-</div></div>
+          <div class="commerce-kpi"><div class="label">주문 완료</div><div class="value">-</div></div>
+        </div>
+        <div class="commerce-layout">
+          <div class="commerce-panel">
+            <div class="commerce-panel-title">확인한 상품</div>
+            <div class="commerce-list" id="commerce-products"><div class="empty">상품 데이터를 불러오는 중입니다.</div></div>
+          </div>
+          <div class="commerce-panel">
+            <div class="commerce-panel-title">확인한 카테고리</div>
+            <div class="commerce-list" id="commerce-categories"><div class="empty">카테고리 데이터를 불러오는 중입니다.</div></div>
+          </div>
+          <div class="commerce-panel">
+            <div class="commerce-panel-title">최근 상품 행동</div>
+            <div class="commerce-list" id="commerce-actions"><div class="empty">상품 행동을 불러오는 중입니다.</div></div>
+          </div>
+        </div>
+        <div class="tracking-note" id="commerce-tracking-note">수집 범위를 확인하는 중입니다.</div>
+      </div>
+    </section>
+
       <div class="marketing-grid">
         <section class="card">
           <div class="card-head">
@@ -915,7 +1043,7 @@
           </div>
           <div class="card-body">
             <div class="quality-summary" id="quality-summary">
-              <div class="quality-item"><div class="label">전체 배정</div><div class="value">-</div></div>
+              <div class="quality-item"><div class="label">분류 표본</div><div class="value">-</div></div>
               <div class="quality-item"><div class="label">행동 근거 충분</div><div class="value">-</div></div>
               <div class="quality-item"><div class="label">행동 근거 부족</div><div class="value">-</div></div>
               <div class="quality-item"><div class="label">유형 경계 모호</div><div class="value">-</div></div>
@@ -927,6 +1055,11 @@
                 <div class="cohort-period" id="cohort-period">비교 기간을 불러오는 중입니다.</div>
                 <div class="cohort-change-list" id="cohort-change-list">
                   <div class="empty">최근 변화를 계산하는 중입니다.</div>
+                </div>
+                <div class="behavior-rate-block">
+                  <div class="chart-label">유형별 주요 행동 비율</div>
+                  <div class="behavior-rate-table-wrap" id="behavior-rate-table"><div class="empty">행동 비율을 계산하는 중입니다.</div></div>
+                  <div class="cohort-period">각 유형으로 분류된 실제 세션 중 해당 행동이 한 번 이상 관찰된 세션의 비율입니다.</div>
                 </div>
               </div>
               <div class="customer-types" id="customer-types">
@@ -946,6 +1079,7 @@
           </section>
         </div>
       </div>
+      <section class="card revenue-addition" id="ra-products-card"><div class="card-head"><div><div class="ra-kicker">상품별 매출 기회</div><div class="card-title">보고 떠난 상품과 연결된 판매가</div><div class="card-sub">수집된 상품 ID·판매가·관심 단계만 표시합니다.</div></div><button class="secondary" id="ra-csv">현재 목록 CSV 저장</button></div><div class="card-body"><div class="ra-toolbar"><input id="ra-search" aria-label="관심 상품 검색" placeholder="상품명 또는 상품 ID 검색"><select id="ra-filter" aria-label="관심 상품 필터"><option value="all">전체 상품</option><option value="strong">찜·장바구니 관심 있음</option><option value="unmatched">가격 미연결</option></select><select id="ra-sort" aria-label="관심 상품 정렬"><option value="amount">미전환 금액 높은 순</option><option value="people">미구매 방문 많은 순</option><option value="price">판매가 높은 순</option></select></div></div><div class="ra-table"><table><thead><tr><th>관심 상품 / 가격 연결</th><th class="ra-num">판매가</th><th class="ra-num">조회 후 종료</th><th class="ra-num">찜 후 종료</th><th class="ra-num">장바구니 후 종료</th><th class="ra-num">미구매 방문</th><th class="ra-num">추정 금액</th></tr></thead><tbody id="ra-products"><tr><td colspan="7"><div class="empty">실제 상품 데이터를 불러오는 중입니다.</div></td></tr></tbody></table></div><div class="card-body ra-note" id="ra-products-note">구매 없이 종료된 방문마다 대표 관심 상품 1개를 집계합니다.</div></section>
     </section>
 
     <section class="view" id="view-visits" data-view-panel="visits">
@@ -981,47 +1115,41 @@
       <div class="stack">
         <section class="card">
           <div class="card-head">
-            <div><div class="card-title">기간 리포트 보기</div><div class="card-sub">기간을 바꾸면 현재 수집 데이터 기준으로 다시 계산합니다.</div></div>
+            <div><div class="card-title">리포트 선택</div><div class="card-sub">기본 일주일 리포트 또는 직접 정한 기간의 운영 요약을 확인합니다.</div></div>
             <div class="report-toolbar">
-              <button class="secondary report-period active" data-period="day">하루 리포트 보기</button>
-              <button class="secondary report-period" data-period="week">주간 리포트 보기</button>
-              <button class="secondary report-period" data-period="month">한달 리포트 보기</button>
-              <button class="secondary report-period" data-period="custom">기간별 리포트 보기</button>
+              <button class="secondary report-mode active" data-report-mode="weekly">일주일 리포트</button>
+              <button class="secondary report-mode" data-report-mode="custom">기간별 리포트</button>
             </div>
           </div>
+        </section>
+        <section class="card report-mode-pane" data-report-pane="custom">
+          <div class="card-head"><div><div class="card-title">기간별 리포트</div><div class="card-sub">시작일과 종료일을 선택하면 실제 수집 데이터 기준으로 다시 계산합니다.</div></div></div>
           <div class="card-body">
-            <div class="custom-range" id="custom-range">
+            <div class="custom-range active" id="custom-range">
               <input type="date" id="report-start" aria-label="리포트 시작일" />
               <input type="date" id="report-end" aria-label="리포트 종료일" />
               <button id="apply-report-range">기간 적용</button>
             </div>
-            <div class="report period-report" id="period-report"><div class="empty">하루 리포트를 준비하는 중입니다.</div></div>
+            <div class="report period-report" id="period-report"><div class="empty">기간을 선택한 뒤 적용해주세요.</div></div>
           </div>
         </section>
-        <section class="card">
+        <section class="card report-mode-pane active" data-report-pane="weekly">
           <div class="card-head">
             <div><div class="card-title">전체 주간 고객 행동 분석 보고서</div><div class="card-sub">기존 PDF와 같은 원본으로 전체 요약, 퍼널, 고객 유형별 상세 분석, 운영 제안과 분석 한계를 모두 보여줍니다.</div></div>
+            <button class="secondary" id="download-report">PDF로 내보내기</button>
           </div>
           <div class="card-body" id="full-report-container">
             <div class="report-loading" id="full-report-loading">전체 보고서를 준비하는 중입니다.</div>
             <iframe class="full-report-frame" id="full-report-frame" title="전체 고객 행동 분석 보고서" sandbox="allow-same-origin" hidden></iframe>
           </div>
         </section>
+        <section class="card revenue-addition" id="ra-report-card"><div class="card-head"><div><div class="ra-kicker">매출 기회 리포트</div><div class="card-title">오늘의 상품 관심과 미전환 금액</div><div class="card-sub">손실 요약과 같은 실제 당일 집계입니다.</div></div><button class="secondary" id="ra-print">기회 리포트 인쇄</button></div><div class="card-body"><div class="ra-report-kpis"><div>추정 손실 금액<strong class="ra-money" id="ra-report-loss">—</strong></div><div>구매 없이 종료된 방문<strong id="ra-report-people">—</strong></div><div>찜·장바구니 미전환 금액<strong id="ra-report-strong">—</strong></div></div><div class="ra-note" id="ra-report-note" style="margin-top:15px">실제 데이터를 불러오는 중입니다.</div></div></section>
         <section class="card">
           <div class="card-head">
-            <div>
-              <div class="card-title">운영 액션 리포트</div>
-              <div class="card-sub">고객 유형에 맞춰 어떤 운영 액션을 하면 좋을지 보여줍니다.</div>
-            </div>
-            <div class="report-actions">
-              <button class="secondary" id="cluster-report" disabled>유형 리포트</button>
-              <button class="secondary" id="session-report" disabled>고객 리포트</button>
-              <button class="secondary" id="download-report">PDF로 내보내기</button>
-            </div>
+            <div><div class="card-title">운영 액션 리포트</div><div class="card-sub">방문 분석에서 고객을 분석한 뒤 고객 또는 유형 리포트를 확인합니다.</div></div>
+            <div class="report-actions"><button class="secondary" id="cluster-report" disabled>유형 리포트</button><button class="secondary" id="session-report" disabled>고객 리포트</button></div>
           </div>
-          <div class="card-body">
-            <div class="report" id="report-box">분석 결과가 준비되면 리포트가 여기에 표시됩니다.</div>
-          </div>
+          <div class="card-body"><div class="report" id="report-box">분석 결과가 준비되면 리포트가 여기에 표시됩니다.</div></div>
         </section>
       </div>
     </section>
@@ -1033,8 +1161,6 @@
       백엔드에서 로그, 세션, 클러스터링 결과를 가져와 운영자가 보기 쉬운 말로 바꿔서 보여준다.
       2.5초마다 polling으로 갱신하고, 고객 유형(클러스터)은 버튼을 눌러야 다시 계산된다.
     */
-    const DEMO_ORIGIN = "https://toridos.vercel.app";
-
     /* ── 사이트 접근 키 ──────────────────────────────────────────────
        ?key=... 로 한 번 들어오면 localStorage에 저장하고 주소창에서 즉시 지운다.
        주소창에 키가 남아 있으면 화면 공유·발표자료 스크린샷에 그대로 노출된다.
@@ -1065,11 +1191,13 @@
       stats: {},
       operatorSummary: {},
       clusterPayload: {},
+      clusterLastLoadedAt: 0,
       selectedSessionId: "",
       selectedEvents: [],
       analysis: null,
-      activeView: "overview",
-      reportPeriod: "day",
+      activeView: "loss",
+      reportMode: "weekly",
+      reportPeriod: "custom",
       fullReportOrigin: null,
       sessionEventCache: new Map(),
       periodReportCache: new Map(),
@@ -1093,8 +1221,8 @@
         if (active) button.setAttribute("aria-current", "page"); else button.removeAttribute("aria-current");
       });
       if (view === "reports") {
-        renderPeriodReport(state.reportPeriod);
-        loadFullReport();
+        if (state.reportMode === "custom") renderPeriodReport("custom");
+        else loadFullReport();
       }
       window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}#${view}`);
     }
@@ -1117,69 +1245,8 @@
       location.replace("/login.html?reason=" + encodeURIComponent(reason));
     }
 
-    const previewMode = new URLSearchParams(window.location.search).get("preview") === "1";
-    const previewNow = Date.now();
-    const previewSessions = [
-      ["demo-01", "/checkout", 14, true, false, "google", "summer_search"],
-      ["demo-02", "/product/linen-jacket", 9, false, true, "instagram", "reels_launch"],
-      ["demo-03", "/cart", 11, false, true, "naver", "brand_keyword"],
-      ["demo-04", "/category/new", 7, false, false, "", ""],
-      ["demo-05", "/product/wide-pants", 18, true, false, "kakao", "friend_coupon"],
-      ["demo-06", "/search", 6, false, true, "google", "autumn_style"],
-    ].map((row, idx) => ({ session_id: row[0], pathname: row[1], count: row[2], completed: row[3], risky: row[4], utm_source: row[5], utm_campaign: row[6], referrer: row[5] ? `https://${row[5]}.com` : "", last_at: new Date(previewNow - idx * 420000).toISOString() }));
-    const previewLogs = previewSessions.flatMap((session, idx) => {
-      const cycle = ["session_start", "navigation", "section_enter", "scroll_depth", "product_click", "section_transition", "hover_dwell", "section_revisit"];
-      return Array.from({ length: session.count }, (_, seq) => {
-        let event_type = cycle[seq % cycle.length];
-        if (session.completed && seq === session.count - 2) event_type = "add_to_cart";
-        if (session.completed && seq === session.count - 1) event_type = "guest_purchase";
-        if (session.risky && seq === session.count - 1) event_type = "inactivity";
-        return { session_id: session.session_id, event_type, event_seq: seq + 1, pathname: seq < 2 ? "/" : session.pathname, received_at: new Date(previewNow - idx * 420000 - (session.count - seq) * 18000).toISOString(), utm_source: session.utm_source, utm_campaign: session.utm_campaign, referrer: session.referrer, data: { section: seq % 2 ? "상품 정보" : "리뷰·구매 영역" } };
-      });
-    }).sort((a, b) => new Date(b.received_at) - new Date(a.received_at));
-    function previewPayload(path, options = {}) {
-      if (path === "/api/logs/sites") return [DEMO_ORIGIN];
-      if (path.startsWith("/api/logs/stats")) return { visitor_count: 37, total: 1248, last_hour: 86, active_sessions: 12, by_type: { product_click: 184, navigation: 142, add_to_cart: 38 } };
-      if (path.startsWith("/api/logs/sessions")) return previewSessions;
-      if (path.startsWith("/api/logs/sources")) return { sources: [{ name: "Google", count: 15 }, { name: "Instagram", count: 11 }, { name: "직접 방문", count: 7 }] };
-      if (path.startsWith("/api/logs/operator-summary")) return {
-        blocked_pages: [{ label: "상품 상세", count: 12, share: 41 }, { label: "장바구니", count: 8, share: 28 }, { label: "검색 결과", count: 5, share: 17 }],
-        issue_causes: [{ label: "움직임 없음", count: 10, share: 34 }, { label: "장바구니 이탈", count: 7, share: 24 }, { label: "탭 떠남", count: 6, share: 21 }],
-        priorities: [{ title: "상품 상세의 배송 안내 강화", detail: "배송비와 도착 예정일을 구매 버튼 가까이에 배치하세요." }, { title: "장바구니 혜택 재노출", detail: "쿠폰과 무료 배송 조건을 장바구니 상단에 보여주세요." }, { title: "검색 결과 정렬 개선", detail: "재고와 인기순 필터를 첫 화면에서 바로 쓰게 하세요." }],
-        source_performance: [{ name: "Google", total: 15, completion_rate: 27, risk_rate: 13, top_page: "상품 상세" }, { name: "Instagram", total: 11, completion_rate: 9, risk_rate: 36, top_page: "신상품" }, { name: "직접 방문", total: 7, completion_rate: 29, risk_rate: 14, top_page: "홈" }],
-      };
-      if (path.startsWith("/api/logs/period-report")) {
-        const query = new URL(path, location.origin).searchParams;
-        const days = Math.max(1, Math.round((new Date(query.get("end")) - new Date(query.get("start"))) / 86400000));
-        return { visitor_count: days * 7 + 1, event_count: days * 83 + 17, completed_count: Math.floor(days / 3), completion_rate: 5, risky_count: days * 2, blocked_pages: [{ label: "상품 상세", count: days * 2 }], issue_causes: [{ label: "화면을 보다가 멈춤", count: days }], source_performance: [{ name: "Google", total: days * 3, completion_rate: 7, risk_rate: 18 }] };
-      }
-      if (path === "/api/clusters/run") return { snapshot_saved: true, snapshot_cluster_count: 5, snapshot_session_count: 222 };
-      if (path.startsWith("/api/clusters")) return {
-        total_sessions: 222, snapshot_saved_at: new Date(previewNow - 86400000).toISOString(), source: "site_snapshot",
-        quality: { assigned_sessions: 222, reliable_sessions: 164, insufficient_behavior_sessions: 31, ambiguous_sessions: 27 },
-        date_range: { oldest_at: new Date(previewNow - 30 * 86400000).toISOString(), newest_at: new Date(previewNow).toISOString() },
-        clusters: [
-          { cluster: 0, label: "구매 의도가 높은 고객", count: 52, reliability: { high: 44, low: 8, high_rate: .85 }, validation: { status: "verified" }, top_actions: [{ action: "ADD_TO_CART", label: "장바구니 담기" }], summary: "상품을 충분히 확인하고 구매 단계까지 진행합니다.", action: "배송과 결제 정보를 간결하게 유지하세요." },
-          { cluster: 1, label: "꼼꼼히 비교하는 고객", count: 67, reliability: { high: 51, low: 16, high_rate: .76 }, validation: { status: "verified" }, top_actions: [{ action: "VIEW_REVIEW", label: "리뷰 확인" }], summary: "리뷰와 상품 정보를 여러 번 비교합니다.", action: "리뷰 요약과 비교 정보를 강조하세요." },
-          { cluster: 2, label: "상품을 찾는 고객", count: 48, reliability: { high: 36, low: 12, high_rate: .75 }, validation: { status: "verified" }, top_actions: [{ action: "SEARCH", label: "검색" }], summary: "검색과 카테고리를 오가며 적합한 상품을 찾습니다.", action: "추천 검색어와 필터를 개선하세요." },
-          { cluster: 3, label: "빠르게 이탈하는 고객", count: 34, reliability: { high: 22, low: 12, high_rate: .65 }, validation: { status: "weak" }, top_actions: [{ action: "TAB_EXIT", label: "탭 떠남" }], summary: "짧게 둘러본 뒤 다음 행동 없이 떠납니다.", action: "첫 화면에서 핵심 혜택을 빠르게 전달하세요." },
-          { cluster: 4, label: "행동 데이터 부족", count: 21, reliability: { high: 11, low: 10, high_rate: .52 }, validation: { status: "weak" }, top_actions: [], summary: "의도를 판단할 행동이 충분하지 않습니다.", action: "수집 이벤트와 첫 행동 유도를 점검하세요." },
-        ],
-        comparison: { recent_100: { total_sessions: 100, date_range: { oldest_at: new Date(previewNow - 12 * 86400000).toISOString(), newest_at: new Date(previewNow).toISOString() }, clusters: [{ cluster: 0, count: 28 }, { cluster: 1, count: 29 }, { cluster: 2, count: 18 }, { cluster: 3, count: 17 }, { cluster: 4, count: 8 }] }, deltas: [{ cluster: 0, label: "구매 의도가 높은 고객", percentage_point_change: 4.6 }, { cluster: 1, label: "꼼꼼히 비교하는 고객", percentage_point_change: -1.2 }, { cluster: 2, label: "상품을 찾는 고객", percentage_point_change: -3.6 }, { cluster: 3, label: "빠르게 이탈하는 고객", percentage_point_change: 1.7 }] },
-      };
-      if (path.startsWith("/api/logs?")) {
-        const requested = new URL(path, location.origin).searchParams.get("session_id");
-        return requested ? previewLogs.filter((event) => event.session_id === requested) : previewLogs;
-      }
-      if (path.startsWith("/api/classify/session/")) return { session_id: state.selectedSessionId, cluster_id: 1, reliability: "high", confidence: .84, seq_len: Math.max(3, Math.floor(state.selectedEvents.length / 2)), raw_event_count: state.selectedEvents.length, meaningful_event_count: Math.max(3, Math.floor(state.selectedEvents.length / 2)) };
-      if (path === "/api/report/session") return { report: "선택 고객은 상품 비교 후 구매 조건을 확인하는 단계입니다. 리뷰 요약과 배송 안내를 같은 화면에 배치해 다음 행동을 돕는 것이 좋습니다." };
-      if (path.startsWith("/api/report/cluster/")) return { report: "이 유형은 상세 정보와 리뷰를 반복 확인합니다. 리뷰 핵심 요약, 실제 착용 사진, 배송 조건을 상품 정보 가까이에 배치하세요." };
-      return {};
-    }
-
     // fetch 감싸서 에러 응답이면 메시지 같이 던져줌 (모든 요청에 사이트 키를 붙임)
     async function api(path, options = {}) {
-      if (previewMode) return previewPayload(path, options);
       const headers = { ...(options.headers || {}) };
       if (siteKey) headers["X-GT-Key"] = siteKey;
 
@@ -1378,11 +1445,15 @@
           action: cluster.action || meta.action,
           count: 0,
           reliability: { high: 0, low: 0 },
+          behavior: { review: 0, cart: 0, abandoned: 0 },
           members: [],
         };
         row.count += cluster.count || 0;
         row.reliability.high += cluster.reliability?.high || 0;
         row.reliability.low += cluster.reliability?.low || 0;
+        row.behavior.review += cluster.funnel?.review_sessions || 0;
+        row.behavior.cart += cluster.funnel?.cart_sessions || 0;
+        row.behavior.abandoned += cluster.funnel?.abandoned_sessions || 0;
         row.members.push(cluster);
         groups.set(meta.key, row);
       });
@@ -1401,6 +1472,11 @@
               high_rate: group.count ? group.reliability.high / group.count : 0,
             },
             top_actions: aggregateTopActions(group.members),
+            behavior_rates: {
+              review_rate: group.count ? group.behavior.review / group.count : 0,
+              cart_rate: group.count ? group.behavior.cart / group.count : 0,
+              abandonment_rate: group.count ? group.behavior.abandoned / group.count : 0,
+            },
             validation: aggregateValidation(group.members),
             members: group.members,
             representative_cluster: representative.cluster,
@@ -1755,6 +1831,65 @@
       $("marketing-recommendations").innerHTML = recommendations.length
         ? recommendations.map((item, idx) => `<div class="insight-item"><div class="insight-top"><div class="insight-name">${idx + 1}. ${item.title}</div></div><div class="insight-desc">${item.detail}</div></div>`).join("")
         : `<div class="empty">추천을 만들 만큼 데이터가 아직 충분하지 않습니다.</div>`;
+      renderCommerceSummary(summary.commerce || {});
+    }
+
+    function renderCommerceSummary(commerce = {}) {
+      const counts = commerce.counts || {};
+      const kpis = [
+        ["상품 클릭", counts.product_clicks],
+        ["리뷰 확인", counts.review_views],
+        ["카트 방문", counts.cart_visits],
+        ["장바구니 담기", counts.add_to_cart],
+        ["찜하기", counts.wishlist_adds],
+        ["주문 완료", counts.order_completions],
+      ];
+      $("commerce-kpis").innerHTML = kpis.map(([label, value]) => `
+        <div class="commerce-kpi">
+          <div class="label">${escapeHtml(label)}</div>
+          <div class="value">${fmt(value)}<small>회</small></div>
+        </div>`).join("");
+
+      const products = commerce.products || [];
+      $("commerce-products").innerHTML = products.length
+        ? products.map((item) => `
+          <div class="commerce-row">
+            <div class="commerce-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name || `상품 ${item.product_id || ""}`)}</div>
+            <div class="commerce-meta">클릭 ${fmt(item.clicks)} · 상세 ${fmt(item.detail_views)}</div>
+          </div>`).join("")
+        : '<div class="empty">확인된 상품 행동이 없습니다.</div>';
+
+      const categories = commerce.categories || [];
+      $("commerce-categories").innerHTML = categories.length
+        ? categories.map((item) => `
+          <div class="commerce-row">
+            <div class="commerce-name">${escapeHtml(item.name || "카테고리")}</div>
+            <div class="commerce-meta">${fmt(item.views)}회</div>
+          </div>`).join("")
+        : '<div class="empty">확인된 카테고리가 없습니다.</div>';
+
+      const actions = commerce.recent_actions || [];
+      $("commerce-actions").innerHTML = actions.length
+        ? actions.slice(0, 6).map((item) => `
+          <div class="commerce-row">
+            <div class="commerce-name" title="${escapeHtml(item.detail)}">${escapeHtml(item.label)}</div>
+            <div class="commerce-meta">${item.at ? new Date(item.at).toLocaleDateString("ko-KR") : "-"}</div>
+          </div>`).join("")
+        : '<div class="empty">최근 상품 행동이 없습니다.</div>';
+
+      const notes = [];
+      if (counts.cart_visits > 0 && counts.add_to_cart === 0) {
+        notes.push(`장바구니 화면 방문 ${fmt(counts.cart_visits)}건은 확인됐지만, 실제 담기 전용 이벤트는 없습니다.`);
+      }
+      if ((counts.checkout_starts || 0) === 0 && (counts.order_completions || 0) === 0) {
+        notes.push("주문 진행·완료 이벤트는 확인되지 않았습니다.");
+      } else if ((counts.checkout_starts || 0) > 0 && (counts.order_completions || 0) === 0) {
+        notes.push(`주문 진행 ${fmt(counts.checkout_starts)}건 이후 완료 신호가 없습니다.`);
+      }
+      if ((counts.wishlist_adds || 0) === 0) notes.push("찜하기 전용 이벤트는 확인되지 않았습니다.");
+      $("commerce-tracking-note").textContent = notes.length
+        ? `수집 점검 · ${notes.join(" ")}`
+        : "상품 탐색부터 주문 완료까지 전용 이벤트가 정상적으로 수집되고 있습니다.";
     }
 
     // 값이 없으면 "-"로 표시
@@ -1776,7 +1911,7 @@
         ? "집계 전"
         : `${qualityValue(value)}세션${rate === null ? "" : ` · ${rate}%`}`;
       $("quality-summary").innerHTML = `
-        <div class="quality-item"><div class="label">전체 분류 대상</div><div class="value">${measured(assigned)}</div></div>
+        <div class="quality-item"><div class="label">분류 표본</div><div class="value">${measured(assigned)}</div></div>
         <div class="quality-item"><div class="label">행동 근거 충분</div><div class="value">${measured(reliable, reliableRate)}</div></div>
         <div class="quality-item"><div class="label">행동 근거 부족</div><div class="value">${measured(insufficient)}</div></div>
         <div class="quality-item"><div class="label">유형 경계 모호</div><div class="value">${measured(ambiguous)}</div></div>
@@ -1787,6 +1922,10 @@
     // 클러스터 결과는 실시간이 아니라 마지막 "다시 분류" 실행 시점 스냅샷이라는 걸 안내
     function renderClusterSnapshotInfo(data = {}) {
       const meta = data.meta || {};
+      if (data.source === "site_unavailable" || data.warning) {
+        $("cluster-snapshot-note").textContent = data.warning || "현재 선택한 쇼핑몰의 고객 유형 분류를 불러오지 못했습니다.";
+        return;
+      }
       const snapshotStamp = data.snapshot_saved_at || meta.last_retrain;
       const stamp = snapshotStamp
         ? new Date(snapshotStamp).toLocaleString("ko-KR")
@@ -1811,8 +1950,18 @@
       const rawClusters = (data.clusters || []).filter((c) => c.cluster >= 0);
       state.clusterPayload = data;
       state.clusters = rawClusters;
+      const unavailable = data.source === "site_unavailable" || Boolean(data.warning);
+      if (unavailable || !Number.isFinite(Number(data.total_sessions)) || Number(data.total_sessions) <= 0) {
+        renderQualitySummary({});
+        $("type-comparison").innerHTML = `<div class="empty">${escapeHtml(data.warning || "현재 선택한 쇼핑몰의 분류 결과가 아직 없습니다.")}</div>`;
+        $("cohort-period").textContent = "유효한 분류 결과가 준비되면 전체와 최근 분포를 비교합니다.";
+        $("cohort-change-list").innerHTML = `<div class="empty">비교할 최근 데이터가 아직 없습니다.</div>`;
+        $("behavior-rate-table").innerHTML = `<div class="empty">유형별 행동 비율을 계산할 수 없습니다.</div>`;
+        $("customer-types").innerHTML = `<div class="empty">고객 유형 분류를 사용할 수 없습니다. 분류 서버 상태를 확인한 뒤 최신 데이터로 다시 분류해주세요.</div>`;
+        return;
+      }
       const clusters = aggregateOperatorClusters(rawClusters);
-      const total = data.total_sessions || clusters.reduce((sum, c) => sum + c.count, 0);
+      const total = Number(data.total_sessions);
       const groupedQuality = {
         ...(data.quality || {}),
         evaluated_sessions: data.total_sessions,
@@ -1825,37 +1974,46 @@
       const displayNames = clusters.map((c) => c.label || friendlyClusterName(c));
       const comparison = data.comparison || {};
       const recentMap = new Map((comparison.recent_100?.clusters || rawClusters).map((c) => [String(c.cluster), c]));
-      const overallTotal = comparison.overall?.total_sessions || total || 1;
-      const recentTotal = comparison.recent_100?.total_sessions || total || 1;
+      const overallTotal = Number(comparison.overall?.total_sessions) > 0 ? Number(comparison.overall.total_sessions) : total;
+      const recentTotal = Number(comparison.recent_100?.total_sessions) > 0 ? Number(comparison.recent_100.total_sessions) : null;
       const comparisonRows = rawClusters.map((cluster) => {
         const overallRate = Number(((cluster.count || 0) / overallTotal * 100).toFixed(1));
-        const recentRate = Number(((recentMap.get(String(cluster.cluster))?.count || 0) / recentTotal * 100).toFixed(1));
-        const delta = Number((recentRate - overallRate).toFixed(1));
+        const recentRate = recentTotal === null ? null : Number(((recentMap.get(String(cluster.cluster))?.count || 0) / recentTotal * 100).toFixed(1));
+        const delta = recentRate === null ? null : Number((recentRate - overallRate).toFixed(1));
         return { name: cluster.label || friendlyClusterName(cluster), overallRate, recentRate, delta };
       });
       const overallNoise = Number(data.noise_count ?? data.quality?.noise_count ?? Math.max(0, overallTotal - rawClusters.reduce((sum, cluster) => sum + (cluster.count || 0), 0)));
       const recentClusters = comparison.recent_100?.clusters || rawClusters;
-      const recentNoise = Number(comparison.recent_100?.quality?.noise_count ?? Math.max(0, recentTotal - recentClusters.reduce((sum, cluster) => sum + (cluster.count || 0), 0)));
+      const recentNoise = recentTotal === null ? 0 : Number(comparison.recent_100?.quality?.noise_count ?? Math.max(0, recentTotal - recentClusters.reduce((sum, cluster) => sum + (cluster.count || 0), 0)));
       if (overallNoise > 0 || recentNoise > 0) {
         const overallRate = Number((overallNoise / overallTotal * 100).toFixed(1));
-        const recentRate = Number((recentNoise / recentTotal * 100).toFixed(1));
-        comparisonRows.push({ name: "유형 판정 보류", overallRate, recentRate, delta: Number((recentRate - overallRate).toFixed(1)) });
+        const recentRate = recentTotal === null ? null : Number((recentNoise / recentTotal * 100).toFixed(1));
+        comparisonRows.push({ name: "유형 판정 보류", overallRate, recentRate, delta: recentRate === null ? null : Number((recentRate - overallRate).toFixed(1)) });
       }
       $("type-comparison").innerHTML = comparisonRows.length ? comparisonRows.map((row) => `
         <div class="comparison-row">
-          <div class="comparison-head"><span class="comparison-name">${row.name}</span><span class="comparison-value">최근 ${row.delta > 0 ? "+" : ""}${row.delta}%p</span></div>
+          <div class="comparison-head"><span class="comparison-name">${row.name}</span><span class="comparison-value">${row.delta === null ? "최근 비교 전" : `최근 ${row.delta > 0 ? "+" : ""}${row.delta}%p`}</span></div>
           <div class="comparison-bars"><span>전체</span><span class="comparison-track"><span class="comparison-fill" style="width:${Math.max(row.overallRate, 1)}%"></span></span><b>${row.overallRate}%</b></div>
-          <div class="comparison-bars"><span>최근</span><span class="comparison-track"><span class="comparison-fill recent" style="width:${Math.max(row.recentRate, 1)}%"></span></span><b>${row.recentRate}%</b></div>
+          <div class="comparison-bars"><span>최근</span><span class="comparison-track"><span class="comparison-fill recent" style="width:${row.recentRate === null ? 0 : Math.max(row.recentRate, 1)}%"></span></span><b>${row.recentRate === null ? "집계 전" : `${row.recentRate}%`}</b></div>
         </div>`).join("") : `<div class="empty">비교할 고객 유형이 아직 없습니다.</div>`;
 
       const dateRange = comparison.recent_100?.date_range || data.date_range || {};
       $("cohort-period").textContent = dateRange.oldest_at && dateRange.newest_at
         ? `최근 비교 기간 ${new Date(dateRange.oldest_at).toLocaleDateString("ko-KR")} ~ ${new Date(dateRange.newest_at).toLocaleDateString("ko-KR")}`
-        : "전체 분포와 최근 최대 100세션을 비교합니다.";
+        : "현재 분류 표본과 최근 최대 100세션을 비교합니다.";
       const deltas = (comparison.deltas || []).sort((a, b) => Math.abs(b.percentage_point_change) - Math.abs(a.percentage_point_change)).slice(0, 4);
       $("cohort-change-list").innerHTML = deltas.length
         ? deltas.map((item) => { const v = Number(item.percentage_point_change || 0); return `<div class="cohort-change-row"><span>${item.label}</span><span class="cohort-change-value ${v > 0 ? "up" : (v < 0 ? "down" : "")}">${v > 0 ? "+" : ""}${v.toFixed(1)}%p</span></div>`; }).join("")
         : `<div class="empty">비교할 최근 데이터가 아직 없습니다.</div>`;
+
+      $("behavior-rate-table").innerHTML = clusters.length ? `<table class="behavior-rate-table">
+        <thead><tr><th>행동 유형</th><th>리뷰 확인률</th><th>장바구니 진입률</th><th>탐색 중단률</th></tr></thead>
+        <tbody>${clusters.map((cluster) => {
+          const rates = cluster.behavior_rates || {};
+          const percent = (value) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(1).replace(/\.0$/, "")}%` : "집계 전";
+          return `<tr><td>${escapeHtml(cluster.label || friendlyClusterName(cluster))}</td><td>${percent(rates.review_rate)}</td><td>${percent(rates.cart_rate)}</td><td>${percent(rates.abandonment_rate)}</td></tr>`;
+        }).join("")}</tbody>
+      </table>` : `<div class="empty">유형별 행동 비율을 계산할 수 없습니다.</div>`;
 
       $("customer-types").innerHTML = clusters.map((c, idx) => {
         const pct = total ? Math.round(c.count / total * 100) : 0;
@@ -2086,10 +2244,19 @@
       if (period === "week") start = new Date(now.getTime() - 6 * 86400000);
       if (period === "month") start = new Date(now.getTime() - 29 * 86400000);
       if (period === "custom") {
-        const startValue = $("report-start").value;
-        const endValue = $("report-end").value;
-        if (startValue) start = new Date(`${startValue}T00:00:00`);
-        if (endValue) end = new Date(`${endValue}T23:59:59`);
+        const dateValue = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        let startValue = $("report-start").value;
+        let endValue = $("report-end").value;
+        if (!startValue) {
+          startValue = dateValue(new Date(now.getTime() - 6 * 86400000));
+          $("report-start").value = startValue;
+        }
+        if (!endValue) {
+          endValue = dateValue(now);
+          $("report-end").value = endValue;
+        }
+        start = new Date(`${startValue}T00:00:00`);
+        end = new Date(`${endValue}T23:59:59`);
       }
       return { start, end };
     }
@@ -2112,7 +2279,7 @@
       const sources = payload.source_performance || [];
       const topSource = [...sources].sort((a, b) => (b.completion_rate || 0) - (a.completion_rate || 0))[0];
       const topIssue = payload.blocked_pages?.[0];
-      const periodNames = { day: "하루", week: "주간", month: "한달", custom: "선택 기간" };
+      const periodNames = { custom: "선택 기간" };
       const actions = [
         topIssue ? `${topIssue.label} 화면에서 중지 신호 ${fmt(topIssue.count)}건의 원인을 점검하세요.` : null,
         payload.issue_causes?.[0] ? `${payload.issue_causes[0].label} 패턴(${fmt(payload.issue_causes[0].count)}건)에 맞춘 안내를 보강하세요.` : null,
@@ -2134,19 +2301,6 @@
       }
     }
 
-    function previewFullReportHtml() {
-      const types = [
-        ["구매 의도가 높은 고객", "52건 · 23%", "높음", "장바구니 담기 · 구매 클릭", "배송·결제 정보를 가까이 배치하세요."],
-        ["꼼꼼히 비교하는 고객", "67건 · 30%", "중간", "리뷰 확인 · 가격 확인", "리뷰 요약과 비교 정보를 강화하세요."],
-        ["상품을 찾는 고객", "48건 · 22%", "중간", "검색 · 카테고리 이동", "검색 필터와 추천 상품을 개선하세요."],
-        ["빠르게 탐색을 멈추는 고객", "34건 · 15%", "낮음", "탭 떠남 · 움직임 없음", "첫 화면에서 핵심 혜택을 빠르게 알리세요."],
-        ["행동 데이터 부족 고객", "21건 · 9%", "판단 보류", "짧은 방문", "이벤트 수집 범위와 첫 행동 유도를 점검하세요."],
-      ];
-      const rows = types.map((item) => `<tr><td><b>${item[0]}</b></td><td>${item[1]}</td><td>${item[2]}</td><td>${item[3]}</td><td>${item[4]}</td></tr>`).join("");
-      const details = types.map((item, idx) => `<section><div class="eyebrow">고객 유형 ${idx + 1}</div><h2>${item[0]}</h2><div class="kpis"><b>${item[1]}</b><b>구매 가능성 ${item[2]}</b><b>주요 화면 ${idx < 2 ? "상품 상세" : "홈·검색"}</b></div><h3>이 유형으로 분류한 근거</h3><p>${item[3]} 행동이 같은 세션에서 반복적으로 나타났습니다.</p><h3>행동 패턴 분석 및 AI 인사이트</h3><p>${item[4]} 고객이 다음 단계로 이동하기 전에 필요한 정보와 혜택을 같은 화면에서 확인할 수 있게 구성하는 것이 좋습니다.</p></section>`).join("");
-      return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;background:#eef3f8;color:#172033;font:15px/1.65 Pretendard,Arial,sans-serif}main{max-width:980px;margin:auto;padding:24px}section{background:#fff;border:1px solid #dce6f1;border-radius:12px;padding:28px;margin-bottom:18px}h1{font-size:34px;margin:6px 0}h2{font-size:24px;margin:4px 0 18px}h3{font-size:17px;margin:22px 0 5px}.eyebrow{color:#185adb;font-weight:800}.period{color:#65758b}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.kpis>*{padding:16px;border-radius:9px;background:#f3f7fd}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:11px;border-bottom:1px solid #e3eaf2;text-align:left;vertical-align:top}.funnel{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.funnel div{padding:15px 8px;text-align:center;background:#eaf2ff;border-radius:9px}.note{padding:16px;background:#fff7e8;border-left:4px solid #f59e0b}@media(max-width:700px){main{padding:10px}section{padding:18px}.kpis,.funnel{grid-template-columns:1fr 1fr}table{display:block;overflow:auto}}</style></head><body><main><section><div class="eyebrow">GhostTracker Analytics</div><h1>고객 행동 분석 보고서</h1><p class="period">분석 기간 · 최근 7일</p><div class="kpis"><b>222<br><small>총 분석 방문</small></b><b>5<br><small>고객 유형</small></b><b>1<br><small>구매 가능성 높은 유형</small></b></div></section><section><div class="eyebrow">전체 요약</div><h2>비교 탐색 고객이 가장 많고, 구매 직전 정보 보강이 우선입니다.</h2><p>유형 분포와 구매 가능성을 함께 보면 상세 정보 비교 단계에서 결정을 돕는 운영 액션이 가장 큰 영향을 줄 수 있습니다.</p><table><thead><tr><th>고객 유형</th><th>방문 비중</th><th>구매 가능성</th><th>대표 행동</th><th>추천 조치</th></tr></thead><tbody>${rows}</tbody></table></section><section><div class="eyebrow">전환 퍼널 분석</div><h2>상품 조회 이후 장바구니 진입에서 가장 크게 줄어듭니다.</h2><div class="funnel"><div>방문<br><b>100%</b></div><div>상품 조회<br><b>74%</b></div><div>장바구니<br><b>31%</b></div><div>결제<br><b>18%</b></div><div>구매 클릭<br><b>11%</b></div></div><h3>단계별 탐색 중지 상세</h3><p class="note">상품 조회 → 장바구니 단계가 가장 큰 누수 지점입니다. 가격, 배송, 옵션과 리뷰 정보를 구매 버튼 가까이에 배치하세요.</p><h3>고객 유형별 단계 도달율</h3><p>구매 의도가 높은 고객은 결제 단계 도달률이 높고, 빠르게 탐색을 멈추는 고객은 상품 조회 이전에 흐름이 끊깁니다.</p></section><section><div class="eyebrow">탐색 중지 집중 화면 예시</div><h2>상품 상세 · 장바구니 · 검색 결과</h2><p>탐색 중지 신호가 집중된 화면과 구역을 캡처해 운영자가 실제 화면에서 점검할 위치를 확인합니다.</p></section>${details}<section><div class="eyebrow">운영 개선 제안</div><h2>고객 유형별 추천 조치</h2><table><thead><tr><th>우선순위</th><th>대상</th><th>실행 제안</th></tr></thead><tbody><tr><td>1</td><td>구매 의도 높음</td><td>결제 단계 단축과 즉시 혜택 제공</td></tr><tr><td>2</td><td>비교 탐색</td><td>리뷰·사이즈·배송 정보 요약</td></tr><tr><td>3</td><td>탐색 중지 위험</td><td>첫 화면 메시지와 재방문 혜택 강화</td></tr></tbody></table></section><section><div class="eyebrow">분석 방법 및 한계</div><h2>분석 기준</h2><p>방문 세션의 행동 시퀀스를 기준으로 고객 유형을 도출하고, 장바구니·결제·구매 클릭 도달률을 전체 평균과 비교해 구매 가능성을 산정합니다.</p><h3>분석의 한계</h3><p>실제 구매 완료와 매출을 직접 예측하는 값이 아니며, 수집된 행동의 범위와 데이터 양에 따라 해석이 달라질 수 있습니다.</p><h3>다음 추적 지표</h3><p>유형별 장바구니 도달률, 결제 단계 전환율, 탐색 중지 집중 화면, 유입 경로별 성과 변화를 추적합니다.</p></section></main></body></html>`;
-    }
-
     async function loadFullReport(force = false) {
       const reportKey = state.origin || "__all__";
       const frame = $("full-report-frame");
@@ -2158,14 +2312,10 @@
       loading.textContent = "전체 보고서를 준비하는 중입니다. 처음 생성할 때는 시간이 걸릴 수 있습니다.";
       frame.hidden = true;
       try {
-        let html;
-        if (previewMode) {
-          html = previewFullReportHtml();
-        } else {
-          if (!state.origin) throw new Error("리포트를 볼 쇼핑몰을 먼저 선택해주세요.");
-          const headers = siteKey ? { "X-GT-Key": siteKey } : {};
-          const reportUrl = `/api/report/weekly/view?origin=${encodeURIComponent(state.origin)}`;
-          let response = await fetch(reportUrl, { headers });
+        if (!state.origin) throw new Error("리포트를 볼 쇼핑몰을 먼저 선택해주세요.");
+        const headers = siteKey ? { "X-GT-Key": siteKey } : {};
+        const reportUrl = `/api/report/weekly/view?origin=${encodeURIComponent(state.origin)}`;
+        let response = await fetch(reportUrl, { headers });
           if (response.status === 202) {
             loading.textContent = "전체 보고서를 백그라운드에서 생성하고 있습니다. 완료되면 자동으로 표시합니다.";
             for (let attempt = 0; attempt < 90 && response.status === 202; attempt += 1) {
@@ -2179,10 +2329,9 @@
             }
           }
           if (response.status === 202) throw new Error("보고서 생성이 오래 걸리고 있습니다. 잠시 후 리포트 메뉴를 다시 열어주세요.");
-          html = await response.text();
-          if (!response.ok) throw new Error("전체 보고서를 불러오지 못했습니다.");
-        }
-        const responsiveStyle = `<style id="ghosttracker-dashboard-report-view">@media screen{body{background:#eef3f8!important}.page{max-width:100%!important;margin:0 auto 18px!important;box-shadow:0 8px 24px rgba(23,32,51,.08)!important}}@media screen and (max-width:720px){.page{width:100%!important;height:auto!important;min-height:0!important;padding:18px!important}.summary-kpi-row,.charts-row,.stats-row{flex-wrap:wrap!important}.chart-box{min-width:100%!important}.rec-table,table{display:block!important;width:100%!important;overflow-x:auto!important;white-space:nowrap!important;font-size:11px!important}.rec-table tbody,table tbody{display:table!important;min-width:760px!important}}</style>`;
+        let html = await response.text();
+        if (!response.ok) throw new Error("전체 보고서를 불러오지 못했습니다.");
+        const responsiveStyle = `<style id="seer-dashboard-report-view">@media screen{body{background:#eef3f8!important}.page{max-width:100%!important;margin:0 auto 18px!important;box-shadow:0 8px 24px rgba(23,32,51,.08)!important}}@media screen and (max-width:720px){.page{width:100%!important;height:auto!important;min-height:0!important;padding:18px!important}.summary-kpi-row,.charts-row,.stats-row{flex-wrap:wrap!important}.chart-box{min-width:100%!important}.rec-table,table{display:block!important;width:100%!important;overflow-x:auto!important;white-space:nowrap!important;font-size:11px!important}.rec-table tbody,table tbody{display:table!important;min-width:760px!important}}</style>`;
         if (html.includes("</head>")) html = html.replace("</head>", `${responsiveStyle}</head>`);
         frame.srcdoc = html;
         frame.addEventListener("load", () => {
@@ -2216,7 +2365,6 @@
           option.textContent = hostname === "dignolucir.co.kr"
             ? `${hostname} (4개 주소 통합)`
             : hostname;
-          if (site === DEMO_ORIGIN) option.selected = true;
           $("site-filter").appendChild(option);
         });
 
@@ -2237,13 +2385,16 @@
     async function refresh() {
       const origin = state.origin ? `&origin=${encodeURIComponent(state.origin)}` : "";
       const clusterOrigin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
+      const shouldLoadClusters = !state.clusterLastLoadedAt || Date.now() - state.clusterLastLoadedAt >= 60000;
       const results = await Promise.allSettled([
           api(`/api/logs/stats?${origin}`),
           api(`/api/logs?limit=200${origin}`),
           api(`/api/logs/sessions?limit=8${origin}`),
           api(`/api/logs/sources?limit=3${origin}`),
           api(`/api/logs/operator-summary?${origin}`),
-          api(`/api/clusters?mode=frozen${state.origin ? `&origin=${encodeURIComponent(state.origin)}` : ""}`),
+          shouldLoadClusters
+            ? api(`/api/clusters?mode=frozen${state.origin ? `&origin=${encodeURIComponent(state.origin)}` : ""}`)
+            : Promise.resolve(state.clusterPayload),
       ]);
       const [statsResult, logsResult, sessionsResult, sourcesResult, summaryResult, clustersResult] = results;
       if (logsResult.status === "fulfilled") {
@@ -2274,6 +2425,7 @@
         updateAdvice(stats);
       }
       if (clustersResult.status === "fulfilled") {
+        if (shouldLoadClusters) state.clusterLastLoadedAt = Date.now();
         renderClusters(clustersResult.value);
         renderClusterSnapshotInfo(clustersResult.value);
       } else {
@@ -2304,6 +2456,7 @@
           ? `다시 분류를 완료했습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 유형, ${fmt(result.snapshot_session_count)}개 세션을 반영했습니다.`
           : "다시 분류를 완료했습니다.";
         $("advice-tag").textContent = "분류 갱신 완료";
+        state.clusterLastLoadedAt = 0;
         await refresh();
       } catch (err) {
         $("operator-advice").textContent = `다시 분류에 실패했습니다: ${err.message}`;
@@ -2321,6 +2474,8 @@
       state.sessionEventCache.clear();
       state.periodReportCache.clear();
       state.analysis = null;
+      state.clusterPayload = {};
+      state.clusterLastLoadedAt = 0;
       state.fullReportOrigin = null;
       $("session-input").value = "";
       $("session-input").dataset.sessionId = "";
@@ -2330,7 +2485,7 @@
       $("cluster-report").disabled = true;
       $("session-report").disabled = true;
       refresh();
-      if (state.activeView === "reports") loadFullReport(true);
+      if (state.activeView === "reports" && state.reportMode === "weekly") loadFullReport(true);
     });
     // 전문가 화면도 같은 키를 써야 데이터가 보인다 (localStorage 공유라 최초 1회만 필요)
     // withKey를 붙이는 이유: 시크릿 모드처럼 localStorage 쓰기가 막힌 브라우저에서는
@@ -2377,7 +2532,7 @@
         const disposition = response.headers.get("content-disposition") || "";
         const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
         const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-        const filename = encoded ? decodeURIComponent(encoded) : (plain || "ghosttracker_weekly_report.pdf");
+        const filename = encoded ? decodeURIComponent(encoded) : (plain || "seer_weekly_report.pdf");
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -2398,11 +2553,12 @@
     $("download-report").addEventListener("click", downloadWeeklyReport);
     $("open-reports").addEventListener("click", () => switchView("reports"));
     document.querySelectorAll(".nav-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
-    document.querySelectorAll(".report-period").forEach((button) => button.addEventListener("click", () => {
-      document.querySelectorAll(".report-period").forEach((item) => item.classList.toggle("active", item === button));
-      $("custom-range").classList.toggle("active", button.dataset.period === "custom");
-      if (button.dataset.period !== "custom") renderPeriodReport(button.dataset.period);
-      else state.reportPeriod = "custom";
+    document.querySelectorAll(".report-mode").forEach((button) => button.addEventListener("click", () => {
+      state.reportMode = button.dataset.reportMode;
+      document.querySelectorAll(".report-mode").forEach((item) => item.classList.toggle("active", item === button));
+      document.querySelectorAll("[data-report-pane]").forEach((pane) => pane.classList.toggle("active", pane.dataset.reportPane === state.reportMode));
+      if (state.reportMode === "weekly") loadFullReport();
+      else renderPeriodReport("custom");
     }));
     $("apply-report-range").addEventListener("click", () => renderPeriodReport("custom"));
     $("analyze-session").addEventListener("click", analyzeSession);
@@ -2417,14 +2573,15 @@
 
     // 사이트 목록 로드 -> 첫 데이터 갱신 -> 최근 세션 자동 선택 -> 2.5초마다 polling
     (async function init() {
-      const initialView = ["overview", "marketing", "visits", "reports"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
+      const initialView = ["loss", "overview", "marketing", "visits", "reports"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "loss";
       switchView(initialView);
       await loadSites();
       await refresh();
-      if (state.activeView === "reports") await loadFullReport(true);
+      if (state.activeView === "reports" && state.reportMode === "weekly") await loadFullReport(true);
       if (state.sessions[0]) selectSession(state.sessions[0].session_id);
       pollTimer = setInterval(refresh, 2500);
     })();
   </script>
+  <script src="/operator-revenue.js"></script>
 </body>
 </html>

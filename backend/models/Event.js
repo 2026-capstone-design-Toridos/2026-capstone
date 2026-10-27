@@ -51,6 +51,9 @@ const EventSchema = new mongoose.Schema(
     platform:      { type: String },  // cafe24 | ...
     page_type:     { type: String },  // HOME | PRODUCT | CART | CHECKOUT | ORDER_SUCCESS | ...
     platform_role: { type: String },  // 플랫폼 원본 값 (매핑 누락 추적용)
+    product_id:       { type: String },
+    product_price:    { type: Number },
+    product_currency: { type: String },
 
     // ── 유입 경로 (세션 최초 진입 시점 값으로 고정) ───────────
     //

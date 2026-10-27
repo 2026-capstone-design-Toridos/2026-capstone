@@ -6,6 +6,9 @@ const express = require('express');
 const router  = express.Router();
 const Event   = require('../models/Event');
 const { originFilter, canonicalOrigin } = require('../middleware/siteAccess');
+const { buildCommerceSummary } = require('../lib/commerceSummary');
+const { buildOperationalInsights, dayStartKST } = require('../lib/operationalInsights');
+const { resolveProductPrices } = require('../lib/productPriceResolver');
 
 const RISK_EVENTS = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag'];
 
@@ -430,12 +433,67 @@ router.get('/sessions', async (req, res) => {
  * GET /api/logs/operator-summary
  * 위험 세션을 모아 막히는 화면 · 원인 · 우선순위 · 채널 성과로 정리
  */
+
+// Expensive insight queries have a short, tenant-scoped cache independent of live polling.
+const operationalCache = new Map();
+router.get('/operator-insights', async (req, res) => {
+  const origin = req.siteOrigin || req.query.origin;
+  if (!origin) return res.status(400).json({ error: '분석할 쇼핑몰을 먼저 선택해주세요.' });
+
+  const sessionId = req.query.session_id;
+  if (sessionId !== undefined && (typeof sessionId !== 'string' || !sessionId || sessionId.length > 200)) {
+    return res.status(400).json({ error: '잘못된 방문 식별자입니다.' });
+  }
+
+  const cacheKey = JSON.stringify([canonicalOrigin(origin), sessionId || '']);
+  const now = Date.now();
+  const cached = operationalCache.get(cacheKey);
+  if (cached && now - cached.at < 20000) return res.json(cached.value);
+
+  try {
+    const filter = { ...originFilter(req) };
+    if (!Object.keys(filter).length) return res.status(400).json({ error: '사이트 범위를 확인할 수 없습니다.' });
+    if (sessionId) filter.session_id = sessionId;
+    else filter.received_at = { $gte: new Date(dayStartKST(now) - 30 * 60000), $lte: new Date(now) };
+
+    const limit = sessionId ? 5000 : 30000;
+    let rows = await Event.find(filter)
+      .select('event_id session_id event_type page_type pathname page_url timestamp received_at product_id product_price product_currency data')
+      .sort({ received_at: -1 })
+      .limit(limit + 1)
+      .maxTimeMS(15000)
+      .lean();
+    rows = await resolveProductPrices(rows, { origin });
+    const value = buildOperationalInsights(rows.slice(0, limit), {
+      now,
+      truncated: rows.length > limit,
+      selection: Boolean(sessionId),
+      start: sessionId ? 0 : dayStartKST(now),
+    });
+
+    if (operationalCache.size >= 100) operationalCache.delete(operationalCache.keys().next().value);
+    operationalCache.set(cacheKey, { at: now, value });
+    return res.json(value);
+  } catch (err) {
+    console.error('[operator-insights]', err.message);
+    return res.status(500).json({ error: '운영 지표를 불러오지 못했습니다.' });
+  }
+});
+
 router.get('/operator-summary', async (req, res) => {
   try {
     const filter = {};
     Object.assign(filter, originFilter(req));   // 끝 슬래시 변형까지 매칭
 
-    const sessions = await Event.aggregate(buildSessionPipeline(filter));
+    const [sessions, commerceEvents] = await Promise.all([
+      Event.aggregate(buildSessionPipeline(filter)),
+      Event.find(filter)
+        .select('session_id event_type pathname page_url page_type data received_at timestamp')
+        .sort({ received_at: -1 })
+        .limit(20000)
+        .lean(),
+    ]);
+    const commerce = buildCommerceSummary(commerceEvents);
     const riskySessions = sessions.filter((session) => session.risky && !session.completed);
     const totalRisky = riskySessions.length || 1;
 
@@ -531,6 +589,7 @@ router.get('/operator-summary', async (req, res) => {
       source_performance,
       risky_session_count: riskySessions.length,
       total_sessions: sessions.length,
+      commerce,
     });
   } catch (err) {
     console.error('[operator-summary] 오류:', err.message);
@@ -659,6 +718,9 @@ router.get('/', async (req, res) => {
     if (req.query.since)      filter.received_at = { $gt: new Date(Number(req.query.since)) };
 
     const events = await Event.find(filter)
+      // 타임라인에는 수집 당시의 페이지 HTML 원문이 필요하지 않다. 이 필드는
+      // 한 세션에서 수백 MB까지 커져 고객 분석 버튼을 수분간 멈추게 할 수 있다.
+      .select('-data.source')
       .sort({ received_at: -1 })
       .limit(limit)
       .lean();

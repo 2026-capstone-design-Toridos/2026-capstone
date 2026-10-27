@@ -9,7 +9,7 @@ GhostTracker B2B 고객 행동 분석 리포트 (HTML → PDF)
   python report_html.py --output my_report.pdf
 """
 
-import argparse, base64, json, os, time, urllib.request, urllib.error
+import argparse, base64, html as html_lib, json, os, time, urllib.request, urllib.error
 import csv, hashlib, re, shutil, socket, struct, subprocess, tempfile
 from datetime import datetime
 from io import BytesIO
@@ -190,6 +190,14 @@ def load_result_csv(csv_path: str) -> dict:
     if not profiles:
         raise ValueError('result.csv에 고객 유형 데이터가 없습니다.')
     return profiles
+
+
+def load_commerce_json(json_path: str) -> dict:
+    if not json_path or not os.path.exists(json_path):
+        return {}
+    with open(json_path, encoding='utf-8') as f:
+        value = json.load(f)
+    return value if isinstance(value, dict) else {}
 
 # ── 데이터 기반 인사이트 템플릿 (유형마다 다르게, Gemini 미사용/실패 시) ──────────
 # 유형명에 따라 데이터 기반 인사이트 문단을 반환한다 — Gemini 실패 시 폴백으로 사용
@@ -548,7 +556,7 @@ def chart_funnel(funnel: dict) -> str:
 def build_html(start: str, end: str, profiles: dict,
                ai_reports: dict, font_reg: str, font_bold: str,
                funnel: dict = None, exit_captures: list = None,
-               marketing_html: str = '') -> str:
+               marketing_html: str = '', commerce: dict = None) -> str:
 
     total_visits = sum(p.get('count', 0) for p in profiles.values())
     _intent = {c: type_intent(type_name(c, p), p, funnel) for c, p in profiles.items()}
@@ -782,6 +790,20 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 .kpi-card.orange {{ background:linear-gradient(180deg, #fff8ef 0%, #fff2df 100%); border-color:#e67e22; }}
 .kpi-card .card-val {{ font-size: 23pt; font-weight: bold; color: #162252; }}
 .kpi-card .card-lbl {{ font-size: 8.5pt; color: #607086; margin-top: 1.4mm; }}
+
+/* ── 상품 행동 데이터 ── */
+.commerce-kpis {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:3mm; margin-bottom:6mm; }}
+.commerce-kpi {{ border:1px solid #dbe4ff; border-radius:10px; padding:4mm; background:linear-gradient(180deg,#fff,#f5f8ff); }}
+.commerce-kpi .label {{ color:#607086; font-size:7.8pt; }}
+.commerce-kpi .value {{ color:#162252; font-size:18pt; font-weight:bold; margin-top:1.5mm; }}
+.commerce-cols {{ display:grid; grid-template-columns:1.1fr 0.9fr; gap:5mm; }}
+.commerce-box {{ border:1px solid #dfe6f0; border-radius:11px; background:#fff; padding:4mm; }}
+.commerce-box h3 {{ margin:0 0 3mm; color:#162252; font-size:9.5pt; }}
+.commerce-row {{ display:flex; justify-content:space-between; gap:4mm; padding:2.2mm 0; border-bottom:1px solid #edf1f6; font-size:8.2pt; }}
+.commerce-row:last-child {{ border-bottom:0; }}
+.commerce-row .name {{ color:#24324a; }}
+.commerce-row .meta {{ color:#748297; white-space:nowrap; }}
+.commerce-note {{ margin-top:5mm; padding:4mm 5mm; border:1px solid #f2d39a; border-radius:10px; background:#fffaf0; color:#7c5414; font-size:8.2pt; line-height:1.7; }}
 
 .section-title {{
     font-size: 11pt;
@@ -1060,7 +1082,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     <div class="section-block">
       <div class="section-title">고객 유형별 방문 비율</div>
       <div class="chart-center">
-        <img src="data:image/png;base64,{dist_chart}" />
+        <img src="data:image/png;base64,{dist_chart}" style="max-width:92mm;" />
       </div>
     </div>
   </div>
@@ -1187,6 +1209,76 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       ※ 구매 가능성 등급은 위 '구매 클릭' 도달율을 전체 평균({funnel['avg_buy']}%) 대비 상대 평가하여 산정합니다.
     </div>
     </div>
+  </div>
+</div>
+"""
+
+    # ── 상품 행동 데이터 페이지 ──────────────────────────────────────────────
+    commerce = commerce or {}
+    cc = commerce.get('counts', {})
+    products = commerce.get('products', [])[:7]
+    categories = commerce.get('categories', [])[:7]
+    actions = commerce.get('recent_actions', [])[:8]
+
+    def esc(value):
+        return html_lib.escape(str(value or ''))
+
+    product_rows = ''.join(
+        f"<div class='commerce-row'><span class='name'><b>{esc(item.get('name') or ('상품 ' + str(item.get('product_id', ''))))}</b></span>"
+        f"<span class='meta'>클릭 {item.get('clicks', 0)} · 상세 {item.get('detail_views', 0)}</span></div>"
+        for item in products
+    ) or "<div class='commerce-row'><span class='name'>확인된 상품 행동이 없습니다.</span></div>"
+    category_rows = ''.join(
+        f"<div class='commerce-row'><span class='name'>{esc(item.get('name') or '카테고리')}</span>"
+        f"<span class='meta'>{item.get('views', 0)}회</span></div>"
+        for item in categories
+    ) or "<div class='commerce-row'><span class='name'>확인된 카테고리가 없습니다.</span></div>"
+    action_rows = ''.join(
+        f"<div class='commerce-row'><span class='name'>{esc(item.get('label') or item.get('detail') or '상품 행동')}</span>"
+        f"<span class='meta'>{esc(str(item.get('at') or '')[:10])}</span></div>"
+        for item in actions
+    ) or "<div class='commerce-row'><span class='name'>최근 상품 행동이 없습니다.</span></div>"
+
+    note_parts = []
+    if cc.get('cart_visits', 0) > 0 and cc.get('add_to_cart', 0) == 0:
+        note_parts.append(f"장바구니 화면 방문 {cc.get('cart_visits', 0)}건은 확인됐지만 실제 담기 전용 이벤트는 없습니다.")
+    if cc.get('checkout_starts', 0) == 0 and cc.get('order_completions', 0) == 0:
+        note_parts.append("주문 진행 및 주문 완료 이벤트는 확인되지 않았습니다.")
+    elif cc.get('checkout_starts', 0) > 0 and cc.get('order_completions', 0) == 0:
+        note_parts.append(f"주문 진행 {cc.get('checkout_starts', 0)}건 이후 완료 신호가 없습니다.")
+    if cc.get('wishlist_adds', 0) == 0:
+        note_parts.append("찜하기 전용 이벤트는 확인되지 않았습니다.")
+    tracking_note = ' '.join(note_parts) or '상품 탐색부터 주문 완료까지 전용 이벤트가 정상적으로 수집되고 있습니다.'
+
+    commerce_html = f"""
+<div class="page">
+  <div class="page-header">
+    <span class="brand">GHOSTTRACKER</span>
+    <span class="page-title">상품 행동 데이터</span>
+    <span class="period">{start} ~ {end}</span>
+  </div>
+  <div class="page-body">
+    <div class="summary-lead">
+      <div class="eyebrow">ACTUAL COMMERCE EVENTS</div>
+      <div class="headline">고객이 무엇을 보고 구매 흐름 어디까지 갔는지 확인합니다.</div>
+      <div class="copy">상품·카테고리·후기 행동과 장바구니·주문 신호를 서로 구분해 집계했습니다. 페이지 HTML에 포함된 버튼 문구는 실제 행동으로 세지 않습니다.</div>
+    </div>
+    <div class="commerce-kpis">
+      <div class="commerce-kpi"><div class="label">상품 클릭</div><div class="value">{cc.get('product_clicks', 0)}</div></div>
+      <div class="commerce-kpi"><div class="label">리뷰 확인</div><div class="value">{cc.get('review_views', 0)}</div></div>
+      <div class="commerce-kpi"><div class="label">카트 방문</div><div class="value">{cc.get('cart_visits', 0)}</div></div>
+      <div class="commerce-kpi"><div class="label">장바구니 담기</div><div class="value">{cc.get('add_to_cart', 0)}</div></div>
+      <div class="commerce-kpi"><div class="label">찜하기</div><div class="value">{cc.get('wishlist_adds', 0)}</div></div>
+      <div class="commerce-kpi"><div class="label">주문 완료</div><div class="value">{cc.get('order_completions', 0)}</div></div>
+    </div>
+    <div class="commerce-cols">
+      <div class="commerce-box"><h3>확인한 상품</h3>{product_rows}</div>
+      <div class="commerce-box"><h3>확인한 카테고리</h3>{category_rows}</div>
+    </div>
+    <div class="commerce-cols" style="margin-top:5mm; grid-template-columns:1fr;">
+      <div class="commerce-box"><h3>최근 상품 행동</h3>{action_rows}</div>
+    </div>
+    <div class="commerce-note"><b>수집 점검</b> · {esc(tracking_note)}</div>
   </div>
 </div>
 """
@@ -1439,6 +1531,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 {summary_html}
 {summary_table_html}
 {funnel_html}
+{commerce_html}
 {exit_capture_page}
 {cluster_pages}
 {recs_html}
@@ -1458,7 +1551,7 @@ def site_key(origin: str) -> str:
 
 
 def generate_report(start_date: str, end_date: str, output_path: str,
-                    origin: str = '', result_csv: str = '', metrics_json: str = ''):
+                    origin: str = '', result_csv: str = '', metrics_json: str = '', commerce_json: str = ''):
     print("=" * 55)
     print("  GhostTracker 고객 분석 리포트 생성기 (HTML → PDF)")
     print("=" * 55)
@@ -1483,6 +1576,9 @@ def generate_report(start_date: str, end_date: str, output_path: str,
         raw_profiles = meta.get('cluster_profiles', {})
         profiles = merge_profiles(raw_profiles)   # 12개 → 이름 기준 소수 유형으로 통합
     total_visits = sum(p.get('count', 0) for p in profiles.values()) or 1
+    commerce = load_commerce_json(commerce_json)
+    if commerce_json:
+        print(f"  → 상품 행동 집계 로드: {commerce_json}")
     print(f"  → 원본 {len(raw_profiles)}개 클러스터 → {len(profiles)}개 고객 유형으로 통합")
     print(f"     총 {total_visits}건")
 
@@ -1537,7 +1633,7 @@ def generate_report(start_date: str, end_date: str, output_path: str,
     # 4. HTML 생성
     print("\n[3/4] HTML 리포트 구성 중...")
     html = build_html(start_date, end_date, profiles, ai_reports, font_reg, font_bold, funnel, exit_captures,
-                      marketing_html=marketing_html)
+                      marketing_html=marketing_html, commerce=commerce)
 
     # HTML 파일도 저장 (디버깅용)
     html_path = output_path.replace('.pdf', '.html')
@@ -1611,6 +1707,8 @@ def main():
                    help='사이트별 고객 유형 집계 CSV. 지정하면 전역 cluster_meta 대신 사용한다.')
     p.add_argument('--metrics-json', default='',
                    help='마케팅 지표 JSON(퍼널·채널·기기·시간대). 지정하면 마케팅 지표 4쪽을 앞에 넣는다.')
+    p.add_argument('--commerce-json', default='',
+                   help='사이트별 상품·장바구니·주문 행동 집계 JSON.')
     args = p.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -1624,7 +1722,7 @@ def main():
 
     out = args.output or os.path.join(OUT_DIR, default_name)
     generate_report(args.start, args.end, out, origin=args.origin, result_csv=args.result_csv,
-                    metrics_json=args.metrics_json)
+                    metrics_json=args.metrics_json, commerce_json=args.commerce_json)
 
 if __name__ == '__main__':
     main()

@@ -305,7 +305,8 @@ function _dispatch(eventType, data, timestamp) {
       // 예전에는 add_to_cart 같은 특정 이벤트의 data 안에만 있어서,
       // "이 세션이 어떤 상품을 봤는지"를 알 방법이 없었다.
       ...(platform.product_id ? { product_id: platform.product_id } : {}),
-      ...(platform.product_price ? { product_price: platform.product_price } : {}),
+      ...(platform.product_price !== null ? { product_price: platform.product_price } : {}),
+      ...(platform.product_currency ? { product_currency: platform.product_currency } : {}),
     } : {}),
 
     data,

@@ -109,6 +109,18 @@ router.post('/session/:sessionId', async (req, res) => {
     // 긴 세션의 앞부분만 남겨 구매·결제 신호가 잘리던 문제를 피하기 위해
     // 최근 이벤트를 넉넉히 읽은 뒤 다시 시간순으로 정렬한다.
     const docs = await Event.find(scope)
+      // data.source에는 페이지 전체 HTML이 들어올 수 있다. 단일 고객 분석에는
+      // 의미 행동 필드만 필요하므로 대용량 원문을 읽고 JSON으로 복사하지 않는다.
+      .select([
+        'session_id', 'event_type', 'timestamp', 'event_seq', 'inter_event_gap',
+        'pathname', 'page_url', 'page_type', 'received_at',
+        'data.bounce_flag', 'data.section', 'data.element_section',
+        'data.subsection_id', 'data.subsection', 'data.subsection_label',
+        'data.depth_pct', 'data.scroll_depth_pct', 'data.milestone',
+        'data.max_scroll_depth', 'data.dwell_ms', 'data.dwell_time_ms',
+        'data.revisit_count', 'data.hover_text', 'data.hover_target',
+        'data.hover_dwell_time_ms', 'data.click_text', 'data.click_target',
+      ].join(' '))
       .sort({ received_at: -1 })
       .limit(1000)
       .lean();

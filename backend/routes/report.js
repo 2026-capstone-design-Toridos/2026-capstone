@@ -19,7 +19,9 @@ const fs      = require('fs');
 const path    = require('path');
 const { execFile } = require('child_process');
 const router  = express.Router();
-const { canonicalOrigin } = require('../middleware/siteAccess');
+const { canonicalOrigin, originCondition } = require('../middleware/siteAccess');
+const Event = require('../models/Event');
+const { buildCommerceSummary } = require('../lib/commerceSummary');
 const clustersRouter = require('./clusters');
 const { buildReportMetrics, kstDateString } = require('../lib/reportMetrics');
 
@@ -255,6 +257,20 @@ async function writeSiteResultCsv(origin) {
   return csvPath;
 }
 
+async function writeCommerceJson(origin) {
+  const events = await Event.find(originCondition(canonicalOrigin(origin)))
+    .select('session_id event_type pathname page_url page_type data received_at timestamp')
+    .sort({ received_at: -1 })
+    .limit(20000)
+    .maxTimeMS(30000)
+    .lean();
+  const summary = buildCommerceSummary(events);
+  fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
+  const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_commerce.json`);
+  fs.writeFileSync(jsonPath, JSON.stringify(summary, null, 2), 'utf8');
+  return jsonPath;
+}
+
 async function generatePdfReport(origin) {
   const key = siteKey(origin);
   if (!key) return Promise.reject(new Error('보고서를 생성할 사이트 정보가 없습니다.'));
@@ -275,9 +291,10 @@ async function generatePdfReport(origin) {
 
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
   const job = withDeadline((async () => {
-    const [resultCsv, metricsJson] = await Promise.all([
+    const [resultCsv, metricsJson, commerceJson] = await Promise.all([
       writeSiteResultCsv(origin),
       writeSiteMetricsJson(origin, startDate, endDate),
+      writeCommerceJson(origin),
     ]);
     return new Promise((resolve, reject) => {
       execFile(
@@ -289,6 +306,7 @@ async function generatePdfReport(origin) {
           ...(metricsJson ? ['--metrics-json', metricsJson] : []),
           '--start', startDate,
           '--end', endDate,
+          '--commerce-json', commerceJson,
           '--output', stagingPath,
         ],
         {
