@@ -159,24 +159,34 @@ function _touchLastUsed(key) {
   }
 }
 
-/** DB에서 키를 찾아 origin을 돌려준다 (폐기된 키는 무효) */
+/**
+ * DB에서 키를 찾는다.
+ *
+ * `origin: null`은 DB 조회가 정상적으로 끝났지만 키가 없다는 뜻이고,
+ * `unavailable: true`는 DB 장애로 유효성을 판정하지 못했다는 뜻이다.
+ * 둘을 구분해야 일시적인 Atlas 장애를 키 폐기로 오인하지 않는다.
+ */
 async function _lookupKeyInDb(key) {
   const cached = _keyCache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.origin;
+  if (cached && cached.expires > Date.now()) {
+    return { origin: cached.origin, unavailable: false };
+  }
 
   let origin = null;
   try {
     const SiteKey = require('../models/SiteKey');
     const doc = await SiteKey.findOne({ key, revoked: false }).lean();
     origin = doc ? normalizeOrigin(doc.origin) : null;
-  } catch {
-    // DB 연결 문제 등 — 캐시에 담지 않고 이번 요청만 실패 처리
-    return null;
+  } catch (error) {
+    // DB 연결 문제를 "키 없음"으로 바꾸지 않는다. 캐시에도 저장하지 않아
+    // 다음 요청에서 DB가 복구되면 즉시 정상 판정할 수 있게 한다.
+    console.warn('[siteAccess] 키 조회 지연:', error.message);
+    return { origin: null, unavailable: true };
   }
 
   _keyCache.set(key, { origin, expires: Date.now() + KEY_CACHE_TTL_MS });
   if (origin) _touchLastUsed(key);
-  return origin;
+  return { origin, unavailable: false };
 }
 
 /**
@@ -193,9 +203,19 @@ async function resolveOrigin(req) {
   // 환경변수도 없고 DB에도 키가 하나도 없을 때만 개방 모드다.
   // 예전에는 환경변수만 봤기 때문에, DB로 이관한 뒤 환경변수를 지우면
   // 갑자기 전체 공개로 풀리는 사고가 날 수 있었다.
-  if (isOpenMode() && !(await _hasAnyDbKey())) {
-    const requested = normalizeOrigin(req.query.origin || '');
-    return { ok: true, origin: requested || null, openMode: true };
+  if (isOpenMode()) {
+    const dbKeyState = await _hasAnyDbKey();
+    if (!dbKeyState.available) {
+      return {
+        ok: false,
+        status: 503,
+        error: '접근 정보를 확인하는 중입니다. 잠시 후 다시 시도해주세요.',
+      };
+    }
+    if (!dbKeyState.value) {
+      const requested = normalizeOrigin(req.query.origin || '');
+      return { ok: true, origin: requested || null, openMode: true };
+    }
   }
 
   if (!key) {
@@ -207,8 +227,15 @@ async function resolveOrigin(req) {
   if (fromEnv) return { ok: true, origin: fromEnv, openMode: false };
 
   // 2순위: DB
-  const fromDb = await _lookupKeyInDb(key);
-  if (fromDb) return { ok: true, origin: fromDb, openMode: false };
+  const dbLookup = await _lookupKeyInDb(key);
+  if (dbLookup.unavailable) {
+    return {
+      ok: false,
+      status: 503,
+      error: '접근 정보를 확인하는 중입니다. 잠시 후 다시 시도해주세요.',
+    };
+  }
+  if (dbLookup.origin) return { ok: true, origin: dbLookup.origin, openMode: false };
 
   return { ok: false, status: 403, error: '유효하지 않은 접근 키입니다.' };
 }
@@ -271,16 +298,19 @@ async function isCollectableOrigin(origin) {
 let _anyKeyCache = { value: false, expires: 0 };
 
 async function _hasAnyDbKey() {
-  if (_anyKeyCache.expires > Date.now()) return _anyKeyCache.value;
-  let value = false;
+  if (_anyKeyCache.expires > Date.now()) {
+    return { value: _anyKeyCache.value, available: true };
+  }
   try {
     const SiteKey = require('../models/SiteKey');
-    value = (await SiteKey.countDocuments({ revoked: false }).limit(1)) > 0;
-  } catch {
-    value = false;
+    const value = (await SiteKey.countDocuments({ revoked: false }).limit(1)) > 0;
+    _anyKeyCache = { value, expires: Date.now() + KEY_CACHE_TTL_MS };
+    return { value, available: true };
+  } catch (error) {
+    // DB 상태를 모르는 동안 개방 모드로 전환하지 않는다.
+    console.warn('[siteAccess] 키 설정 확인 지연:', error.message);
+    return { value: false, available: false };
   }
-  _anyKeyCache = { value, expires: Date.now() + KEY_CACHE_TTL_MS };
-  return value;
 }
 
 /**
@@ -405,16 +435,18 @@ function requireAdmin(req, res, next) {
 }
 
 /** 서버 시작 시 현재 보호 상태를 알린다 */
-function logAccessMode() {
+async function logAccessMode() {
+  const dbState = await _hasAnyDbKey();
+  if (SITE_KEY_MAP.size > 0 || dbState.value) {
+    console.log(`[SEER] 사이트 접근 키 보호 활성화 (환경변수 ${SITE_KEY_MAP.size}개${dbState.value ? ', DB 키 사용' : ''})`);
+    return;
+  }
   if (isOpenMode()) {
     console.warn(
-      '[GhostTracker] ⚠️  SITE_KEYS 미설정 — 개방 모드로 동작합니다.\n' +
+      '[SEER] ⚠️  사이트 접근 키 없음 — 개방 모드로 동작합니다.\n' +
       '                  누구나 모든 쇼핑몰의 데이터를 조회할 수 있습니다.\n' +
-      '                  배포 환경에서는 SITE_KEYS를 반드시 설정하세요.\n' +
-      '                  예) SITE_KEYS=abc123:https://toridos.cafe24.com',
+      '                  관리자 페이지에서 쇼핑몰 접근 키를 발급하세요.',
     );
-  } else {
-    console.log(`[GhostTracker] 사이트 접근 키 ${SITE_KEY_MAP.size}개 등록됨`);
   }
 }
 

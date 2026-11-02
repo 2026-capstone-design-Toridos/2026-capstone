@@ -17,6 +17,7 @@ const clustersRouter = require('./routes/clusters');
 const classifyRouter = require('./routes/classify');
 const reportRouter   = require('./routes/report');
 const adminKeysRouter = require('./routes/adminKeys');
+const { startWeeklyReportScheduler } = require('./services/weeklyReportScheduler');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
@@ -31,7 +32,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
 // allowedOrigins는 사실 안 쓰는 중 — 어디에 SDK가 붙을지 아직 다 모르는 데모 단계라 origin: true로 일단 다 열어둠
 app.use(cors({
   origin: true,   // 모든 출처 허용 (팀원 사이트 연동용)
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'X-GT-Key', 'X-GT-Admin-Key'],
 }));
 
@@ -110,15 +111,16 @@ app.use((req, res) => {
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`[GhostTracker] 서버 실행 중 → http://localhost:${PORT}`);
-      logAccessMode();   // 사이트 접근 키 설정 여부를 알림
+      console.log(`[SEER] 서버 실행 중 → http://localhost:${PORT}`);
+      logAccessMode().catch((err) => console.warn('[SEER] 접근 보호 상태 확인 실패:', err.message));
 
       // 환경변수에 있던 키를 DB로 옮긴다 (멱등).
       // 이관 후에는 SITE_KEYS를 지워도 되고, 새 사장님은 관리 화면에서 발급한다.
       migrateEnvKeysToDb();
+      startWeeklyReportScheduler(reportRouter.weeklyReportService);
     });
   })
   .catch((err) => {
-    console.error('[GhostTracker] DB 연결 실패:', err.message);
+    console.error('[SEER] DB 연결 실패:', err.message);
     process.exit(1);
   });

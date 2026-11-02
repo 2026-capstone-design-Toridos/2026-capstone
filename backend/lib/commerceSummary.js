@@ -5,8 +5,14 @@
  * 사용하지 않는다. 실제 event_type과 클릭/호버 payload만 근거로 삼는다.
  */
 
-const ADD_TO_CART_TYPES = new Set(['add_to_cart', 'cart_add', 'basket_add']);
-const WISHLIST_TYPES = new Set(['add_to_wishlist', 'wishlist_add', 'favorite_add']);
+const ADD_TO_CART_TYPES = new Set(['add_to_cart', 'add_to_cart_success', 'cart_add', 'basket_add']);
+const WISHLIST_TYPES = new Set([
+  'add_to_wishlist',
+  'add_to_wishlist_success',
+  'wishlist_add',
+  'wishlist_intent',
+  'favorite_add',
+]);
 const ORDER_COMPLETE_TYPES = new Set([
   'order_complete',
   'order_completed',
@@ -15,6 +21,7 @@ const ORDER_COMPLETE_TYPES = new Set([
   'purchase_complete',
   'payment_complete',
   'payment_success',
+  'guest_purchase',
 ]);
 const CHECKOUT_TYPES = new Set(['begin_checkout', 'checkout_start', 'order_start', 'purchase_click']);
 

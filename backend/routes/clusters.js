@@ -57,6 +57,7 @@ const SITE_CLUSTER_SESSION_LIMIT = Math.min(
 );
 let clusteringJob = null;
 const siteClassificationJobs = new Map();
+const siteSnapshotRefreshJobs = new Map();
 
 // origin URL을 파일명으로 쓸 수 있게 정리
 function snapshotKey(origin = '') {
@@ -92,6 +93,31 @@ function loadSiteSnapshot(origin) {
   const target = snapshotPath(origin);
   if (!fs.existsSync(target)) return null;
   return JSON.parse(fs.readFileSync(target, 'utf-8'));
+}
+
+// 프록시 요청 안에서 전체 사이트 분류를 기다리지 않는다. 분류가 길어져도
+// GET /api/clusters?mode=frozen 응답은 즉시 끝나고, 완료 결과만 파일로 교체한다.
+function queueSiteSnapshotRefresh(origin, profiles, labels, meta = {}, basis = 'background_refresh') {
+  const key = canonicalOrigin(origin);
+  if (siteSnapshotRefreshJobs.has(key)) return siteSnapshotRefreshJobs.get(key);
+  const job = classifySiteSessionsShared(origin, profiles, labels)
+    .then((result) => {
+      saveSiteSnapshot(origin, {
+        ...result,
+        snapshot_basis: basis,
+        last_retrain: meta.last_retrain ?? null,
+      });
+      return result;
+    })
+    .catch((error) => {
+      console.warn('[clusters] background snapshot refresh:', error.message);
+      throw error;
+    })
+    .finally(() => siteSnapshotRefreshJobs.delete(key));
+  // 호출자는 기다리지 않으므로 rejection이 프로세스 경고로 번지지 않게 소비한다.
+  job.catch(() => {});
+  siteSnapshotRefreshJobs.set(key, job);
+  return job;
 }
 
 // Gemini/NLP 라벨이 없을 때 top action 두 개로 최소한의 표시명을 만든다
@@ -583,7 +609,13 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     SITE_CLUSTER_SESSION_LIMIT,
   );
   // 끝 슬래시가 붙은 origin도 같이 매칭한다
-  const docs = await Event.find(originCondition(origin))
+  const eventFilter = { ...originCondition(origin) };
+  if (options.from || options.to) {
+    eventFilter.received_at = {};
+    if (options.from) eventFilter.received_at.$gte = new Date(options.from);
+    if (options.to) eventFilter.received_at.$lt = new Date(options.to);
+  }
+  const docs = await Event.find(eventFilter)
     // 의미 행동 분류에 실제로 쓰는 필드만 조회한다. data.source에는 페이지 HTML
     // 전체가 들어올 수 있어 문서 전체를 읽으면 스냅샷 생성이 지나치게 느려진다.
     .select([
@@ -919,7 +951,7 @@ function classifySiteSessionsShared(origin, profiles, labels) {
 
 // PDF 리포트처럼 사이트별 최신 분류 결과가 필요한 내부 기능에서 재사용한다.
 // 원본 이벤트는 외부로 노출하지 않고, 집계된 고객 유형 결과만 반환한다.
-async function buildSiteReportData(origin) {
+async function buildSiteReportData(origin, options = {}) {
   if (!origin) throw new Error('사이트 origin이 필요합니다.');
   if (!fs.existsSync(META_PATH)) {
     throw new Error('cluster_meta.json not found. Run/export clustering artifacts first.');
@@ -927,7 +959,7 @@ async function buildSiteReportData(origin) {
   const meta = JSON.parse(fs.readFileSync(META_PATH, 'utf-8'));
   const profiles = meta.cluster_profiles || {};
   const labels = await generateNlpLabels(meta, false);
-  return classifySiteSessions(origin, profiles, labels);
+  return classifySiteSessions(origin, profiles, labels, options);
 }
 
 // ── GET /api/clusters ──────────────────────────────────────────
@@ -983,16 +1015,32 @@ router.get('/', async (req, res) => {
         && Number(snapshot.noise_count || 0) === 0
         && Number(snapshot.quality?.assigned_sessions || 0) === Number(snapshot.total_sessions || 0)
         && snapshot.comparison?.recent_100;
-      if (isCompleteForcedAssignment) {
+      if (snapshot) {
+        if (!isCompleteForcedAssignment) {
+          queueSiteSnapshotRefresh(req.siteOrigin, profiles, labels, meta, 'background_schema_refresh');
+        }
         return res.json({
           ...snapshot,
+          snapshot_refreshing: !isCompleteForcedAssignment,
           meta,
         });
       }
+      queueSiteSnapshotRefresh(req.siteOrigin, profiles, labels, meta, 'background_initial_snapshot');
+      return res.status(202).json({
+        total_sessions: 0,
+        n_clusters: 0,
+        noise_count: 0,
+        clusters: [],
+        source: 'site_pending',
+        pending: true,
+        origin: canonicalOrigin(req.siteOrigin),
+        message: '고객 유형을 백그라운드에서 준비하고 있습니다.',
+        meta,
+      });
     }
 
-    // live 모드는 항상 최신 데이터를 분류한다. frozen 모드라도 새 대표 origin의
-    // 통합 스냅샷이 아직 없으면 한 번 생성해 예전 단일-origin 결과를 쓰지 않는다.
+    // live 모드만 최신 데이터를 요청 안에서 분류한다. frozen 모드는 위에서
+    // 반드시 끝내 프록시 제한 시간까지 연결이 열린 채 남지 않게 한다.
     if (req.siteOrigin) {
       try {
         const result = await classifySiteSessionsShared(req.siteOrigin, profiles, labels);
@@ -1078,6 +1126,22 @@ router.post('/run', async (req, res) => {
         : {};
       const profiles = meta.cluster_profiles || {};
       const labels = await generateNlpLabels(meta, false);
+      if (!retrain) {
+        queueSiteSnapshotRefresh(
+          requestedOrigin,
+          profiles,
+          labels,
+          meta,
+          'operator_requested_background_refresh',
+        );
+        return res.status(202).json({
+          ...result,
+          status: 'generating',
+          snapshot_origin: canonicalOrigin(requestedOrigin),
+          snapshot_saved: false,
+          message: '최신 고객 유형을 백그라운드에서 다시 분류하고 있습니다.',
+        });
+      }
       const siteResult = await classifySiteSessions(requestedOrigin, profiles, labels);
       saveSiteSnapshot(requestedOrigin, {
         ...siteResult,

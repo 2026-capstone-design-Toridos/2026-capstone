@@ -436,6 +436,20 @@ router.get('/sessions', async (req, res) => {
 
 // Expensive insight queries have a short, tenant-scoped cache independent of live polling.
 const operationalCache = new Map();
+const dashboardSummaryCache = new Map();
+const sourceSummaryCache = new Map();
+const DASHBOARD_CACHE_TTL_MS = 30 * 1000;
+
+function cachedDashboardValue(cache, key) {
+  const row = cache.get(key);
+  return row && Date.now() - row.at < DASHBOARD_CACHE_TTL_MS ? row.value : null;
+}
+
+function rememberDashboardValue(cache, key, value) {
+  if (cache.size >= 100) cache.delete(cache.keys().next().value);
+  cache.set(key, { at: Date.now(), value });
+}
+
 router.get('/operator-insights', async (req, res) => {
   const origin = req.siteOrigin || req.query.origin;
   if (!origin) return res.status(400).json({ error: '분석할 쇼핑몰을 먼저 선택해주세요.' });
@@ -481,8 +495,13 @@ router.get('/operator-insights', async (req, res) => {
 });
 
 router.get('/operator-summary', async (req, res) => {
+  const cacheKey = canonicalOrigin(req.siteOrigin || req.query.origin || '') || '__all__';
+  const cached = cachedDashboardValue(dashboardSummaryCache, cacheKey);
+  if (cached) return res.json(cached);
+
   try {
-    const filter = {};
+    const now = Date.now();
+    const filter = { received_at: { $gte: new Date(dayStartKST(now)), $lte: new Date(now) } };
     Object.assign(filter, originFilter(req));   // 끝 슬래시 변형까지 매칭
 
     const [sessions, commerceEvents] = await Promise.all([
@@ -491,6 +510,7 @@ router.get('/operator-summary', async (req, res) => {
         .select('session_id event_type pathname page_url page_type data received_at timestamp')
         .sort({ received_at: -1 })
         .limit(20000)
+        .maxTimeMS(10000)
         .lean(),
     ]);
     const commerce = buildCommerceSummary(commerceEvents);
@@ -582,7 +602,7 @@ router.get('/operator-summary', async (req, res) => {
       });
     }
 
-    res.json({
+    const value = {
       blocked_pages,
       issue_causes,
       priorities: priorities.slice(0, 3),
@@ -590,9 +610,13 @@ router.get('/operator-summary', async (req, res) => {
       risky_session_count: riskySessions.length,
       total_sessions: sessions.length,
       commerce,
-    });
+    };
+    rememberDashboardValue(dashboardSummaryCache, cacheKey, value);
+    res.json(value);
   } catch (err) {
     console.error('[operator-summary] 오류:', err.message);
+    const stale = dashboardSummaryCache.get(cacheKey)?.value;
+    if (stale) return res.json({ ...stale, stale: true });
     res.status(500).json({ error: '서버 오류' });
   }
 });
@@ -675,9 +699,14 @@ router.get('/period-report', async (req, res) => {
  * 쿼리: limit, origin — 유입 채널별 세션 수 TOP N
  */
 router.get('/sources', async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 3, 1), 10);
+  const cacheKey = `${canonicalOrigin(req.siteOrigin || req.query.origin || '') || '__all__'}:${limit}`;
+  const cached = cachedDashboardValue(sourceSummaryCache, cacheKey);
+  if (cached) return res.json(cached);
+
   try {
-    const limit = Math.min(Math.max(Number(req.query.limit) || 3, 1), 10);
-    const filter = {};
+    const now = Date.now();
+    const filter = { received_at: { $gte: new Date(dayStartKST(now)), $lte: new Date(now) } };
     Object.assign(filter, originFilter(req));   // 끝 슬래시 변형까지 매칭
 
     const sessions = await Event.aggregate(buildSessionPipeline(filter));
@@ -693,12 +722,16 @@ router.get('/sources', async (req, res) => {
       .slice(0, limit)
       .map(([name, count]) => ({ name, count }));
 
-    res.json({
+    const value = {
       total_sessions: sessions.length,
       sources,
-    });
+    };
+    rememberDashboardValue(sourceSummaryCache, cacheKey, value);
+    res.json(value);
   } catch (err) {
     console.error('[sources] 오류:', err.message);
+    const stale = sourceSummaryCache.get(cacheKey)?.value;
+    if (stale) return res.json({ ...stale, stale: true });
     res.status(500).json({ error: '서버 오류' });
   }
 });

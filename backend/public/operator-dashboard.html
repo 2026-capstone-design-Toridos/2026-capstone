@@ -401,10 +401,10 @@
     .commerce-meta { color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
     .tracking-note {
       margin-top: 12px;
-      border: 1px solid #f2d39a;
+      border: 1px solid #cfe0ff;
       border-radius: 10px;
-      background: #fffaf0;
-      color: #7c5414;
+      background: #f4f8ff;
+      color: #315b9a;
       padding: 11px 13px;
       font-size: 0.8rem;
       line-height: 1.55;
@@ -1083,7 +1083,7 @@
     </section>
 
     <section class="view" id="view-visits" data-view-panel="visits">
-      <div class="view-head"><div><h2>방문 분석</h2><p>최근 방문을 고르면 행동 흐름과 분석 결과를 한곳에서 봅니다.</p></div><span class="card-refresh">2.5초마다 자동 갱신</span></div>
+      <div class="view-head"><div><h2>방문 분석</h2><p>최근 방문을 고르면 행동 흐름과 분석 결과를 한곳에서 봅니다.</p></div><span class="card-refresh">10초마다 자동 갱신</span></div>
       <div class="visit-workspace">
         <div class="stack">
           <section class="card">
@@ -1103,6 +1103,13 @@
             </div>
           </section>
           <section class="card">
+            <div class="card-head">
+              <div><div class="card-title">운영 액션 리포트</div><div class="card-sub">선택한 고객의 유형 분석 후 유형별 제안과 고객별 운영 액션을 확인합니다.</div></div>
+              <div class="report-actions"><button class="secondary" id="cluster-report" disabled>유형 리포트</button><button class="secondary" id="session-report" disabled>고객 리포트</button></div>
+            </div>
+            <div class="card-body"><div class="report" id="report-box">고객을 선택하고 “이 고객 분석”을 눌러주세요.</div></div>
+          </section>
+          <section class="card">
             <div class="card-head"><div><div class="card-title">방금 들어온 고객 행동</div><div class="card-sub">새 행동은 추가되지만 현재 선택은 바뀌지 않습니다.</div></div></div>
             <div class="card-body"><div class="activity-list" id="activity-list"><div class="empty">행동 데이터를 기다리는 중입니다.</div></div></div>
           </section>
@@ -1115,9 +1122,9 @@
       <div class="stack">
         <section class="card">
           <div class="card-head">
-            <div><div class="card-title">리포트 선택</div><div class="card-sub">기본 일주일 리포트 또는 직접 정한 기간의 운영 요약을 확인합니다.</div></div>
+            <div><div class="card-title">리포트 선택</div><div class="card-sub">기본 주간 리포트 또는 직접 정한 기간의 운영 요약을 확인합니다.</div></div>
             <div class="report-toolbar">
-              <button class="secondary report-mode active" data-report-mode="weekly">일주일 리포트</button>
+              <button class="secondary report-mode active" data-report-mode="weekly">주간 리포트</button>
               <button class="secondary report-mode" data-report-mode="custom">기간별 리포트</button>
             </div>
           </div>
@@ -1136,7 +1143,10 @@
         <section class="card report-mode-pane active" data-report-pane="weekly">
           <div class="card-head">
             <div><div class="card-title">전체 주간 고객 행동 분석 보고서</div><div class="card-sub">기존 PDF와 같은 원본으로 전체 요약, 퍼널, 고객 유형별 상세 분석, 운영 제안과 분석 한계를 모두 보여줍니다.</div></div>
-            <button class="secondary" id="download-report">PDF로 내보내기</button>
+            <div class="report-toolbar">
+              <select id="weekly-report-week" aria-label="주간 리포트 주차"><option value="">최근 완료 주</option></select>
+              <button class="secondary" id="download-report">PDF로 내보내기</button>
+            </div>
           </div>
           <div class="card-body" id="full-report-container">
             <div class="report-loading" id="full-report-loading">전체 보고서를 준비하는 중입니다.</div>
@@ -1144,13 +1154,6 @@
           </div>
         </section>
         <section class="card revenue-addition" id="ra-report-card"><div class="card-head"><div><div class="ra-kicker">매출 기회 리포트</div><div class="card-title">오늘의 상품 관심과 미전환 금액</div><div class="card-sub">손실 요약과 같은 실제 당일 집계입니다.</div></div><button class="secondary" id="ra-print">기회 리포트 인쇄</button></div><div class="card-body"><div class="ra-report-kpis"><div>추정 손실 금액<strong class="ra-money" id="ra-report-loss">—</strong></div><div>구매 없이 종료된 방문<strong id="ra-report-people">—</strong></div><div>찜·장바구니 미전환 금액<strong id="ra-report-strong">—</strong></div></div><div class="ra-note" id="ra-report-note" style="margin-top:15px">실제 데이터를 불러오는 중입니다.</div></div></section>
-        <section class="card">
-          <div class="card-head">
-            <div><div class="card-title">운영 액션 리포트</div><div class="card-sub">방문 분석에서 고객을 분석한 뒤 고객 또는 유형 리포트를 확인합니다.</div></div>
-            <div class="report-actions"><button class="secondary" id="cluster-report" disabled>유형 리포트</button><button class="secondary" id="session-report" disabled>고객 리포트</button></div>
-          </div>
-          <div class="card-body"><div class="report" id="report-box">분석 결과가 준비되면 리포트가 여기에 표시됩니다.</div></div>
-        </section>
       </div>
     </section>
   </main>
@@ -1197,6 +1200,7 @@
       analysis: null,
       activeView: "loss",
       reportMode: "weekly",
+      weeklyReportWeek: "",
       reportPeriod: "custom",
       fullReportOrigin: null,
       sessionEventCache: new Map(),
@@ -1232,7 +1236,8 @@
        키가 없거나 폐기되면 실패가 한꺼번에 쏟아진다.
        한 번만 로그인 화면으로 보내고 나머지는 무시한다.            */
     let authBounced = false;
-    let pollTimer   = null;   // 2.5초 갱신 타이머 (아래 초기화 블록에서 채운다)
+    let pollTimer   = null;   // 10초 갱신 타이머 (아래 초기화 블록에서 채운다)
+    let refreshInFlight = false;
 
     function bounceToLogin(reason) {
       if (authBounced) return;
@@ -1250,7 +1255,10 @@
       const headers = { ...(options.headers || {}) };
       if (siteKey) headers["X-GT-Key"] = siteKey;
 
-      const res = await fetch(path, { ...options, headers });
+      // Atlas나 외부 서비스가 불안정해도 한 요청이 화면을 계속 붙잡지 않는다.
+      // PDF처럼 오래 걸리는 작업은 api()가 아니라 별도 fetch+상태 조회를 사용한다.
+      const signal = options.signal || AbortSignal.timeout(8_000);
+      const res = await fetch(path, { ...options, headers, signal });
       const body = await res.json().catch(() => ({}));
 
       // 키 문제는 상태 코드로 판단한다.
@@ -1881,15 +1889,12 @@
       if (counts.cart_visits > 0 && counts.add_to_cart === 0) {
         notes.push(`장바구니 화면 방문 ${fmt(counts.cart_visits)}건은 확인됐지만, 실제 담기 전용 이벤트는 없습니다.`);
       }
-      if ((counts.checkout_starts || 0) === 0 && (counts.order_completions || 0) === 0) {
-        notes.push("주문 진행·완료 이벤트는 확인되지 않았습니다.");
-      } else if ((counts.checkout_starts || 0) > 0 && (counts.order_completions || 0) === 0) {
+      if ((counts.checkout_starts || 0) > 0 && (counts.order_completions || 0) === 0) {
         notes.push(`주문 진행 ${fmt(counts.checkout_starts)}건 이후 완료 신호가 없습니다.`);
       }
-      if ((counts.wishlist_adds || 0) === 0) notes.push("찜하기 전용 이벤트는 확인되지 않았습니다.");
       $("commerce-tracking-note").textContent = notes.length
-        ? `수집 점검 · ${notes.join(" ")}`
-        : "상품 탐색부터 주문 완료까지 전용 이벤트가 정상적으로 수집되고 있습니다.";
+        ? `행동 해석 참고 · ${notes.join(" ")}`
+        : "행동 해석 참고 · 수집된 행동 신호를 기준으로 집계했으며 별도의 확인이 필요한 불일치는 없습니다.";
     }
 
     // 값이 없으면 "-"로 표시
@@ -1951,9 +1956,11 @@
       state.clusterPayload = data;
       state.clusters = rawClusters;
       const unavailable = data.source === "site_unavailable" || Boolean(data.warning);
-      if (unavailable || !Number.isFinite(Number(data.total_sessions)) || Number(data.total_sessions) <= 0) {
+      const pending = data.source === "site_pending" || data.pending === true;
+      if (pending || unavailable || !Number.isFinite(Number(data.total_sessions)) || Number(data.total_sessions) <= 0) {
         renderQualitySummary({});
-        $("type-comparison").innerHTML = `<div class="empty">${escapeHtml(data.warning || "현재 선택한 쇼핑몰의 분류 결과가 아직 없습니다.")}</div>`;
+        const unavailableMessage = pending ? (data.message || "고객 유형을 준비하고 있습니다.") : (data.warning || "현재 선택한 쇼핑몰의 분류 결과가 아직 없습니다.");
+        $("type-comparison").innerHTML = `<div class="empty">${escapeHtml(unavailableMessage)}</div>`;
         $("cohort-period").textContent = "유효한 분류 결과가 준비되면 전체와 최근 분포를 비교합니다.";
         $("cohort-change-list").innerHTML = `<div class="empty">비교할 최근 데이터가 아직 없습니다.</div>`;
         $("behavior-rate-table").innerHTML = `<div class="empty">유형별 행동 비율을 계산할 수 없습니다.</div>`;
@@ -2082,26 +2089,37 @@
       return events;
     }
 
-    // 고객 선택 시 해당 세션의 전체 이벤트를 DB에서 다시 읽어 행동 흐름을 보여준다.
-    async function selectSession(sessionId) {
+    // 목록 갱신 때 이미 받은 최근 이벤트를 즉시 보여주고, 전체 이력은 뒤에서 보완한다.
+    // Atlas 응답이 늦어도 고객 분석 버튼은 현재 확보된 실제 행동으로 바로 동작한다.
+    function selectSession(sessionId) {
       state.selectedSessionId = sessionId;
       $("session-input").dataset.sessionId = sessionId;
       $("session-input").value = `최근 고객 ${customerNumber(sessionId)}`;
       state.analysis = null;
       const selectedSession = state.sessions.find((s) => s.session_id === sessionId);
-      $("timeline-box").innerHTML = `<div class="empty">이 고객의 전체 행동을 불러오는 중입니다.</div>`;
+      const initialEvents = orderedEvents(state.logs.filter((event) => event.session_id === sessionId));
+      state.selectedEvents = initialEvents;
+      if (initialEvents.length) state.sessionEventCache.set(sessionId, initialEvents);
+      $("timeline-box").innerHTML = initialEvents.length
+        ? `${renderBehaviorFlow(initialEvents)}<div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div><div class="helper">전체 행동 이력을 확인하는 중입니다.</div>`
+        : `<div class="empty">이 고객의 전체 행동을 불러오는 중입니다.</div>`;
       $("result-box").innerHTML = `<div class="empty">“이 고객 분석”을 누르면 이 행동 흐름이 어떤 고객 유형에 가까운지 보여줍니다.</div>`;
       $("report-box").textContent = "고객 분석 후 리포트를 볼 수 있습니다.";
       $("cluster-report").disabled = true;
       $("session-report").disabled = true;
       renderSessions();
-      try {
-        state.selectedEvents = await loadSessionEvents(sessionId);
+      loadSessionEvents(sessionId, true).then((fullEvents) => {
         if (state.selectedSessionId !== sessionId) return;
+        const eventKey = (event) => event.event_id || `${event.timestamp || event.received_at}:${event.event_seq || 0}:${event.event_type}:${event.pathname || ""}`;
+        const merged = new Map(initialEvents.map((event) => [eventKey(event), event]));
+        fullEvents.forEach((event) => merged.set(eventKey(event), event));
+        state.selectedEvents = orderedEvents([...merged.values()]);
+        state.sessionEventCache.set(sessionId, state.selectedEvents);
         $("timeline-box").innerHTML = `${renderBehaviorFlow(state.selectedEvents)}<div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div>`;
-      } catch (err) {
-        if (state.selectedSessionId === sessionId) $("timeline-box").innerHTML = `<div class="error-state">행동 흐름을 불러오지 못했습니다: ${escapeHtml(err.message)}</div>`;
-      }
+      }).catch((err) => {
+        if (state.selectedSessionId !== sessionId || initialEvents.length) return;
+        $("timeline-box").innerHTML = `<div class="error-state">행동 흐름을 불러오지 못했습니다: ${escapeHtml(err.message)}</div>`;
+      });
     }
 
     function refreshSelectedTimeline() {
@@ -2123,8 +2141,28 @@
       if (!sessionId) return;
       $("result-box").innerHTML = `<div class="empty">고객 행동을 분석하는 중입니다.</div>`;
       try {
-        state.selectedEvents = await loadSessionEvents(sessionId, true);
-        const result = await api(`/api/classify/session/${encodeURIComponent(sessionId)}`, { method: "POST" });
+        // 선택하면서 이미 읽은 이벤트를 그대로 분류한다. 같은 세션을 DB에서
+        // 다시 조회하지 않아 Atlas 연결 장애가 분석 버튼을 붙잡지 않게 한다.
+        if (!state.selectedEvents.length || state.selectedSessionId !== sessionId) {
+          state.selectedEvents = await loadSessionEvents(sessionId);
+        }
+        const classifyEvents = state.selectedEvents.map((event) => ({
+          event_type: event.event_type,
+          timestamp: Number(event.timestamp) || new Date(event.received_at || 0).getTime(),
+          event_seq: event.event_seq,
+          inter_event_gap: event.inter_event_gap,
+          pathname: event.pathname,
+          page_url: event.page_url,
+          page_type: event.page_type || event.data?.page_type,
+          data: event.data || {},
+        }));
+        const result = await api("/api/classify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, events: classifyEvents }),
+        });
+        result.raw_event_count = classifyEvents.length;
+        result.meaningful_event_count = Number(result.seq_len) || 0;
         const isUnassigned = !Number.isFinite(Number(result.cluster_id)) || Number(result.cluster_id) < 0;
         const details = isUnassigned ? null : clusterDetails(result.cluster_id);
         const reliabilityLabel = result.reliability === "high" ? "신뢰 높음" : "신뢰 낮음";
@@ -2165,10 +2203,6 @@
         summary: state.analysis?.summary,
         action: state.analysis?.action,
         confidence: state.analysis?.confidence,
-        // prefer_local을 여기서 고정하지 않는다.
-        // AI 요약 사용 여부는 서버가 판단한다 — GEMINI_API_KEY가 없거나
-        // 호출이 실패하면 서버가 알아서 로컬 문장으로 대체한다(fallback 필드로 표시).
-        // 화면이 강제하면 키를 넣어도 AI 리포트가 영영 안 쓰인다.
         events: state.selectedEvents.map((e) => ({
           event_type: e.event_type,
           page: eventPage(e),
@@ -2185,7 +2219,8 @@
         const result = await api("/api/report/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sessionPayload()),
+          // 실제 고객 행동은 외부 AI로 보내지 않고 서버 내부 템플릿으로 즉시 요약한다.
+          body: JSON.stringify({ ...sessionPayload(), prefer_local: true }),
         });
         $("report-box").textContent = `${result.warning ? `${result.warning}\n\n` : ""}${result.report || "리포트가 비어 있습니다."}`;
       } catch (err) {
@@ -2198,8 +2233,8 @@
       if (clusterId === undefined || clusterId === null || clusterId === "") return;
       $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
       try {
-        // prefer_local 고정 제거 — AI 사용 여부는 서버가 판단하고 실패 시 대체한다.
         const params = new URLSearchParams();
+        params.set("prefer_local", "1");
         if (state.analysis?.persona) params.set("persona", state.analysis.persona);
         if (state.analysis?.completed) params.set("completed", "1");
         const query = params.toString();
@@ -2302,7 +2337,7 @@
     }
 
     async function loadFullReport(force = false) {
-      const reportKey = state.origin || "__all__";
+      const reportKey = `${state.origin || "__all__"}:${state.weeklyReportWeek || "latest"}`;
       const frame = $("full-report-frame");
       const loading = $("full-report-loading");
       if (!force && state.fullReportOrigin === reportKey && frame.srcdoc) return;
@@ -2314,7 +2349,9 @@
       try {
         if (!state.origin) throw new Error("리포트를 볼 쇼핑몰을 먼저 선택해주세요.");
         const headers = siteKey ? { "X-GT-Key": siteKey } : {};
-        const reportUrl = `/api/report/weekly/view?origin=${encodeURIComponent(state.origin)}`;
+        const reportUrl = state.weeklyReportWeek
+          ? `/api/report/weekly/weeks/${encodeURIComponent(state.weeklyReportWeek)}/view?origin=${encodeURIComponent(state.origin)}`
+          : `/api/report/weekly/view?origin=${encodeURIComponent(state.origin)}`;
         let response = await fetch(reportUrl, { headers });
           if (response.status === 202) {
             loading.textContent = "전체 보고서를 백그라운드에서 생성하고 있습니다. 완료되면 자동으로 표시합니다.";
@@ -2350,6 +2387,30 @@
       }
     }
 
+    async function loadWeeklyReportWeeks() {
+      const select = $("weekly-report-week");
+      if (!state.origin) {
+        select.innerHTML = `<option value="">쇼핑몰을 먼저 선택해주세요</option>`;
+        return;
+      }
+      try {
+        const payload = await api(`/api/report/weekly/weeks?origin=${encodeURIComponent(state.origin)}`);
+        const ready = (payload.reports || []).filter((report) => report.status === "ready");
+        select.innerHTML = ready.length
+          ? ready.map((report, index) => {
+              const start = report.display_start || report.week_start;
+              const end = report.display_end || report.week_end;
+              const prefix = report.source === "local_fallback" ? "기존 로컬 리포트 · " : "";
+              return `<option value="${escapeHtml(report.week_start)}" ${index === 0 ? "selected" : ""}>${prefix}${escapeHtml(start)} ~ ${escapeHtml(end)}</option>`;
+            }).join("")
+          : `<option value="">최근 완료 주 준비 중</option>`;
+        state.weeklyReportWeek = ready[0]?.week_start || "";
+      } catch {
+        select.innerHTML = `<option value="">최근 완료 주</option>`;
+        state.weeklyReportWeek = "";
+      }
+    }
+
     // 사이트 필터 옵션 채우기
     async function loadSites() {
       try {
@@ -2381,8 +2442,11 @@
       }
     }
 
-    // 2.5초마다 호출되는 메인 갱신 함수 - 통계/로그/세션/클러스터를 받아서 화면 전체를 다시 그림
+    // 10초마다 호출되는 메인 갱신 함수. 이전 요청이 끝나지 않았으면 겹쳐 실행하지 않는다.
     async function refresh() {
+      if (refreshInFlight) return;
+      refreshInFlight = true;
+      try {
       const origin = state.origin ? `&origin=${encodeURIComponent(state.origin)}` : "";
       const clusterOrigin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
       const shouldLoadClusters = !state.clusterLastLoadedAt || Date.now() - state.clusterLastLoadedAt >= 60000;
@@ -2400,7 +2464,7 @@
       if (logsResult.status === "fulfilled") {
         state.logs = logsResult.value;
         renderActivities();
-      } else {
+      } else if (!state.logs.length) {
         $("activity-list").innerHTML = `<div class="error-state">최근 행동을 불러오지 못했습니다. 다음 자동 갱신에서 다시 시도합니다.</div>`;
       }
       if (sessionsResult.status === "fulfilled" || logsResult.status === "fulfilled") {
@@ -2408,13 +2472,11 @@
         state.sessions = Array.isArray(sessions) ? sessions : groupSessions(state.logs);
         renderSessions();
         refreshSelectedTimeline();
-      } else {
+      } else if (!state.sessions.length) {
         $("session-list").innerHTML = `<div class="error-state">방문 목록을 불러오지 못했습니다.</div>`;
       }
       if (sourcesResult.status === "fulfilled") renderTopSources(sourcesResult.value);
-      else $("source-top").innerHTML = `<div class="error-state">유입 경로를 불러오지 못했습니다.</div>`;
       if (summaryResult.status === "fulfilled") renderOperatorSummary(summaryResult.value);
-      else ["blocked-pages", "issue-causes", "priority-actions", "source-performance"].forEach((id) => $(id).innerHTML = `<div class="error-state">이 항목을 불러오지 못했습니다.</div>`);
       if (statsResult.status === "fulfilled") {
         const stats = statsResult.value;
         state.stats = stats;
@@ -2434,6 +2496,9 @@
       const successCount = results.filter((result) => result.status === "fulfilled").length;
       $("overview-updated").textContent = `마지막 갱신 ${new Date().toLocaleTimeString("ko-KR")}`;
       setStatus(successCount >= 4, successCount === results.length ? `Live · ${new Date().toLocaleTimeString("ko-KR")}` : `일부 연결 지연`);
+      } finally {
+        refreshInFlight = false;
+      }
     }
 
     // "최신 데이터로 다시 분류" 버튼 핸들러
@@ -2452,9 +2517,23 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ origin: state.origin || "" }),
         });
+        if (result.status === "generating") {
+          $("operator-advice").textContent = "백그라운드에서 다시 분류하고 있습니다. 완료되면 자동으로 반영합니다.";
+          const startedAt = Date.now();
+          for (let attempt = 0; attempt < 60; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const snapshot = await api(`/api/clusters?mode=frozen&origin=${encodeURIComponent(state.origin)}`);
+            if (snapshot.source === "site_snapshot" && !snapshot.snapshot_refreshing && new Date(snapshot.snapshot_saved_at || 0).getTime() >= startedAt) {
+              result.snapshot_saved = true;
+              result.snapshot_cluster_count = snapshot.n_clusters;
+              result.snapshot_session_count = snapshot.total_sessions;
+              break;
+            }
+          }
+        }
         $("operator-advice").textContent = result.snapshot_saved
           ? `다시 분류를 완료했습니다. 현재 사이트 기준으로 ${fmt(result.snapshot_cluster_count)}개 유형, ${fmt(result.snapshot_session_count)}개 세션을 반영했습니다.`
-          : "다시 분류를 완료했습니다.";
+          : "다시 분류를 계속 진행하고 있습니다. 잠시 후 자동 갱신됩니다.";
         $("advice-tag").textContent = "분류 갱신 완료";
         state.clusterLastLoadedAt = 0;
         await refresh();
@@ -2477,6 +2556,7 @@
       state.clusterPayload = {};
       state.clusterLastLoadedAt = 0;
       state.fullReportOrigin = null;
+      state.weeklyReportWeek = "";
       $("session-input").value = "";
       $("session-input").dataset.sessionId = "";
       $("timeline-box").innerHTML = `<div class="empty">새 사이트의 고객을 선택해주세요.</div>`;
@@ -2485,7 +2565,9 @@
       $("cluster-report").disabled = true;
       $("session-report").disabled = true;
       refresh();
-      if (state.activeView === "reports" && state.reportMode === "weekly") loadFullReport(true);
+      if (state.activeView === "reports" && state.reportMode === "weekly") {
+        loadWeeklyReportWeeks().then(() => loadFullReport(true));
+      }
     });
     // 전문가 화면도 같은 키를 써야 데이터가 보인다 (localStorage 공유라 최초 1회만 필요)
     // withKey를 붙이는 이유: 시크릿 모드처럼 localStorage 쓰기가 막힌 브라우저에서는
@@ -2510,7 +2592,10 @@
       try {
         const headers = siteKey ? { "X-GT-Key": siteKey } : {};
         const origin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
-        let response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+        const downloadPath = state.weeklyReportWeek
+          ? `/api/report/weekly/weeks/${encodeURIComponent(state.weeklyReportWeek)}/download${origin}`
+          : `/api/report/weekly/download${origin}`;
+        let response = await fetch(downloadPath, { headers });
         if (response.status === 202) {
           button.textContent = "백그라운드 생성 중";
           for (let attempt = 0; attempt < 90 && response.status === 202; attempt += 1) {
@@ -2520,7 +2605,7 @@
               const body = await status.json().catch(() => ({}));
               throw new Error(body.error || "보고서 생성에 실패했습니다.");
             }
-            if (status.ok && status.status !== 202) response = await fetch(`/api/report/weekly/download${origin}`, { headers });
+            if (status.ok && status.status !== 202) response = await fetch(downloadPath, { headers });
           }
         }
         if (response.status === 202) throw new Error("보고서 생성이 오래 걸리고 있습니다. 잠시 후 다시 시도해주세요.");
@@ -2551,13 +2636,18 @@
       }
     }
     $("download-report").addEventListener("click", downloadWeeklyReport);
+    $("weekly-report-week").addEventListener("change", (event) => {
+      state.weeklyReportWeek = event.currentTarget.value;
+      state.fullReportOrigin = null;
+      loadFullReport(true);
+    });
     $("open-reports").addEventListener("click", () => switchView("reports"));
     document.querySelectorAll(".nav-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
     document.querySelectorAll(".report-mode").forEach((button) => button.addEventListener("click", () => {
       state.reportMode = button.dataset.reportMode;
       document.querySelectorAll(".report-mode").forEach((item) => item.classList.toggle("active", item === button));
       document.querySelectorAll("[data-report-pane]").forEach((pane) => pane.classList.toggle("active", pane.dataset.reportPane === state.reportMode));
-      if (state.reportMode === "weekly") loadFullReport();
+      if (state.reportMode === "weekly") loadWeeklyReportWeeks().then(() => loadFullReport(true));
       else renderPeriodReport("custom");
     }));
     $("apply-report-range").addEventListener("click", () => renderPeriodReport("custom"));
@@ -2571,15 +2661,18 @@
       e.currentTarget.dataset.sessionId = "";
     });
 
-    // 사이트 목록 로드 -> 첫 데이터 갱신 -> 최근 세션 자동 선택 -> 2.5초마다 polling
+    // 사이트 목록 로드 -> 첫 데이터 갱신 -> 최근 세션 자동 선택 -> 10초마다 polling
     (async function init() {
       const initialView = ["loss", "overview", "marketing", "visits", "reports"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "loss";
       switchView(initialView);
       await loadSites();
       await refresh();
-      if (state.activeView === "reports" && state.reportMode === "weekly") await loadFullReport(true);
+      if (state.activeView === "reports" && state.reportMode === "weekly") {
+        await loadWeeklyReportWeeks();
+        await loadFullReport(true);
+      }
       if (state.sessions[0]) selectSession(state.sessions[0].session_id);
-      pollTimer = setInterval(refresh, 2500);
+      pollTimer = setInterval(refresh, 10000);
     })();
   </script>
   <script src="/operator-revenue.js"></script>

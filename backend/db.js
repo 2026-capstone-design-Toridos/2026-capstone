@@ -18,7 +18,14 @@ async function connectDB() {
     throw new Error('MONGODB_URI 환경변수가 설정되지 않았습니다.');
   }
 
-  await mongoose.connect(uri);
+  await mongoose.connect(uri, {
+    // Atlas DNS/네트워크 장애 때 기본 수십 초 동안 요청을 쌓아두지 않고
+    // 빠르게 실패시켜 대시보드가 기존 값을 유지한 채 다음 갱신을 시도한다.
+    serverSelectionTimeoutMS: 8_000,
+    connectTimeoutMS: 8_000,
+    socketTimeoutMS: 10_000,
+    maxPoolSize: 10,
+  });
   isConnected = true;
   console.log('[GhostTracker] MongoDB 연결 성공');
 }

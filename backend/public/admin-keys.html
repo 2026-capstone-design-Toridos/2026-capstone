@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>접근 키 관리 — GhostTracker</title>
+<title>쇼핑몰 관리 — SEER</title>
 <style>
   :root {
     --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --text:#1f2937;
@@ -59,13 +59,21 @@
   .copybox input { font-family:ui-monospace,Menlo,monospace; font-size:12px; background:#fff; }
   .empty { color:var(--muted); text-align:center; padding:28px 0; }
   .hint { font-size:12px; color:var(--muted); margin-top:8px; }
+  .brand { color:var(--accent); font-weight:800; letter-spacing:.04em; margin-bottom:4px; }
+  .report-row td { background:#f8fafc; padding:14px 12px 18px; }
+  .report-setting { display:grid; grid-template-columns:minmax(240px,1fr) auto auto; gap:10px; align-items:end; }
+  .check { display:flex; align-items:center; gap:7px; padding:9px 0; white-space:nowrap; }
+  .status-line { font-size:12px; color:var(--muted); margin-top:8px; }
+  .status-line strong { color:var(--text); }
+  @media (max-width:700px) { .report-setting { grid-template-columns:1fr; } table { display:block; overflow-x:auto; } }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <h1>접근 키 관리</h1>
-  <p class="sub">쇼핑몰마다 키를 발급합니다. 사장님은 이 키가 들어간 주소로만 자기 가게 데이터를 봅니다.</p>
+  <div class="brand">SEER ADMIN</div>
+  <h1>쇼핑몰 관리</h1>
+  <p class="sub">쇼핑몰 접근 키와 월요일 오전에 발송할 주간 리포트를 관리합니다.</p>
 
   <div class="msg" id="msg"></div>
 
@@ -113,6 +121,16 @@
     </div>
   </div>
 
+  <div class="card" id="smtp-card" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <h2 style="margin:0">이메일 발송 연결</h2>
+        <div class="status-line" id="smtp-status">서버 SMTP 설정을 확인하는 중입니다.</div>
+      </div>
+      <button class="ghost" id="btn-smtp-check">연결 확인</button>
+    </div>
+  </div>
+
   <!-- 목록 -->
   <div class="card" id="list-card" style="display:none">
     <div class="row" style="justify-content:space-between; margin-bottom:12px;">
@@ -155,6 +173,7 @@
   function setLocked(locked) {
     $('auth-card').style.display  = locked ? '' : 'none';
     $('issue-card').style.display = locked ? 'none' : '';
+    $('smtp-card').style.display  = locked ? 'none' : '';
     $('list-card').style.display  = locked ? 'none' : '';
   }
 
@@ -236,6 +255,11 @@
   async function load() {
     try {
       const r = await api('/api/admin/keys' + (showRevoked ? '?include_revoked=1' : ''));
+      window.__smtpConfigured = r.smtp_configured;
+      const smtp = $('smtp-status');
+      smtp.textContent = r.smtp_configured
+        ? 'SMTP 설정이 입력되어 있습니다. “연결 확인”으로 실제 서버 접속을 검사할 수 있습니다.'
+        : `메일 발송 전 서버 설정이 필요합니다: ${(r.smtp_missing || []).join(', ')}`;
 
       if (!r.keys.length) {
         $('list').innerHTML = '<div class="empty">발급된 키가 없습니다.</div>';
@@ -264,18 +288,42 @@
       ? `<button class="ghost" data-restore="${k.id}">복구</button>`
       : `<button class="danger" data-revoke="${k.id}">폐기</button>`;
 
+    const report = k.latest_report;
+    const reportText = !report
+      ? '생성 이력 없음'
+      : `${report.week_start} ~ ${report.week_end} · 리포트 ${report.status} · 메일 ${report.email_status}`;
+    const smtpText = window.__smtpConfigured === false
+      ? ' · 서버 메일 설정 필요'
+      : '';
+    const recipients = (k.report_settings?.recipients || []).join(', ');
+
     return `<tr>
       <td>${host} ${tag}</td>
       <td>${k.label || '—'}</td>
       <td class="mono">${k.key}</td>
       <td>${fmt(k.last_used_at)}</td>
       <td style="text-align:right">${action}</td>
+    </tr>
+    <tr class="report-row">
+      <td colspan="5">
+        <div class="report-setting">
+          <div>
+            <label for="report-email-${k.id}">주간 리포트 수신 이메일 (쉼표로 여러 명 입력)</label>
+            <input type="text" id="report-email-${k.id}" value="${recipients}" placeholder="owner@example.com">
+          </div>
+          <label class="check"><input type="checkbox" id="report-enabled-${k.id}" ${k.report_settings?.enabled ? 'checked' : ''}> 월요일 오전 9시 자동 발송</label>
+          <div style="display:flex;gap:7px"><button class="ghost" data-save-report="${k.id}">설정 저장</button><button class="ghost" data-test-report="${k.id}">테스트 메일</button></div>
+        </div>
+        <div class="status-line"><strong>최근 상태</strong> · ${reportText}${smtpText}${report?.emailed_at ? ` · ${fmt(report.emailed_at)} 발송` : ''}</div>
+      </td>
     </tr>`;
   }
 
   document.addEventListener('click', async (e) => {
     const revokeId  = e.target.getAttribute?.('data-revoke');
     const restoreId = e.target.getAttribute?.('data-restore');
+    const saveReportId = e.target.getAttribute?.('data-save-report');
+    const testReportId = e.target.getAttribute?.('data-test-report');
 
     if (revokeId) {
       if (!confirm('이 키를 폐기하면 해당 사장님은 대시보드에 들어갈 수 없습니다. 진행할까요?')) return;
@@ -287,6 +335,50 @@
       try { await api(`/api/admin/keys/${restoreId}/restore`, { method: 'POST' }); msg('복구했습니다.', 'ok'); load(); }
       catch (err) { msg(err.message); }
     }
+
+    if (saveReportId) {
+      const recipients = $(`report-email-${saveReportId}`).value.split(/[\s,;]+/).filter(Boolean);
+      const enabled = $(`report-enabled-${saveReportId}`).checked;
+      e.target.disabled = true;
+      try {
+        const result = await api(`/api/admin/keys/${saveReportId}/report-settings`, {
+          method: 'PATCH',
+          body: JSON.stringify({ recipients, enabled }),
+        });
+        msg(result.smtp_configured
+          ? '주간 리포트 설정을 저장했습니다.'
+          : '설정은 저장했습니다. 실제 발송을 위해 서버 SMTP 설정이 필요합니다.',
+        result.smtp_configured ? 'ok' : 'err');
+        load();
+      } catch (err) { msg(err.message); }
+      finally { e.target.disabled = false; }
+    }
+
+    if (testReportId) {
+      if (!confirm('저장된 수신 이메일로 SEER 테스트 메일을 발송할까요?')) return;
+      e.target.disabled = true;
+      try {
+        const result = await api(`/api/admin/keys/${testReportId}/report-settings/test`, { method: 'POST' });
+        msg(`테스트 메일을 발송했습니다: ${(result.recipients || []).join(', ')}`, 'ok');
+      } catch (err) { msg(err.message); }
+      finally { e.target.disabled = false; }
+    }
+  });
+
+  $('btn-smtp-check').addEventListener('click', async () => {
+    const button = $('btn-smtp-check');
+    button.disabled = true;
+    $('smtp-status').textContent = 'SMTP 서버에 연결하는 중입니다.';
+    try {
+      const result = await api('/api/admin/keys/smtp/status');
+      $('smtp-status').textContent = result.connected
+        ? 'SMTP 서버 연결과 인증이 정상입니다.'
+        : `메일 발송 전 서버 설정이 필요합니다: ${(result.missing || []).join(', ')}`;
+      if (result.connected) msg('SMTP 연결을 확인했습니다.', 'ok');
+    } catch (err) {
+      $('smtp-status').textContent = `SMTP 연결 실패: ${err.message}`;
+      msg(err.message);
+    } finally { button.disabled = false; }
   });
 
   // ── 시작 ──────────────────────────────────────────────

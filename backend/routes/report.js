@@ -21,6 +21,7 @@ const { execFile } = require('child_process');
 const router  = express.Router();
 const { canonicalOrigin, originCondition } = require('../middleware/siteAccess');
 const Event = require('../models/Event');
+const WeeklyReport = require('../models/WeeklyReport');
 const { buildCommerceSummary } = require('../lib/commerceSummary');
 const clustersRouter = require('./clusters');
 const { buildReportMetrics, kstDateString } = require('../lib/reportMetrics');
@@ -73,6 +74,59 @@ function localDateValue(date = new Date(), compact = false) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return compact ? `${year}${month}${day}` : `${year}-${month}-${day}`;
+}
+
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dateStringFromUtcMs(ms) {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function addDateDays(dateString, days) {
+  return dateStringFromUtcMs(Date.parse(`${dateString}T00:00:00Z`) + days * DAY_MS);
+}
+
+/** 직전 완료 주(월요일 00:00~다음 월요일 00:00, KST). */
+function previousCompletedWeek(now = new Date()) {
+  const kst = new Date(now.getTime() + KST_OFFSET_MS);
+  const todayUtc = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
+  const daysSinceMonday = (kst.getUTCDay() + 6) % 7;
+  const currentMonday = todayUtc - daysSinceMonday * DAY_MS;
+  const startMs = currentMonday - 7 * DAY_MS;
+  return {
+    weekStart: dateStringFromUtcMs(startMs),
+    weekEnd: dateStringFromUtcMs(startMs + 6 * DAY_MS),
+    from: new Date(`${dateStringFromUtcMs(startMs)}T00:00:00+09:00`),
+    to: new Date(`${dateStringFromUtcMs(currentMonday)}T00:00:00+09:00`),
+  };
+}
+
+function periodForWeekStart(weekStart) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(weekStart || ''))) {
+    throw new Error('주차 형식이 올바르지 않습니다.');
+  }
+  const start = new Date(`${weekStart}T00:00:00+09:00`);
+  const startInKst = new Date(start.getTime() + KST_OFFSET_MS);
+  if (Number.isNaN(start.getTime()) || startInKst.getUTCDay() !== 1) {
+    throw new Error('주차 시작일은 월요일이어야 합니다.');
+  }
+  const weekEnd = addDateDays(weekStart, 6);
+  return {
+    weekStart,
+    weekEnd,
+    from: start,
+    to: new Date(`${addDateDays(weekStart, 7)}T00:00:00+09:00`),
+  };
+}
+
+function weeklyArtifactPaths(origin, weekStart) {
+  const compact = weekStart.replaceAll('-', '');
+  const base = `seer_weekly_report_${siteKey(origin)}_${compact}`;
+  return {
+    htmlPath: path.join(REPORTS_DIR, `${base}.html`),
+    pdfPath: path.join(REPORTS_DIR, `${base}.pdf`),
+  };
 }
 
 // ── 클러스터 메타 로드 ────────────────────────────────────────────────────────
@@ -197,6 +251,41 @@ function findCurrentHtmlReport(origin) {
   return files[0] || null;
 }
 
+// 전환 첫 주에는 기존 로컬 산출물을 보여주되, 새 월요일 기준 리포트 생성은
+// 백그라운드에서 계속한다. 새 주차 산출물이 ready가 되면 이 경로는 쓰이지 않는다.
+function findLegacyReportPair(origin) {
+  if (process.env.WEEKLY_REPORT_ALLOW_LEGACY_FALLBACK === 'false' || !fs.existsSync(REPORTS_DIR)) return null;
+  const key = siteKey(origin);
+  const pdfs = fs.readdirSync(REPORTS_DIR)
+    .filter((name) => name.toLowerCase().startsWith(`ghosttracker_report_${key}_`.toLowerCase()))
+    .filter((name) => name.toLowerCase().endsWith('.pdf') && !name.includes('.generating.'))
+    .map((name) => ({ name, fullPath: path.join(REPORTS_DIR, name), mtimeMs: fs.statSync(path.join(REPORTS_DIR, name)).mtimeMs }))
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  for (const pdf of pdfs) {
+    const htmlPath = pdf.fullPath.replace(/\.pdf$/i, '.html');
+    if (fs.existsSync(htmlPath)) {
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      const dates = html.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/);
+      return {
+        pdfPath: pdf.fullPath,
+        htmlPath,
+        displayStart: dates?.[1] || '',
+        displayEnd: dates?.[2] || '',
+      };
+    }
+  }
+  return null;
+}
+
+function sendLegacyHtml(res, legacy) {
+  const html = fs.readFileSync(legacy.htmlPath, 'utf8')
+    .replaceAll('GHOSTTRACKER', 'SEER')
+    .replaceAll('GhostTracker Analytics', 'SEER Analytics')
+    .replaceAll('GhostTracker AI 분석 시스템', 'SEER 고객 행동 분석 시스템')
+    .replaceAll('GhostTracker AI 분석 결과', 'SEER 행동 분석 결과');
+  res.type('html').send(html);
+}
+
 /**
  * 사이트 전용 PDF가 없을 때 보고서 생성기를 한 번만 실행한다.
  * execFile을 사용해 origin을 셸 문자열로 해석하지 않으며, 동일 사이트의
@@ -219,7 +308,7 @@ function removeGeneratedArtifact(filePath) {
  * 마케팅 지표(이번 주·전주)를 집계해 JSON으로 저장하고 경로를 돌려준다.
  * 집계가 실패하거나 늦어지면 빈 문자열을 돌려줘 보고서가 지표 쪽 없이 계속 만들어지게 한다.
  */
-async function writeSiteMetricsJson(origin, startDate, endDate) {
+async function writeSiteMetricsJson(origin, startDate, endDate, weekStart = startDate) {
   try {
     const metrics = await withDeadline(
       buildReportMetrics(origin, { startDate, endDate }),
@@ -227,7 +316,7 @@ async function writeSiteMetricsJson(origin, startDate, endDate) {
       '마케팅 지표 집계 시간이 초과됐습니다.',
     );
     fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
-    const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_metrics.json`);
+    const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${weekStart.replaceAll('-', '')}_metrics.json`);
     fs.writeFileSync(jsonPath, JSON.stringify(metrics), 'utf8');
     return jsonPath;
   } catch (err) {
@@ -236,14 +325,17 @@ async function writeSiteMetricsJson(origin, startDate, endDate) {
   }
 }
 
-async function writeSiteResultCsv(origin) {
-  const result = await clustersRouter.buildSiteReportData(origin);
+async function writeSiteResultCsv(origin, period) {
+  const result = await clustersRouter.buildSiteReportData(origin, {
+    from: period.from,
+    to: period.to,
+  });
   if (!result.total_sessions || !result.clusters?.length) {
     throw new Error('이 쇼핑몰의 분석 가능한 고객 행동이 아직 없습니다. 고객 행동을 수집한 뒤 다시 시도해주세요.');
   }
 
   fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
-  const csvPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_result.csv`);
+  const csvPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${period.weekStart.replaceAll('-', '')}_result.csv`);
   const headers = [
     'origin', 'total_sessions', 'cluster_id', 'name', 'count',
     'summary', 'action', 'top_actions_json', 'page_dist_json',
@@ -257,8 +349,11 @@ async function writeSiteResultCsv(origin) {
   return csvPath;
 }
 
-async function writeCommerceJson(origin) {
-  const events = await Event.find(originCondition(canonicalOrigin(origin)))
+async function writeCommerceJson(origin, period) {
+  const events = await Event.find({
+    ...originCondition(canonicalOrigin(origin)),
+    received_at: { $gte: period.from, $lt: period.to },
+  })
     .select('session_id event_type pathname page_url page_type data received_at timestamp')
     .sort({ received_at: -1 })
     .limit(20000)
@@ -266,35 +361,37 @@ async function writeCommerceJson(origin) {
     .lean();
   const summary = buildCommerceSummary(events);
   fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
-  const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_commerce.json`);
+  const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${period.weekStart.replaceAll('-', '')}_commerce.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(summary, null, 2), 'utf8');
   return jsonPath;
 }
 
-async function generatePdfReport(origin) {
+async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek()) {
   const key = siteKey(origin);
   if (!key) return Promise.reject(new Error('보고서를 생성할 사이트 정보가 없습니다.'));
-  if (reportGenerationJobs.has(key)) return reportGenerationJobs.get(key);
+  const period = requestedPeriod.weekStart
+    ? periodForWeekStart(requestedPeriod.weekStart)
+    : previousCompletedWeek();
+  const jobKey = `${key}:${period.weekStart}`;
+  if (reportGenerationJobs.has(jobKey)) return reportGenerationJobs.get(jobKey);
 
   const scriptPath = path.join(__dirname, '../../ml/report_html.py');
-  const stamp = localDateValue(new Date(), true);
-  const outputPath = path.join(REPORTS_DIR, `ghosttracker_report_${key}_${stamp}.pdf`);
-  const stagingPath = path.join(REPORTS_DIR, `.ghosttracker_report_${key}_${stamp}_${process.pid}.generating.pdf`);
+  const { pdfPath: outputPath } = weeklyArtifactPaths(origin, period.weekStart);
+  const stamp = period.weekStart.replaceAll('-', '');
+  const stagingPath = path.join(REPORTS_DIR, `.seer_weekly_report_${key}_${stamp}_${process.pid}.generating.pdf`);
   const stagingHtmlPath = stagingPath.replace(/\.pdf$/i, '.html');
   const oraclePython = '/home/opc/ghosttracker-venv/bin/python3.11';
   const pythonBin = process.env.PYTHON_BIN
     || (fs.existsSync(oraclePython) ? oraclePython : (process.platform === 'win32' ? 'python' : 'python3'));
-  // 보고서 기간은 한국 날짜 기준 최근 7일이다. 서버가 UTC로 돌아도 표지 날짜와
-  // 마케팅 지표의 집계 구간이 같은 날짜를 가리키도록 둘 다 여기서 정한다.
-  const endDate = kstDateString(new Date());
-  const startDate = kstDateString(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
+  const startDate = period.weekStart;
+  const endDate = period.weekEnd;
 
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
   const job = withDeadline((async () => {
     const [resultCsv, metricsJson, commerceJson] = await Promise.all([
-      writeSiteResultCsv(origin),
-      writeSiteMetricsJson(origin, startDate, endDate),
-      writeCommerceJson(origin),
+      writeSiteResultCsv(origin, period),
+      writeSiteMetricsJson(origin, startDate, endDate, period.weekStart),
+      writeCommerceJson(origin, period),
     ]);
     return new Promise((resolve, reject) => {
       execFile(
@@ -311,11 +408,11 @@ async function generatePdfReport(origin) {
         ],
         {
           cwd: path.join(__dirname, '../../ml'),
-          timeout: 180000,
+          timeout: 90000,
           maxBuffer: 2 * 1024 * 1024,
-          // GEMINI_API_KEY를 그대로 전달해 사이트별 result.csv를 기반으로
-          // 보고서 문장을 생성한다. API 장애 시 Python 템플릿이 폴백한다.
-          env: { ...process.env },
+          // 전체 고객 행동·상품 데이터가 들어가는 PDF는 외부 AI를 기다리거나
+          // 전송하지 않고 로컬 데이터 기반 문장으로 즉시 생성한다.
+          env: { ...process.env, GEMINI_API_KEY: '' },
         },
         (err, stdout, stderr) => {
           if (err) {
@@ -346,25 +443,127 @@ async function generatePdfReport(origin) {
       );
     });
   })(), REPORT_JOB_TIMEOUT_MS, '보고서 생성 시간이 초과됐습니다. 잠시 후 다시 시도해주세요.')
-    .finally(() => reportGenerationJobs.delete(key));
+    .finally(() => reportGenerationJobs.delete(jobKey));
 
-  reportGenerationJobs.set(key, job);
+  reportGenerationJobs.set(jobKey, job);
   return job;
 }
 
 // 웹 요청을 보고서 생성 시간(최대 3분) 동안 붙잡아 두면 프록시가 먼저
 // 504를 반환한다. 생성은 백그라운드에서 계속하고 화면은 상태를 조회한다.
-function queuePdfReport(origin) {
+function queuePdfReport(origin, period = previousCompletedWeek()) {
   const key = siteKey(origin);
   if (!key) throw new Error('보고서를 생성할 사이트 정보가 없습니다.');
-  if (reportGenerationJobs.has(key)) return;
-  reportGenerationStatus.set(key, { status: 'generating', started_at: new Date().toISOString() });
-  generatePdfReport(origin)
-    .then(() => reportGenerationStatus.set(key, { status: 'ready', finished_at: new Date().toISOString() }))
+  const jobKey = `${key}:${period.weekStart}`;
+  if (reportGenerationJobs.has(jobKey)) return;
+  reportGenerationStatus.set(jobKey, { status: 'generating', started_at: new Date().toISOString() });
+  generatePdfReport(origin, period)
+    .then(() => reportGenerationStatus.set(jobKey, { status: 'ready', finished_at: new Date().toISOString() }))
     .catch((err) => {
       console.error('[report/generate/background] 오류:', err.message);
-      reportGenerationStatus.set(key, { status: 'error', error: err.message, finished_at: new Date().toISOString() });
+      reportGenerationStatus.set(jobKey, { status: 'error', error: err.message, finished_at: new Date().toISOString() });
     });
+}
+
+async function ensureWeeklyReport(origin, period = previousCompletedWeek()) {
+  const normalizedOrigin = canonicalOrigin(origin);
+  const normalizedPeriod = periodForWeekStart(period.weekStart);
+  return WeeklyReport.findOneAndUpdate(
+    { origin: normalizedOrigin, week_start: normalizedPeriod.weekStart },
+    {
+      $setOnInsert: {
+        week_end: normalizedPeriod.weekEnd,
+        timezone: 'Asia/Seoul',
+        status: 'pending',
+        next_generation_attempt_at: new Date(),
+        email_status: 'pending',
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+}
+
+function artifactExists(report) {
+  return report?.status === 'ready'
+    && report.html_path && report.pdf_path
+    && fs.existsSync(report.html_path) && fs.existsSync(report.pdf_path);
+}
+
+async function runWeeklyReportGeneration(origin, period = previousCompletedWeek(), options = {}) {
+  const normalizedOrigin = canonicalOrigin(origin);
+  const normalizedPeriod = periodForWeekStart(period.weekStart);
+  await ensureWeeklyReport(normalizedOrigin, normalizedPeriod);
+
+  const now = new Date();
+  const claimFilter = {
+    origin: normalizedOrigin,
+    week_start: normalizedPeriod.weekStart,
+    $or: [
+      { status: { $in: ['pending', 'failed'] }, next_generation_attempt_at: { $lte: now } },
+      { status: 'generating', generation_lease_until: { $lte: now } },
+    ],
+  };
+  if (options.force) delete claimFilter.$or;
+
+  const claimed = await WeeklyReport.findOneAndUpdate(
+    claimFilter,
+    {
+      $set: {
+        status: 'generating',
+        generation_error: '',
+        generation_lease_until: new Date(now.getTime() + REPORT_JOB_TIMEOUT_MS + 60_000),
+      },
+      $inc: { generation_attempts: 1 },
+    },
+    { new: true },
+  );
+  if (!claimed) return WeeklyReport.findOne({ origin: normalizedOrigin, week_start: normalizedPeriod.weekStart });
+
+  try {
+    const pdfPath = await generatePdfReport(normalizedOrigin, normalizedPeriod);
+    const htmlPath = pdfPath.replace(/\.pdf$/i, '.html');
+    if (!fs.existsSync(htmlPath)) throw new Error('생성된 HTML 리포트를 찾지 못했습니다.');
+    return await WeeklyReport.findByIdAndUpdate(
+      claimed._id,
+      {
+        $set: {
+          status: 'ready',
+          pdf_path: pdfPath,
+          html_path: htmlPath,
+          generated_at: new Date(),
+          generation_error: '',
+          email_status: claimed.email_status === 'sent' ? 'sent' : 'pending',
+        },
+        $unset: { generation_lease_until: 1, next_generation_attempt_at: 1 },
+      },
+      { new: true },
+    );
+  } catch (err) {
+    const attempts = Number(claimed.generation_attempts || 1);
+    const retryMinutes = [5, 30, 120, 360][Math.min(attempts - 1, 3)];
+    await WeeklyReport.findByIdAndUpdate(claimed._id, {
+      $set: {
+        status: 'failed',
+        generation_error: String(err.message || err).slice(0, 1000),
+        next_generation_attempt_at: new Date(Date.now() + retryMinutes * 60_000),
+      },
+      $unset: { generation_lease_until: 1 },
+    });
+    throw err;
+  }
+}
+
+function queueWeeklyReport(origin, period = previousCompletedWeek(), options = {}) {
+  const jobKey = `${siteKey(origin)}:${period.weekStart}:db`;
+  if (reportGenerationJobs.has(jobKey)) return reportGenerationJobs.get(jobKey);
+  const job = runWeeklyReportGeneration(origin, period, options)
+    .catch((err) => {
+      console.error(`[report/weekly/background] ${origin} ${period.weekStart}:`, err.message);
+      return null;
+    })
+    .finally(() => reportGenerationJobs.delete(jobKey));
+  reportGenerationJobs.set(jobKey, job);
+  return job;
 }
 
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
@@ -888,37 +1087,44 @@ router.get('/cache/clear', (req, res) => {
 router.get('/weekly/download', async (req, res) => {
   try {
     const origin = req.siteOrigin || null;
-    let report = findCurrentPdfReport(origin);
-
-    if (!report) {
-      if (!origin) {
-        return res.status(400).json({ error: '보고서를 생성할 쇼핑몰을 먼저 선택해주세요.' });
-      }
-      queuePdfReport(origin);
-      return res.status(202).json({ status: 'generating', message: '주간 보고서를 생성하고 있습니다.' });
+    if (!origin) return res.status(400).json({ error: '보고서를 생성할 쇼핑몰을 먼저 선택해주세요.' });
+    const period = previousCompletedWeek();
+    const report = await ensureWeeklyReport(origin, period);
+    if (!artifactExists(report)) {
+      const legacy = findLegacyReportPair(origin);
+      if (legacy) return res.download(legacy.pdfPath, `SEER_주간리포트_기존자료.pdf`);
+      return res.status(202).json({ status: report.status, message: '주간 리포트를 백그라운드에서 준비하고 있습니다.' });
     }
-
-    const datePart = localDateValue();
-    const filename = origin
-      ? `ghosttracker_weekly_report_${siteKey(origin)}_${datePart}.pdf`
-      : `ghosttracker_weekly_report_${datePart}.pdf`;
-    res.download(report.fullPath, filename);
+    res.download(report.pdf_path, `SEER_주간리포트_${period.weekStart}_${period.weekEnd}.pdf`);
   } catch (err) {
     console.error('[report/weekly/download] 오류:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/weekly/status', (req, res) => {
+router.get('/weekly/status', async (req, res) => {
   const origin = req.siteOrigin || null;
   if (!origin) return res.status(400).json({ error: '보고서를 생성할 쇼핑몰을 먼저 선택해주세요.' });
-  const pdf = findCurrentPdfReport(origin);
-  const html = findCurrentHtmlReport(origin);
-  if (pdf && html) return res.json({ status: 'ready' });
-  const status = reportGenerationStatus.get(siteKey(origin));
-  if (status?.status === 'error') return res.status(500).json(status);
-  if (!reportGenerationJobs.has(siteKey(origin))) queuePdfReport(origin);
-  return res.status(202).json(status || { status: 'generating' });
+  try {
+    const period = previousCompletedWeek();
+    const report = await ensureWeeklyReport(origin, period);
+    if (artifactExists(report)) return res.json({
+      status: 'ready', week_start: report.week_start, week_end: report.week_end,
+      generated_at: report.generated_at,
+    });
+    if (findLegacyReportPair(origin)) return res.json({
+      status: 'ready', source: 'local_fallback', week_start: period.weekStart, week_end: period.weekEnd,
+    });
+    const code = report.status === 'failed' ? 503 : 202;
+    return res.status(code).json({
+      status: report.status,
+      week_start: report.week_start,
+      week_end: report.week_end,
+      error: report.generation_error || undefined,
+    });
+  } catch (err) {
+    return res.status(500).json({ status: 'failed', error: err.message });
+  }
 });
 
 // PDF 변환 직전의 동일한 HTML 원본을 대시보드 안에서 보여준다.
@@ -929,17 +1135,98 @@ router.get('/weekly/view', async (req, res) => {
     if (!origin) {
       return res.status(400).send('<p>리포트를 볼 쇼핑몰을 먼저 선택해주세요.</p>');
     }
-    let report = findCurrentHtmlReport(origin);
-    if (!report) {
-      queuePdfReport(origin);
-      return res.status(202).json({ status: 'generating', message: '전체 보고서를 생성하고 있습니다.' });
+    const period = previousCompletedWeek();
+    const report = await ensureWeeklyReport(origin, period);
+    if (!artifactExists(report)) {
+      const legacy = findLegacyReportPair(origin);
+      if (legacy) return sendLegacyHtml(res, legacy);
+      return res.status(202).json({
+        status: report.status,
+        week_start: period.weekStart,
+        week_end: period.weekEnd,
+        message: '주간 리포트를 백그라운드에서 준비하고 있습니다.',
+      });
     }
-    if (!report) throw new Error('생성된 웹 리포트를 찾지 못했습니다.');
-    res.sendFile(report.fullPath);
+    res.sendFile(report.html_path);
   } catch (err) {
     console.error('[report/weekly/view] 오류:', err.message);
     res.status(500).send(`<html lang="ko"><body><p>리포트를 준비하지 못했습니다. ${String(err.message).replace(/[<>&"]/g, '')}</p></body></html>`);
   }
 });
 
+// 생성 완료된 주차를 빠르게 선택할 수 있도록 메타데이터만 조회한다.
+router.get('/weekly/weeks', async (req, res) => {
+  try {
+    const origin = req.siteOrigin || null;
+    if (!origin) return res.status(400).json({ error: '쇼핑몰을 먼저 선택해주세요.' });
+    const reports = await WeeklyReport.find({ origin: canonicalOrigin(origin) })
+      .select('week_start week_end status generated_at generation_error email_status emailed_at')
+      .sort({ week_start: -1 })
+      .limit(52)
+      .lean();
+    const currentPeriod = previousCompletedWeek();
+    const current = reports.find((report) => report.week_start === currentPeriod.weekStart);
+    const legacy = findLegacyReportPair(origin);
+    if (!artifactExists(current) && legacy) {
+      reports.unshift({
+        week_start: currentPeriod.weekStart,
+        week_end: currentPeriod.weekEnd,
+        status: 'ready',
+        source: 'local_fallback',
+        display_start: legacy.displayStart,
+        display_end: legacy.displayEnd,
+        generated_at: null,
+        email_status: current?.email_status || 'disabled',
+      });
+    }
+    return res.json({ reports });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/weekly/weeks/:weekStart/view', async (req, res) => {
+  try {
+    const period = periodForWeekStart(req.params.weekStart);
+    const report = await WeeklyReport.findOne({
+      origin: canonicalOrigin(req.siteOrigin), week_start: period.weekStart, status: 'ready',
+    }).lean();
+    if (!artifactExists(report)) {
+      const current = previousCompletedWeek();
+      const legacy = period.weekStart === current.weekStart ? findLegacyReportPair(req.siteOrigin) : null;
+      if (legacy) return sendLegacyHtml(res, legacy);
+      return res.status(404).send('<p>이 주차의 리포트가 아직 준비되지 않았습니다.</p>');
+    }
+    return res.sendFile(report.html_path);
+  } catch (err) {
+    return res.status(400).send(`<p>${String(err.message).replace(/[<>&"]/g, '')}</p>`);
+  }
+});
+
+router.get('/weekly/weeks/:weekStart/download', async (req, res) => {
+  try {
+    const period = periodForWeekStart(req.params.weekStart);
+    const report = await WeeklyReport.findOne({
+      origin: canonicalOrigin(req.siteOrigin), week_start: period.weekStart, status: 'ready',
+    }).lean();
+    if (!artifactExists(report)) {
+      const current = previousCompletedWeek();
+      const legacy = period.weekStart === current.weekStart ? findLegacyReportPair(req.siteOrigin) : null;
+      if (legacy) return res.download(legacy.pdfPath, `SEER_주간리포트_기존자료.pdf`);
+      return res.status(404).json({ error: '이 주차의 리포트가 아직 준비되지 않았습니다.' });
+    }
+    return res.download(report.pdf_path, `SEER_주간리포트_${report.week_start}_${report.week_end}.pdf`);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+router.weeklyReportService = {
+  previousCompletedWeek,
+  periodForWeekStart,
+  ensureWeeklyReport,
+  queueWeeklyReport,
+  runWeeklyReportGeneration,
+  artifactExists,
+};
 module.exports = router;

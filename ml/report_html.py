@@ -1,7 +1,7 @@
 """
 report_html.py
 --------------
-GhostTracker B2B 고객 행동 분석 리포트 (HTML → PDF)
+SEER B2B 고객 행동 분석 리포트 (HTML → PDF)
 
 사용법:
   python report_html.py
@@ -803,7 +803,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 .commerce-row:last-child {{ border-bottom:0; }}
 .commerce-row .name {{ color:#24324a; }}
 .commerce-row .meta {{ color:#748297; white-space:nowrap; }}
-.commerce-note {{ margin-top:5mm; padding:4mm 5mm; border:1px solid #f2d39a; border-radius:10px; background:#fffaf0; color:#7c5414; font-size:8.2pt; line-height:1.7; }}
+.commerce-note {{ margin-top:5mm; padding:4mm 5mm; border:1px solid #cfe0ff; border-radius:10px; background:#f4f8ff; color:#315b9a; font-size:8.2pt; line-height:1.7; }}
 
 .section-title {{
     font-size: 11pt;
@@ -924,7 +924,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 .badge-mid    {{ background:#fff3e0; color:#e65100; padding:1.2px 7px; border-radius:999px; font-size:8pt; white-space:nowrap; border:1px solid #ffd8a8; }}
 .badge-low    {{ background:#ffebee; color:#b71c1c; padding:1.2px 7px; border-radius:999px; font-size:8pt; white-space:nowrap; border:1px solid #ffcdd2; }}
 
-/* GhostTracker 운영자 화면과 동일한 밝은 카드형 리포트 테마 */
+/* SEER 운영자 화면과 동일한 밝은 카드형 리포트 테마 */
 .page {{
     background: linear-gradient(180deg, #fbfcff 0%, #f6f8fb 100%);
 }}
@@ -975,7 +975,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     # ── 표지 ──────────────────────────────────────────────────────────────────
     cover_html = f"""
 <div class="page cover">
-  <div class="logo-line">GhostTracker Analytics</div>
+  <div class="logo-line">SEER Analytics</div>
   <div class="main-title">고객 행동 분석<br>보고서</div>
   <div class="sub-title">온라인 패션 쇼핑몰 방문 고객 심층 분석</div>
   <div class="period-box">분석 기간 &nbsp;|&nbsp; {start} ~ {end}</div>
@@ -994,7 +994,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       <span class="kpi-lbl">구매 가능성 높은 유형</span>
     </div>
   </div>
-  <div class="footer-line">본 보고서는 GhostTracker AI 분석 시스템에 의해 자동 생성되었습니다.</div>
+  <div class="footer-line">본 보고서는 SEER 고객 행동 분석 시스템에 의해 자동 생성되었습니다.</div>
 </div>
 """
 
@@ -1052,7 +1052,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     summary_html = f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">고객 유형 요약</span>
     <span class="period">{start} ~ {end}</span>
   </div>
@@ -1092,7 +1092,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     summary_table_html = f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">고객 유형 한눈에 보기</span>
     <span class="period">{start} ~ {end}</span>
   </div>
@@ -1167,7 +1167,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         funnel_html = f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">전환 퍼널 분석</span>
     <span class="period">{start} ~ {end}</span>
   </div>
@@ -1242,18 +1242,14 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     note_parts = []
     if cc.get('cart_visits', 0) > 0 and cc.get('add_to_cart', 0) == 0:
         note_parts.append(f"장바구니 화면 방문 {cc.get('cart_visits', 0)}건은 확인됐지만 실제 담기 전용 이벤트는 없습니다.")
-    if cc.get('checkout_starts', 0) == 0 and cc.get('order_completions', 0) == 0:
-        note_parts.append("주문 진행 및 주문 완료 이벤트는 확인되지 않았습니다.")
-    elif cc.get('checkout_starts', 0) > 0 and cc.get('order_completions', 0) == 0:
+    if cc.get('checkout_starts', 0) > 0 and cc.get('order_completions', 0) == 0:
         note_parts.append(f"주문 진행 {cc.get('checkout_starts', 0)}건 이후 완료 신호가 없습니다.")
-    if cc.get('wishlist_adds', 0) == 0:
-        note_parts.append("찜하기 전용 이벤트는 확인되지 않았습니다.")
-    tracking_note = ' '.join(note_parts) or '상품 탐색부터 주문 완료까지 전용 이벤트가 정상적으로 수집되고 있습니다.'
+    tracking_note = ' '.join(note_parts) or '수집된 행동 신호를 기준으로 집계했으며 별도의 확인이 필요한 불일치는 없습니다.'
 
     commerce_html = f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">상품 행동 데이터</span>
     <span class="period">{start} ~ {end}</span>
   </div>
@@ -1278,7 +1274,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     <div class="commerce-cols" style="margin-top:5mm; grid-template-columns:1fr;">
       <div class="commerce-box"><h3>최근 상품 행동</h3>{action_rows}</div>
     </div>
-    <div class="commerce-note"><b>수집 점검</b> · {esc(tracking_note)}</div>
+    <div class="commerce-note"><b>행동 해석 참고</b> · {esc(tracking_note)}</div>
   </div>
 </div>
 """
@@ -1310,7 +1306,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         exit_capture_page = f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">탐색 중지 집중 화면 예시</span>
     <span class="period">{start} ~ {end}</span>
   </div>
@@ -1375,7 +1371,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         cluster_pages += f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">고객 유형 상세 분석</span>
     <span class="period">{start} ~ {end}</span>
   </div>
@@ -1415,7 +1411,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 
     <div class="section-title">AI 분석 인사이트</div>
     <div class="insight-box">
-      <div class="insight-label">GhostTracker AI 분석 결과</div>
+      <div class="insight-label">SEER 행동 분석 결과</div>
       {insight}
     </div>
 
@@ -1427,7 +1423,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     recs_html = f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">운영 개선 제안</span>
     <span class="period">{start} ~ {end}</span>
   </div>
@@ -1486,7 +1482,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     method_html = f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">분석 방법 및 한계</span>
     <span class="period">{start} ~ {end}</span>
   </div>
@@ -1553,7 +1549,7 @@ def site_key(origin: str) -> str:
 def generate_report(start_date: str, end_date: str, output_path: str,
                     origin: str = '', result_csv: str = '', metrics_json: str = '', commerce_json: str = ''):
     print("=" * 55)
-    print("  GhostTracker 고객 분석 리포트 생성기 (HTML → PDF)")
+    print("  SEER 고객 분석 리포트 생성기 (HTML → PDF)")
     print("=" * 55)
     if origin:
         print(f"  대상 사이트: {origin}")
@@ -1696,7 +1692,7 @@ def generate_report(start_date: str, end_date: str, output_path: str,
 
 # CLI 인자(--start, --end, --output)를 파싱하고 generate_report를 호출한다
 def main():
-    p = argparse.ArgumentParser(description='GhostTracker 리포트 생성')
+    p = argparse.ArgumentParser(description='SEER 리포트 생성')
     p.add_argument('--start',  default=datetime.now().strftime('%Y-%m-01'))
     p.add_argument('--end',    default=datetime.now().strftime('%Y-%m-%d'))
     p.add_argument('--output', default='')

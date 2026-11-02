@@ -26,6 +26,14 @@ const crypto  = require('crypto');
 const router  = express.Router();
 
 const SiteKey = require('../models/SiteKey');
+const SiteReportSetting = require('../models/SiteReportSetting');
+const WeeklyReport = require('../models/WeeklyReport');
+const {
+  smtpConfigured,
+  smtpConfigurationStatus,
+  verifySmtpConnection,
+  sendTestEmail,
+} = require('../services/weeklyReportMailer');
 const { normalizeOrigin, invalidateKeyCache } = require('../middleware/siteAccess');
 
 /** 추측하기 어려운 키를 만든다 (24자, URL에 그대로 쓸 수 있는 문자만) */
@@ -66,6 +74,17 @@ router.get('/', async (req, res) => {
     const filter = includeRevoked ? {} : { revoked: false };
 
     const keys = await SiteKey.find(filter).sort({ created_at: -1 }).lean();
+    const origins = [...new Set(keys.map((key) => key.origin))];
+    const [settings, latestReports] = await Promise.all([
+      SiteReportSetting.find({ origin: { $in: origins } }).lean(),
+      WeeklyReport.aggregate([
+        { $match: { origin: { $in: origins } } },
+        { $sort: { week_start: -1 } },
+        { $group: { _id: '$origin', report: { $first: '$$ROOT' } } },
+      ]),
+    ]);
+    const settingByOrigin = new Map(settings.map((setting) => [setting.origin, setting]));
+    const reportByOrigin = new Map(latestReports.map((row) => [row._id, row.report]));
 
     res.json({
       total: keys.length,
@@ -78,11 +97,107 @@ router.get('/', async (req, res) => {
         source:       k.source,
         created_at:   k.created_at,
         last_used_at: k.last_used_at || null,
+        report_settings: {
+          enabled: Boolean(settingByOrigin.get(k.origin)?.weekly_email_enabled),
+          recipients: settingByOrigin.get(k.origin)?.weekly_email_recipients || [],
+        },
+        latest_report: reportByOrigin.get(k.origin) ? {
+          week_start: reportByOrigin.get(k.origin).week_start,
+          week_end: reportByOrigin.get(k.origin).week_end,
+          status: reportByOrigin.get(k.origin).status,
+          generated_at: reportByOrigin.get(k.origin).generated_at || null,
+          email_status: reportByOrigin.get(k.origin).email_status,
+          emailed_at: reportByOrigin.get(k.origin).emailed_at || null,
+          error: reportByOrigin.get(k.origin).generation_error || reportByOrigin.get(k.origin).email_error || '',
+        } : null,
       })),
+      smtp_configured: smtpConfigured(),
+      smtp_missing: smtpConfigurationStatus().missing,
     });
   } catch (err) {
     console.error('[admin/keys] 목록 오류:', err.message);
     res.status(500).json({ error: '서버 오류' });
+  }
+});
+
+router.get('/smtp/status', async (req, res) => {
+  const configuration = smtpConfigurationStatus();
+  if (!configuration.configured) {
+    return res.json({ ...configuration, connected: false });
+  }
+  try {
+    await verifySmtpConnection();
+    return res.json({ ...configuration, connected: true });
+  } catch (err) {
+    return res.status(502).json({ ...configuration, connected: false, error: err.message });
+  }
+});
+
+function normalizeRecipients(value) {
+  const items = Array.isArray(value) ? value : String(value || '').split(/[\s,;]+/);
+  const unique = [...new Set(items.map((item) => String(item).trim().toLowerCase()).filter(Boolean))];
+  if (unique.length > 5) throw new Error('수신 이메일은 최대 5개까지 입력할 수 있습니다.');
+  const invalid = unique.find((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+  if (invalid) throw new Error(`이메일 형식이 올바르지 않습니다: ${invalid}`);
+  return unique;
+}
+
+// 같은 쇼핑몰에 키가 여러 개여도 리포트 설정은 origin 하나에만 저장한다.
+router.patch('/:id/report-settings', async (req, res) => {
+  try {
+    const key = await SiteKey.findById(req.params.id).lean();
+    if (!key) return res.status(404).json({ error: '키를 찾을 수 없습니다.' });
+    const recipients = normalizeRecipients(req.body?.recipients);
+    const enabled = req.body?.enabled === true;
+    if (enabled && !recipients.length) {
+      return res.status(400).json({ error: '자동 발송을 사용하려면 수신 이메일을 입력하세요.' });
+    }
+    const setting = await SiteReportSetting.findOneAndUpdate(
+      { origin: key.origin },
+      {
+        $set: {
+          weekly_email_enabled: enabled,
+          weekly_email_recipients: recipients,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    await WeeklyReport.updateMany(
+      { origin: key.origin, email_status: { $ne: 'sent' } },
+      {
+        $set: {
+          email_status: enabled ? 'pending' : 'disabled',
+          email_recipients: recipients,
+        },
+        $unset: { email_error: 1, next_email_attempt_at: 1, email_lease_until: 1 },
+      },
+    );
+    return res.json({
+      ok: true,
+      origin: key.origin,
+      report_settings: { enabled: setting.weekly_email_enabled, recipients: setting.weekly_email_recipients },
+      smtp_configured: smtpConfigured(),
+    });
+  } catch (err) {
+    const status = /이메일|최대/.test(err.message) ? 400 : 500;
+    return res.status(status).json({ error: err.message || '서버 오류' });
+  }
+});
+
+router.post('/:id/report-settings/test', async (req, res) => {
+  try {
+    const key = await SiteKey.findById(req.params.id).lean();
+    if (!key) return res.status(404).json({ error: '키를 찾을 수 없습니다.' });
+    const setting = await SiteReportSetting.findOne({ origin: key.origin }).lean();
+    const recipients = setting?.weekly_email_recipients || [];
+    if (!recipients.length) {
+      return res.status(400).json({ error: '먼저 수신 이메일을 저장하세요.' });
+    }
+    const result = await sendTestEmail({ origin: key.origin, recipients });
+    return res.json({ ...result, recipients });
+  } catch (err) {
+    const status = /SMTP 설정|받을 주소|수신 이메일/.test(err.message) ? 400 : 502;
+    return res.status(status).json({ error: err.message });
   }
 });
 
