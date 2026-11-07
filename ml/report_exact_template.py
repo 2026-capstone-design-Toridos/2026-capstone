@@ -316,6 +316,27 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     cell.string = str(value)
         update_bar_group(soup, "고객이 마지막에 머문 화면", metrics.get("exit_pages") or [])
         update_bar_group(soup, "멈춘 흔적(추정)", metrics.get("exit_causes") or [])
+        if len(funnel) >= 2:
+            visits = int(funnel[0].get("sessions") or 0)
+            product_visits = int(funnel[1].get("sessions") or 0)
+            progress = rate(product_visits, visits)
+            stopped = max(visits - product_visits, 0)
+            prev_visits = int(previous.get("sessions") or 0)
+            prev_products = int(previous.get("product_sessions") or 0)
+            prev_progress = rate(prev_products, prev_visits)
+            label = next((tag for tag in soup.find_all("span") if tag.get_text(strip=True) == "읽는 법"), None)
+            guide = label.find_next_sibling("div") if label else None
+            if guide:
+                direction = "좋아졌어요" if progress > prev_progress else "낮아졌어요" if progress < prev_progress else "같아요"
+                guide_html = (
+                    f"가장 많이 멈춘 구간은 <b>방문 → 상품 조회</b>({stopped}명, 진행률 {progress:.0f}%)예요. "
+                    f"전주 {prev_progress:.0f}% → {progress:.0f}%로 {direction}. "
+                    "홈 첫 화면에서 대표 상품·혜택으로 바로 이어지는지(배너 문구, 추천 상품 영역) 점검하세요. "
+                    "각 단계는 그 화면 또는 그 이후에 도달한 세션 수예요."
+                )
+                replacement = __import__("bs4").BeautifulSoup(f"<div>{guide_html}</div>", "html.parser").div
+                replacement["style"] = guide.get("style", "")
+                guide.replace_with(replacement)
         page = str(soup)
 
     if source_index == 9 and overview:
