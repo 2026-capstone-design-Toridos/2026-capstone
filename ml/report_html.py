@@ -41,9 +41,9 @@ EXIT_CAPTURE_DIR = os.path.join(OUT_DIR, 'exit_captures')
 
 # ── 색상 ───────────────────────────────────────────────────────────────────────
 PALETTE = [
-    '#185ADB','#14B8A6','#E85D4F','#F59E0B','#8B5CF6',
-    '#0EA5E9','#22C55E','#EC4899','#64748B','#A16207',
-    '#06B6D4','#84CC16',
+    '#39248D','#6F64B3','#9C94CE','#D8D3EC','#1F4B87',
+    '#4E78B7','#9CB2DF','#E88924','#F2A14B','#B54B2A',
+    '#557F75','#D1BD5C',
 ]
 INTENT_COLOR = {'높음': '#2e7d32', '중간': '#e65100', '낮음': '#b71c1c'}
 INTENT_BG    = {'높음': '#e8f5e9', '중간': '#fff3e0', '낮음': '#ffebee'}
@@ -308,22 +308,76 @@ def build_gemini_prompt(cid: str, profile: dict) -> str:
                                          key=lambda x: -x[1])[:5])
     nm   = profile.get('name', type_name(cid, profile))
     intt = infer_intent(profile)
-    return f"""당신은 온라인 패션 쇼핑몰을 운영하는 사장님에게 보고서를 드리는 분석가입니다.
+    count = int(profile.get('count', 0) or 0)
+    return f"""당신은 이커머스 고객 행동 데이터 분석가입니다. 아래 관측값만 근거로 쇼핑몰 운영자가 다음 주에 실행할 수 있는 인사이트를 작성하세요.
 아래는 '{nm}' 고객 유형의 방문 행동 데이터입니다.
 
 [이번 달 데이터]
 - 유형 이름: {nm}
-- 해당 유형 방문 건수: {profile.get('count', 0)}건
+- 해당 유형 방문 건수: {count}건
 - 구매 가능성 등급: {intt}
 - 특성 행동 (많이 한 순서): {top}
 - 주로 머문 페이지: {pages}
 
-위 데이터를 바탕으로 다음 내용을 한국어로 작성하세요 (4~5문장, 번호 없이 자연스러운 단락):
-1. 이 고객들이 쇼핑몰에서 주로 어떻게 행동하는지 쉽게 설명
-2. 구매로 이어질 가능성이 높은지 낮은지와 그 이유
-3. 이 고객들의 구매를 늘리기 위해 쇼핑몰 사장님이 할 수 있는 실용적인 조치 1~2가지
+작성 규칙:
+- 5문장, 번호·제목·마크다운 없이 하나의 자연스러운 단락으로 작성합니다.
+- 1문장: 대표 행동과 주요 페이지를 수치와 함께 요약합니다.
+- 2문장: 관측된 행동 흐름을 해석하되 원인·감정·인구통계는 단정하지 않습니다.
+- 3문장: 구매 가능성 등급의 근거를 데이터에 연결합니다.
+- 4문장: 운영자가 바꿀 화면·메시지·혜택을 구체적으로 1개 제안합니다.
+- 5문장: 다음 주에 확인할 행동 지표와 기대 방향을 제시합니다. 데이터에 없는 목표 수치는 만들지 않습니다.
+- 'AI', '클러스터', '세그먼트', '유저' 같은 기술 용어와 과장 표현을 쓰지 않습니다.
+- 입력에 없는 상품명, 채널, 전환율, 매출, 고객 특성은 추측하지 않습니다."""
 
-기술적 용어 없이, 쇼핑몰 비전공자도 이해할 수 있는 쉬운 표현으로 써주세요."""
+
+def build_overall_prompt(profiles: dict, total_visits: int, funnel: dict | None,
+                         commerce: dict) -> str:
+    types = []
+    for cid in sorted(profiles.keys(), key=int):
+        p = profiles[cid]
+        share = round((p.get('count', 0) or 0) / max(total_visits, 1) * 100)
+        types.append(f"- {p.get('name', type_name(cid, p))}: {p.get('count', 0)}건({share}%), 구매 가능성 {infer_intent(p)}")
+    funnel_line = '퍼널 데이터 없음'
+    if funnel:
+        biggest = funnel.get('biggest')
+        funnel_line = f"총 {funnel.get('total', 0)}세션"
+        if biggest:
+            funnel_line += f", 최대 이탈 구간 {biggest[0]} {biggest[1]}명({biggest[2]}%)"
+    commerce_line = json.dumps(commerce or {}, ensure_ascii=False)[:1800]
+    return f"""당신은 이커머스 운영 책임자에게 주간 의사결정 메모를 작성하는 분석가입니다.
+아래 관측값만 사용해 '종합 제안'을 작성하세요.
+
+[고객 유형]
+{chr(10).join(types)}
+[구매 여정] {funnel_line}
+[상품 행동 요약] {commerce_line}
+
+작성 규칙:
+- 한국어 4문장, 번호·제목·마크다운 없이 하나의 단락으로 작성합니다.
+- 첫 문장은 이번 주 가장 중요한 기회 또는 위험을 수치 근거와 함께 요약합니다.
+- 둘째·셋째 문장은 우선순위가 다른 실행안 2개를 각각 '대상 고객/화면 + 변경 내용 + 이유'가 보이게 씁니다.
+- 마지막 문장은 다음 주 비교할 검증 지표를 명시합니다.
+- 데이터에 없는 원인, 상품명, 매출 효과, 목표 수치를 만들지 말고 데이터가 없으면 그 한계를 짧게 밝힙니다.
+- 일반론(서비스를 개선하세요, 마케팅을 강화하세요) 대신 실행 위치와 내용을 구체적으로 씁니다."""
+
+
+def build_usage_prompt(profiles: dict, total_visits: int) -> str:
+    rows = []
+    for cid in sorted(profiles.keys(), key=int):
+        p = profiles[cid]
+        acts = ', '.join(ko_action(a['action']) for a in meaningful_actions(p, 3)) or '행동 정보 부족'
+        rows.append(f"- {p.get('name', type_name(cid, p))}: {p.get('count', 0)}건, {infer_intent(p)}, 대표 행동 {acts}")
+    return f"""당신은 쇼핑몰 CRM·콘텐츠 운영 실무자입니다. 아래 고객 행동 유형을 실제 운영에 연결하는 '활용 제안'을 작성하세요.
+
+[총 방문] {total_visits}건
+{chr(10).join(rows)}
+
+작성 규칙:
+- 한국어 3문장, 번호·제목·마크다운 없이 하나의 단락으로 작성합니다.
+- 각 문장은 서로 다른 활용 영역(사이트 개인화, 재방문 메시지, 콘텐츠/프로모션 실험) 중 하나를 다룹니다.
+- 각 문장에 대상 유형, 실행 조건 또는 노출 위치, 메시지/콘텐츠, 확인 지표를 포함합니다.
+- 개인정보나 인구통계를 추정하지 않고, 관측된 행동으로만 대상을 정의합니다.
+- 입력에 없는 채널·상품명·성과 수치를 만들지 않습니다. 표본이 작을 수 있으므로 확정 표현 대신 실험·검증 표현을 씁니다."""
 
 # ── 구매 의향 추론 ────────────────────────────────────────────────────────────
 # 행동 비율 기반으로 구매 의향(높음/중간/낮음)을 추론한다
@@ -430,8 +484,8 @@ def chart_pages(cid: str, profile: dict) -> str:
     labels = [ko_page(k) for k in pd]
     sizes  = list(pd.values())
     PAGE_CLR = {
-        '홈 화면':'#3949AB','상품 상세':'#00897B','장바구니':'#E53935',
-        '결제 페이지':'#8E24AA','검색 결과':'#039BE5','카테고리':'#FB8C00',
+        '홈 화면':'#6F64B3','상품 상세':'#39248D','장바구니':'#557F75',
+        '결제 페이지':'#D1BD5C','검색 결과':'#9C94CE','카테고리':'#D88924',
     }
     clrs = [PAGE_CLR.get(l, '#78909C') for l in labels]
 
@@ -556,7 +610,9 @@ def chart_funnel(funnel: dict) -> str:
 def build_html(start: str, end: str, profiles: dict,
                ai_reports: dict, font_reg: str, font_bold: str,
                funnel: dict = None, exit_captures: list = None,
-               marketing_html: str = '', commerce: dict = None) -> str:
+               marketing_html: str = '', commerce: dict = None,
+               site_name: str = '쇼핑몰', overall_insight: str = '',
+               usage_insight: str = '') -> str:
 
     total_visits = sum(p.get('count', 0) for p in profiles.values())
     _intent = {c: type_intent(type_name(c, p), p, funnel) for c, p in profiles.items()}
@@ -931,38 +987,28 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 .page::before {{
     background: linear-gradient(90deg, #185adb 0%, #0f7ae5 58%, #14b8a6 100%);
 }}
-.cover {{
-    display: block;            /* flex 열 배치는 WeasyPrint 52 이하에서 제목이 세로로 깨진다 */
-    text-align: left;
-    padding: 32mm 18mm 24mm;
-    color: #172033;
-    background:
-      radial-gradient(circle at 86% 10%, rgba(20,184,166,.20), transparent 27%),
-      radial-gradient(circle at 8% 0%, rgba(24,90,219,.18), transparent 34%),
-      linear-gradient(180deg, #fbfcff 0%, #f3f7fc 100%);
+.cover {{ display:block; text-align:left; padding:0; color:#fff; background:#17407a; }}
+.cover::before, .cover::after {{ display:none; }}
+.cover .cover-triangle {{ position:absolute; right:0; width:0; height:0; }}
+.cover .triangle-top-1 {{ top:0; border-top:148mm solid #1f4c8c; border-left:148mm solid transparent; }}
+.cover .triangle-top-2 {{ top:0; border-top:79mm solid #3d6bb0; border-left:79mm solid transparent; }}
+.cover .triangle-bottom-1 {{ bottom:0; border-bottom:127mm solid #1f4c8c; border-left:127mm solid transparent; }}
+.cover .triangle-bottom-2 {{ bottom:0; border-bottom:79mm solid #3d6bb0; border-left:79mm solid transparent; }}
+.cover .triangle-bottom-3 {{ bottom:0; border-bottom:40mm solid #8aa5d8; border-left:40mm solid transparent; }}
+.cover .logo-line {{ position:absolute; left:15mm; top:17mm; margin:0; padding:0; border:0; background:transparent; color:#bcd3f5; font-size:12pt; font-weight:bold; letter-spacing:3px; text-transform:uppercase; }}
+.cover .cover-accent {{ position:absolute; left:15mm; top:92mm; width:17mm; height:1.6mm; background:#e0852a; border-radius:2mm; }}
+.cover .main-title {{ position:absolute; left:15mm; top:100mm; margin:0; color:#fff; font-size:45pt; line-height:1.2; font-weight:bold; }}
+.cover .site-name {{ position:absolute; left:15mm; top:148mm; color:#fff; font-size:19pt; font-weight:bold; }}
+.cover .week-label {{ position:absolute; left:15mm; top:160mm; color:#d6e4fa; font-size:12pt; }}
+.cover .period-box {{ position:absolute; left:15mm; bottom:17mm; width:80mm; margin:0; padding:3mm 0 0; border:0; border-top:1px solid #5b80b8; border-radius:0; background:transparent; box-shadow:none; color:#fff; font-size:15pt; font-weight:bold; }}
+.cover .period-label {{ display:block; margin-bottom:2mm; color:#bcd3f5; font-size:9pt; font-weight:bold; letter-spacing:2px; }}
+.page-header {{
+    background:#fff; color:#172033; border-bottom:1px solid #dde7f2;
+    padding:0; display:block; position:relative; height:18.5mm;
 }}
-.cover::before {{ background: radial-gradient(circle, rgba(24,90,219,.14), rgba(24,90,219,0) 72%); }}
-.cover::after {{ background: radial-gradient(circle, rgba(20,184,166,.15), rgba(20,184,166,0) 72%); }}
-.cover .logo-line {{
-    color: #185adb; opacity: 1; letter-spacing: 2px;
-    background: #e9f1ff; border-color: #cfe0ff;
-}}
-.cover .main-title {{ font-size: 30pt; color: #172033; margin-top: 13mm; }}
-.cover .sub-title {{ color: #65758b; opacity: 1; }}
-.cover .period-box {{ color:#1e3a8a; background:#ffffff; border-color:#d9e5f2; box-shadow:0 5px 18px rgba(23,32,51,.07); }}
-.cover .logo-line, .cover .period-box {{ display:inline-block; }}
-.cover .divider {{ margin-left:0; background:#185adb; }}
-.cover .kpi-row {{ display:block; width:100%; font-size:0; }}
-.cover .kpi-item {{ display:inline-block; vertical-align:top; box-sizing:border-box; width:31.4%; margin-right:2.9%; min-width:0; background:#fff; border:1px solid #dde7f2; border-top:3px solid #185adb; box-shadow:0 8px 24px rgba(23,32,51,.08); text-align:left; }}
-.cover .kpi-item:nth-child(3) {{ margin-right:0; }}
-.cover .kpi-item:nth-child(2) {{ border-top-color:#14b8a6; }}
-.cover .kpi-item:nth-child(3) {{ border-top-color:#e85d4f; }}
-.cover .kpi-val {{ color:#172033; }}
-.cover .kpi-lbl {{ color:#65758b; opacity:1; }}
-.cover .footer-line {{ color:#94a3b8; opacity:1; text-align:left; left:18mm; }}
-.page-header {{ background:#fff; color:#172033; border-bottom:1px solid #dde7f2; padding:5.5mm 12mm 5mm; }}
-.page-header .brand {{ color:#185adb; opacity:1; background:#e9f1ff; }}
-.page-header .period {{ color:#65758b; opacity:1; }}
+.page-header .brand {{ position:absolute; left:12mm; top:5.3mm; color:#185adb; opacity:1; background:#e9f1ff; }}
+.page-header .page-title {{ position:absolute; left:45mm; right:45mm; top:5.1mm; text-align:center; white-space:nowrap; }}
+.page-header .period {{ position:absolute; right:12mm; top:6mm; color:#65758b; opacity:1; white-space:nowrap; }}
 .summary-lead {{ background:linear-gradient(135deg,#ffffff,#eef5ff 65%,#ecfbf8); border-color:#dde7f2; box-shadow:0 8px 24px rgba(23,32,51,.06); }}
 .section-title {{ color:#172033; border-left-color:#185adb; }}
 .type-header {{ background:linear-gradient(135deg,#172033,#185adb 72%,#0f7ae5); }}
@@ -970,31 +1016,261 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 .rec-table {{ background:#fff; border:1px solid #dde7f2; }}
 .rec-table th {{ background:#172033; }}
 .rec-table tr:nth-child(even) td {{ background:#f6f8fb; }}
+
+/* 첨부 주간 리포트 본문 디자인 시스템 */
+.page {{
+    height:auto; min-height:294mm; background:#fff; color:#102c56;
+    overflow:hidden; break-inside:avoid; page-break-inside:avoid;
+    break-after:page !important; page-break-after:always !important;
+}}
+.page + .page {{ break-before:page; page-break-before:always; }}
+.cluster-page {{
+    height:297mm; min-height:297mm;
+    break-after:auto !important; page-break-after:auto !important;
+}}
+.cluster-page > .page-header {{ display:none; }}
+.cluster-page > .page-body {{ padding-top:0; }}
+.cluster-page .manual-report-header {{ display:none; }}
+.cluster-page .type-header {{
+    margin-top:0; padding:0; background:#fff; display:block;
+    break-before:page; page-break-before:always;
+}}
+.cluster-page .type-header::before {{ display:none; }}
+.embedded-report-header {{ height:43mm; color:#174985; }}
+.embedded-report-top {{ position:relative; height:20mm; padding-top:13mm; font-size:8pt; }}
+.embedded-brand {{ position:absolute; left:0; top:13mm; font-weight:bold; letter-spacing:2.4px; }}
+.embedded-date {{ position:absolute; right:0; top:13mm; color:#425b7d; }}
+.embedded-rule {{ height:.45mm; background:#174985; }}
+.embedded-title {{ margin-top:9mm; color:#174985; font-size:22pt; font-weight:bold; }}
+.type-banner-main {{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:5mm 8mm; background:#39248d; color:#fff;
+}}
+.cluster-index-1 .type-banner-main {{ position:relative; margin-top:18mm; }}
+.cluster-index-1 .type-banner-main::before {{
+    content:'고객 유형 상세 분석'; position:absolute; left:0; right:0; top:-18mm;
+    height:14mm; padding-top:2mm; box-sizing:border-box; background:#fff;
+    border-bottom:.45mm solid #174985; color:#174985; font-size:22pt; font-weight:bold;
+}}
+.page::before {{ display:none; }}
+.page-header {{
+    height:43mm; padding:0 15mm; border:0; background:#fff; color:#123f79;
+}}
+.page-header::after {{
+    content:''; position:absolute; left:15mm; right:15mm; top:21.5mm;
+    height:.45mm; background:#174985;
+}}
+.page-header .brand {{
+    left:15mm; top:13mm; padding:0; border-radius:0; background:transparent;
+    color:#174985; font-size:8pt; font-weight:bold; letter-spacing:2.4px;
+}}
+.page-header .brand::after {{ content:' ANALYTICS'; }}
+.page-header .period {{ right:15mm; top:13.3mm; color:#425b7d; font-size:8pt; }}
+.page-header .page-title {{
+    left:15mm; right:15mm; top:31mm; text-align:left; color:#123f79;
+    font-size:22pt; line-height:1; font-weight:bold;
+}}
+.page-body {{ padding:5mm 15mm 17mm; }}
+.section-title {{
+    border:0; padding:0; margin:0 0 4mm; color:#102c56; font-size:14pt;
+    line-height:1.3;
+}}
+.section-title::before {{ display:none; }}
+.summary-lead {{
+    padding:0; margin:0 0 6mm; border:0; border-radius:0; background:#fff; box-shadow:none;
+}}
+.summary-lead .eyebrow {{ display:none; }}
+.summary-lead .headline {{ color:#123f79; font-size:16pt; margin:0; }}
+.summary-lead .copy {{ color:#233c60; }}
+.summary-kpi-row {{ gap:3mm; margin-bottom:6mm; }}
+.summary-kpi-row .kpi-card:nth-child(4) {{ background:#f3ded2; }}
+.kpi-card, .kpi-card.blue, .kpi-card.green, .kpi-card.orange {{
+    padding:4mm 4.5mm; border:0; border-radius:0; background:#edf1f7;
+    box-shadow:none; min-height:28mm;
+}}
+.kpi-card.orange {{ background:#f3ded2; }}
+.kpi-card .card-val {{ color:#123f79; font-size:24pt; line-height:1.1; }}
+.kpi-card.orange .card-val {{ color:#a35b00; }}
+.kpi-card .card-lbl {{ color:#425b7d; }}
+.insight-box {{
+    padding:5mm; border:1px solid #174985; border-left:1px solid #174985;
+    border-radius:0; background:#fff; box-shadow:none; color:#142c4e;
+}}
+.insight-label {{
+    display:inline-block; margin:-8mm 0 3mm -1mm; padding:1.2mm 3mm;
+    background:#174985; color:#fff; font-size:8pt;
+}}
+.insight-label::before {{ display:none; }}
+.type-header {{
+    margin-bottom:4mm; padding:5mm 8mm; border-radius:0; box-shadow:none;
+    background:#39248d;
+}}
+.type-header .type-num {{ color:#e9e5f8; opacity:1; }}
+.type-header .type-name {{ color:#fff; font-size:17pt; }}
+.type-header .type-count {{ color:#fff; opacity:1; }}
+.intent-badge {{ border:0; border-radius:0; padding:2.5mm 4mm; }}
+.stats-row {{ gap:3mm; margin-bottom:5mm; }}
+.stat-chip {{
+    flex:1; padding:3.5mm 4mm; border:0; border-radius:0;
+    background:#f0eef8; color:#2f2861;
+}}
+.stat-chip b {{ color:#26166f; }}
+.charts-row {{ gap:7mm; margin-bottom:7mm; }}
+.chart-box {{ padding:0; border:0; border-radius:0; background:#fff; box-shadow:none; }}
+.rec-table {{ border:0; margin-top:2mm; color:#142c4e; }}
+.rec-table th {{
+    padding:2.6mm 3mm; background:#fff; color:#24466d; border-bottom:1px solid #174985;
+    font-size:8.5pt;
+}}
+.rec-table td {{ padding:2.5mm 3mm; border-bottom:0; line-height:1.5; }}
+.rec-table tr:nth-child(even) td {{ background:#fff3d7; }}
+.rec-table tr:nth-child(odd) td {{ background:#f8e4df; }}
+.badge-high, .badge-mid, .badge-low {{ border:0; border-radius:0; background:transparent; font-weight:bold; }}
+.badge-high {{ color:#2f7255; }} .badge-mid {{ color:#a35b00; }} .badge-low {{ color:#b43c24; }}
+.commerce-kpis {{ grid-template-columns:repeat(6, 1fr); gap:2.5mm; }}
+.commerce-kpi {{ border:0; border-radius:0; background:#edf1f7; padding:3.5mm 3mm; }}
+.commerce-kpi:nth-child(4), .commerce-kpi:nth-child(6) {{ background:#f3ded2; }}
+.commerce-kpi .value {{ color:#123f79; }}
+.commerce-kpi:nth-child(4) .value, .commerce-kpi:nth-child(6) .value {{ color:#a35b00; }}
+.commerce-cols {{ grid-template-columns:1fr; gap:4mm; }}
+.commerce-box {{ border:0; border-radius:0; background:#fff; padding:0; }}
+.commerce-box h3 {{ color:#102c56; font-size:13pt; margin-bottom:3mm; }}
+.commerce-row {{ border-bottom:0; padding:1.6mm 0; }}
+.recent-commerce {{ display:none; }}
+.commerce-note {{ border:1px solid #174985; border-radius:0; background:#fff; color:#174985; }}
+.category-row {{ display:grid; grid-template-columns:26mm 1fr 14mm; gap:4mm; align-items:center; font-size:8.5pt; margin-bottom:2mm; }}
+.category-track {{ height:5mm; background:#edf1f7; }}
+.category-fill {{ height:100%; background:#4e78b7; }}
+.category-count {{ text-align:right; font-weight:bold; color:#123f79; }}
+.page:not(.cover)::after {{
+    content:'{html_lib.escape(site_name)} 쇼핑몰 · 주간 리포트';
+    position:absolute; left:15mm; bottom:8mm; color:#36587f; font-size:7.5pt;
+}}
+.proposal-box {{
+    margin-top:6mm !important; padding:5mm !important; border:1px solid #174985 !important;
+    border-left:1px solid #174985 !important; border-radius:0 !important; background:#fff !important;
+}}
+.proposal-box .proposal-title {{
+    display:inline-block; margin:-8mm 0 3mm -1mm !important; padding:1.2mm 3mm;
+    background:#174985; color:#fff !important; font-size:8.5pt !important;
+}}
+.proposal-box.usage .proposal-title {{ background:#557f75; }}
+.proposal-box.usage {{ border-color:#557f75 !important; }}
+.manual-report-header {{ position:relative; height:43mm; margin:0; }}
+.manual-report-header .manual-top {{
+    position:relative; height:20mm; padding-top:13mm;
+    color:#174985; font-size:8pt; letter-spacing:2.4px; font-weight:bold;
+}}
+.manual-report-header .manual-top > span:first-child {{ position:absolute; left:0; top:13mm; }}
+.manual-report-header .manual-period {{ position:absolute; right:0; top:13mm; color:#425b7d; letter-spacing:0; font-weight:normal; }}
+.manual-report-header .manual-rule {{ height:.45mm; margin-top:5.2mm; background:#174985; }}
+.manual-report-header .manual-title {{ margin-top:9mm; color:#123f79; font-size:22pt; font-weight:bold; }}
+.summary-page .page-body {{ padding-top:0; }}
+
+/* 첨부 HTML의 794×1123 레이아웃을 A4에 그대로 환산한 최종 규격 */
+.page-header {{ height:40mm; }}
+.page-header::after {{ top:21.5mm; }}
+.page-header .page-title {{ top:31mm; font-size:21pt; }}
+.page-body {{ padding:4mm 15mm 17mm; }}
+.page:not(.cover)::after {{ bottom:8.5mm; }}
+
+/* 요약·액션 영역: 원본처럼 테두리 없는 평면 블록 */
+.summary-page .summary-kpi-row {{ margin-top:4mm; }}
+.summary-page .kpi-card {{ padding:4mm 4mm; min-height:25mm; }}
+.summary-page .section-title {{ margin-top:5mm; }}
+.summary-page ul {{ background:#f3f5f9 !important; border-left:4px solid #3d6bb0 !important;
+    border-radius:0 !important; color:#1d2a44 !important; }}
+
+/* 상품 행동 데이터: 원본의 단일 표 + 가로 막대 구조 */
+.commerce-page .summary-lead {{ margin-bottom:6mm; }}
+.commerce-page .summary-lead .headline {{ font-size:15pt; }}
+.commerce-page .summary-lead .copy {{ display:none; }}
+.commerce-page .commerce-kpis {{ margin-bottom:6mm; }}
+.commerce-page .commerce-kpi {{ padding:3.2mm 2.7mm; min-height:20mm; }}
+.commerce-page .commerce-kpi .label {{ font-size:7.5pt; white-space:nowrap; }}
+.commerce-page .commerce-kpi .value {{ font-size:19pt; line-height:1.25; }}
+.commerce-page .commerce-box h3 {{ margin:0 0 2mm; font-size:14pt; font-weight:bold; }}
+.commerce-page .product-table {{ width:100%; border-collapse:collapse; margin-bottom:5mm; font-size:8.5pt; }}
+.commerce-page .product-table th {{ padding:1.8mm 3mm; color:#4a5670; font-size:8pt; text-align:left; }}
+.commerce-page .product-table th.num, .commerce-page .product-table td.num {{ width:16mm; text-align:center; }}
+.commerce-page .product-table td {{ padding:1.6mm 3mm; border:0; }}
+.commerce-page .product-table tr:nth-child(even) td {{ background:#f3f5f9; }}
+.commerce-page .category-row {{ grid-template-columns:28mm 1fr 16mm; gap:3mm; margin-bottom:2.3mm; font-size:9pt; }}
+.commerce-page .category-track {{ height:5.2mm; background:#eef2fa; }}
+.commerce-page .category-fill {{ background:#3d6bb0; }}
+.commerce-page .commerce-note {{ margin-top:4mm; padding:3.5mm 5mm; border:0; background:#e9edf4; color:#4a5670; }}
+
+/* 고객 유형 상세: 원본의 54px 배너, 라벤더 정보칸, 보라색 차트 체계 */
+.cluster-page {{ height:294mm; min-height:294mm; }}
+.cluster-page .page-body {{ padding:0 15mm 17mm; }}
+.embedded-report-header {{ height:40mm; }}
+.embedded-title {{ margin-top:8mm; font-size:21pt; }}
+.type-banner-main {{ min-height:25mm; padding:4.8mm 8mm; }}
+.type-header {{ margin-bottom:3mm; }}
+.type-header .type-num {{ font-size:8pt; }}
+.type-header .type-name {{ font-size:17pt; margin-top:.5mm; }}
+.type-header .type-count {{ font-size:8pt; margin-top:.7mm; }}
+.stats-row {{ height:16mm; margin-bottom:3mm; }}
+.stat-chip {{ padding:3mm 4mm; font-size:8.5pt; }}
+.cluster-page .insight-box {{ padding:3.5mm 4mm; line-height:1.65; }}
+.cluster-page .section-title {{ color:#332288; font-size:14pt; margin:4mm 0 2mm; }}
+.cluster-page .charts-row {{ gap:6mm; margin-bottom:9mm; }}
+.cluster-page .chart-box img {{ max-height:57mm; object-fit:contain; }}
+.cluster-page .insight-label {{ background:#332288; }}
+.cluster-page .insight-box {{ border-color:#332288; }}
+
+/* 제안·방법론 표와 제안 박스의 원본 간격 */
+.recommendations-page .rec-table, .method-page .rec-table {{ margin-top:2mm; }}
+.recommendations-page .proposal-box {{ margin-top:5mm !important; }}
+.method-page .insight-box {{ background:#fff; }}
+.page.cover {{ background:#17407a; color:#fff; }}
+.page.cover .main-title, .page.cover .site-name, .page.cover .period-box {{ color:#fff; }}
+.cluster-page {{ break-after:page !important; page-break-after:always !important; }}
+.cluster-page .type-header {{ break-before:auto; page-break-before:auto; }}
+.cluster-index-1 .type-banner-main {{ margin-top:0; }}
+.cluster-index-1 .type-banner-main::before {{ display:none; }}
+.cluster-page > .page-header {{ display:block; }}
+.cluster-page > .page-body {{ padding:4mm 15mm 17mm; }}
+.cluster-page .embedded-report-header {{ display:none; }}
+.page + .page {{ break-before:auto; page-break-before:auto; }}
+.page, .cluster-page {{ height:297mm; min-height:297mm; }}
+.cluster-page {{ break-before:auto !important; page-break-before:auto !important;
+    break-after:auto !important; page-break-after:auto !important; }}
+.cluster-index-0 > .page-header, .cluster-index-2 > .page-header, .cluster-index-4 > .page-header {{ display:none; }}
+.cluster-index-0 > .page-body, .cluster-index-2 > .page-body, .cluster-index-4 > .page-body {{ padding-top:0; }}
+.cluster-index-0 .embedded-report-header, .cluster-index-2 .embedded-report-header,
+.cluster-index-4 .embedded-report-header {{ display:block; }}
+.cluster-page > .page-header {{ display:none; }}
+.cluster-page > .page-body {{ padding-top:0; }}
+.cluster-page .embedded-report-header {{ display:block; }}
+.cluster-page .type-header {{ break-before:page !important; page-break-before:always !important; }}
+.cluster-index-1 .type-banner-main, .cluster-index-3 .type-banner-main {{ position:relative; margin-top:40mm; }}
+.cluster-index-1 .type-banner-main::before, .cluster-index-3 .type-banner-main::before {{
+    display:block; content:'고객 유형 상세 분석'; position:absolute; left:0; right:0; top:-20mm;
+    height:16mm; padding-top:3mm; background:#fff; border-top:.45mm solid #174985;
+    color:#174985; font-size:21pt; font-weight:bold;
+}}
+.cluster-index-1 .type-banner-main::after, .cluster-index-3 .type-banner-main::after {{
+    content:'SEER ANALYTICS'; position:absolute; left:0; top:-38mm; color:#174985;
+    font-size:8pt; font-weight:bold; letter-spacing:2.4px;
+}}
     """
 
-    # ── 표지 ──────────────────────────────────────────────────────────────────
+    # ── 표지 시안 A ───────────────────────────────────────────────────────────
+    end_dt = datetime.strptime(end, '%Y-%m-%d')
+    week_label = f"{end_dt.year}년 {end_dt.month}월 {(end_dt.day - 1) // 7 + 1}주차 운영 현황"
+    start_display = datetime.strptime(start, '%Y-%m-%d').strftime('%Y.%m.%d')
+    end_display = end_dt.strftime('%Y.%m.%d')
     cover_html = f"""
 <div class="page cover">
-  <div class="logo-line">SEER Analytics</div>
-  <div class="main-title">고객 행동 분석<br>보고서</div>
-  <div class="sub-title">온라인 패션 쇼핑몰 방문 고객 심층 분석</div>
-  <div class="period-box">분석 기간 &nbsp;|&nbsp; {start} ~ {end}</div>
-  <div class="divider"></div>
-  <div class="kpi-row">
-    <div class="kpi-item">
-      <span class="kpi-val">{total_visits:,}</span>
-      <span class="kpi-lbl">총 분석 방문 건수</span>
-    </div>
-    <div class="kpi-item">
-      <span class="kpi-val">{len(profiles)}</span>
-      <span class="kpi-lbl">고객 유형 수</span>
-    </div>
-    <div class="kpi-item">
-      <span class="kpi-val">{high_intent}</span>
-      <span class="kpi-lbl">구매 가능성 높은 유형</span>
-    </div>
-  </div>
-  <div class="footer-line">본 보고서는 SEER 고객 행동 분석 시스템에 의해 자동 생성되었습니다.</div>
+  <div class="cover-triangle triangle-top-1"></div><div class="cover-triangle triangle-top-2"></div>
+  <div class="cover-triangle triangle-bottom-1"></div><div class="cover-triangle triangle-bottom-2"></div><div class="cover-triangle triangle-bottom-3"></div>
+  <div class="logo-line">SEER ANALYTICS</div>
+  <div class="cover-accent"></div>
+  <div class="main-title">고객 행동 분석<br>주간 리포트</div>
+  <div class="site-name">{html_lib.escape(site_name)} 쇼핑몰</div>
+  <div class="week-label">{week_label}</div>
+  <div class="period-box"><span class="period-label">REPORT PERIOD</span>{start_display} – {end_display}</div>
 </div>
 """
 
@@ -1050,13 +1326,12 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     ) if _items else ''
 
     summary_html = f"""
-<div class="page">
-  <div class="page-header">
-    <span class="brand">SEER</span>
-    <span class="page-title">고객 유형 요약</span>
-    <span class="period">{start} ~ {end}</span>
-  </div>
+<div class="page summary-page">
   <div class="page-body">
+    <div class="manual-report-header">
+      <div class="manual-top"><span>SEER ANALYTICS</span><span class="manual-period">{start} ~ {end}</span></div>
+      <div class="manual-rule"></div><div class="manual-title">고객 유형 요약</div>
+    </div>
     <div class="summary-lead">
       <div class="eyebrow">이번 주 핵심 포인트</div>
       <div class="headline">{summary_headline}</div>
@@ -1108,7 +1383,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         <th>대표 행동</th>
       </tr>
 """
-    for cid in sorted(profiles.keys(), key=int):
+    for cluster_idx, cid in enumerate(sorted(profiles.keys(), key=int)):
         p    = profiles[cid]
         name = type_name(cid, p)
         cnt  = p.get('count', 0)
@@ -1224,13 +1499,15 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         return html_lib.escape(str(value or ''))
 
     product_rows = ''.join(
-        f"<div class='commerce-row'><span class='name'><b>{esc(item.get('name') or ('상품 ' + str(item.get('product_id', ''))))}</b></span>"
-        f"<span class='meta'>클릭 {item.get('clicks', 0)} · 상세 {item.get('detail_views', 0)}</span></div>"
+        f"<tr><td>{esc(item.get('name') or ('상품 ' + str(item.get('product_id', ''))))}</td>"
+        f"<td class='num'>{item.get('clicks', 0)}</td><td class='num'>{item.get('detail_views', 0)}</td></tr>"
         for item in products
-    ) or "<div class='commerce-row'><span class='name'>확인된 상품 행동이 없습니다.</span></div>"
+    ) or "<tr><td colspan='3'>확인된 상품 행동이 없습니다.</td></tr>"
+    max_category_views = max((int(item.get('views', 0) or 0) for item in categories), default=1)
     category_rows = ''.join(
-        f"<div class='commerce-row'><span class='name'>{esc(item.get('name') or '카테고리')}</span>"
-        f"<span class='meta'>{item.get('views', 0)}회</span></div>"
+        f"<div class='category-row'><span>{esc(item.get('name') or '카테고리')}</span>"
+        f"<span class='category-track'><span class='category-fill' style='display:block;width:{max(3, round(int(item.get('views', 0) or 0) / max_category_views * 100))}%'></span></span>"
+        f"<span class='category-count'>{item.get('views', 0)}회</span></div>"
         for item in categories
     ) or "<div class='commerce-row'><span class='name'>확인된 카테고리가 없습니다.</span></div>"
     action_rows = ''.join(
@@ -1247,7 +1524,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
     tracking_note = ' '.join(note_parts) or '수집된 행동 신호를 기준으로 집계했으며 별도의 확인이 필요한 불일치는 없습니다.'
 
     commerce_html = f"""
-<div class="page">
+<div class="page commerce-page">
   <div class="page-header">
     <span class="brand">SEER</span>
     <span class="page-title">상품 행동 데이터</span>
@@ -1268,10 +1545,12 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       <div class="commerce-kpi"><div class="label">주문 완료</div><div class="value">{cc.get('order_completions', 0)}</div></div>
     </div>
     <div class="commerce-cols">
-      <div class="commerce-box"><h3>확인한 상품</h3>{product_rows}</div>
+      <div class="commerce-box"><h3>확인한 상품</h3>
+        <table class="product-table"><tr><th>상품</th><th class="num">클릭</th><th class="num">상세</th></tr>{product_rows}</table>
+      </div>
       <div class="commerce-box"><h3>확인한 카테고리</h3>{category_rows}</div>
     </div>
-    <div class="commerce-cols" style="margin-top:5mm; grid-template-columns:1fr;">
+    <div class="commerce-cols recent-commerce" style="margin-top:5mm; grid-template-columns:1fr;">
       <div class="commerce-box"><h3>최근 상품 행동</h3>{action_rows}</div>
     </div>
     <div class="commerce-note"><b>행동 해석 참고</b> · {esc(tracking_note)}</div>
@@ -1369,7 +1648,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         )
 
         cluster_pages += f"""
-<div class="page">
+<div class="page cluster-page cluster-index-{cluster_idx}">
   <div class="page-header">
     <span class="brand">SEER</span>
     <span class="page-title">고객 유형 상세 분석</span>
@@ -1377,7 +1656,17 @@ body {{ margin: 0; padding: 0; background: #fff; }}
   </div>
   <div class="page-body">
 
+    <div class="manual-report-header">
+      <div class="manual-top"><span>SEER ANALYTICS</span><span class="manual-period">{start} ~ {end}</span></div>
+      <div class="manual-rule"></div><div class="manual-title">고객 유형 상세 분석</div>
+    </div>
+
     <div class="type-header">
+      <div class="embedded-report-header">
+        <div class="embedded-report-top"><span class="embedded-brand">SEER ANALYTICS</span><span class="embedded-date">{start} ~ {end}</span></div>
+        <div class="embedded-rule"></div><div class="embedded-title">고객 유형 상세 분석</div>
+      </div>
+      <div class="type-banner-main">
       <div>
         <div class="type-num">고객 유형</div>
         <div class="type-name">{name}</div>
@@ -1385,6 +1674,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
       </div>
       <div class="intent-badge" style="background:{ibg}; color:{ic};">
         구매 가능성 {intt}
+      </div>
       </div>
     </div>
 
@@ -1421,7 +1711,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 
     # ── 운영 제안 페이지 ──────────────────────────────────────────────────────
     recs_html = f"""
-<div class="page">
+<div class="page recommendations-page">
   <div class="page-header">
     <span class="brand">SEER</span>
     <span class="page-title">운영 개선 제안</span>
@@ -1460,18 +1750,31 @@ body {{ margin: 0; padding: 0; background: #fff; }}
         <td><span class="{badge_cls}">{intt}</span></td>
         <td>{strat}</td>
       </tr>"""
-    recs_html += """
+    overall_text = html_lib.escape(overall_insight or (
+        '구매 가능성이 높은 유형에는 결제 전환을 돕는 혜택을 우선 제공하고, '
+        '탐색 중지 위험 유형에는 재방문 유도 메시지를 실험하세요. 다음 주에는 유형별 구매 단계 도달률 변화를 비교해 실행 결과를 확인하세요.'
+    ))
+    usage_text = html_lib.escape(usage_insight or (
+        '고객 유형을 사이트 개인화와 재방문 메시지의 조건으로 활용하고, 각 실행 전후의 다음 단계 도달률을 비교하세요. '
+        '표본이 작은 유형은 즉시 자동화하기보다 제한된 노출로 먼저 검증하는 것이 안전합니다.'
+    ))
+    recs_html += f"""
     </table>
 
-    <div style="margin-top:8mm; background:#e8eaf6; border-radius:8px; padding:5mm 7mm;">
-      <div style="font-weight:bold; color:#1a237e; margin-bottom:3mm; font-size:10pt;">
-        📌 종합 제언
+    <div class="proposal-box">
+      <div class="proposal-title" style="font-weight:bold; margin-bottom:3mm;">
+        종합 제안
       </div>
       <div style="font-size:9pt; line-height:1.9; color:#37474f;">
-        구매 가능성이 높은 유형의 고객에게는 결제 전환을 도울 수 있는 즉각적인 혜택(쿠폰, 무료배송)을 우선 제공하고,
-        탐색 중지 위험 유형에는 재방문 유도 자동화 메시지를 설정하는 것을 권장합니다.
-        가격 비교형 고객에게는 가격 경쟁력을 명확히 보여주는 UI 개선이 전환율 향상에 효과적입니다.
-        각 유형별 맞춤 전략을 월 1회 이상 점검하고 방문 패턴 변화에 따라 전략을 업데이트하시기 바랍니다.
+        {overall_text}
+      </div>
+    </div>
+    <div class="proposal-box usage">
+      <div class="proposal-title" style="font-weight:bold; margin-bottom:3mm;">
+        활용 제안
+      </div>
+      <div style="font-size:9pt; line-height:1.9; color:#37474f;">
+        {usage_text}
       </div>
     </div>
   </div>
@@ -1480,7 +1783,7 @@ body {{ margin: 0; padding: 0; background: #fff; }}
 
     # ── 방법론 / 한계 / 다음 추적 지표 페이지 ─────────────────────────────────
     method_html = f"""
-<div class="page">
+<div class="page method-page">
   <div class="page-header">
     <span class="brand">SEER</span>
     <span class="page-title">분석 방법 및 한계</span>
@@ -1596,6 +1899,11 @@ def generate_report(start_date: str, end_date: str, output_path: str,
         else:
             ai_reports[cid] = base
 
+    # 유형별 문단과 별도로 리포트 전체를 가로지르는 종합·활용 제안을 생성한다.
+    # 외부 AI를 사용할 수 없거나 응답이 실패하면 build_html의 데이터 기반 폴백을 쓴다.
+    overall_insight = ''
+    usage_insight = ''
+
     # 3.5 전환 퍼널 계산 (세션 단위 데이터)
     cid_to_name = {}
     for mp in profiles.values():
@@ -1616,6 +1924,19 @@ def generate_report(start_date: str, end_date: str, output_path: str,
     elif not marketing_html:
         print("  → 세션 데이터 없음 → 퍼널 페이지 생략")
 
+    if GEMINI_KEY:
+        print("  종합 제안 생성...", end=' ', flush=True)
+        overall_candidate = call_gemini(build_overall_prompt(profiles, total_visits, funnel, commerce))
+        if overall_candidate and not overall_candidate.startswith('(') and overall_candidate != DUMMY_INSIGHT:
+            overall_insight = overall_candidate
+        print("완료")
+        time.sleep(1.0)
+        print("  활용 제안 생성...", end=' ', flush=True)
+        usage_candidate = call_gemini(build_usage_prompt(profiles, total_visits))
+        if usage_candidate and not usage_candidate.startswith('(') and usage_candidate != DUMMY_INSIGHT:
+            usage_insight = usage_candidate
+        print("완료")
+
     print("\n[2.5/4] 탐색 중지 집중 화면 캡처 중...")
     # origin을 넘겨야 이 쇼핑몰 화면만 캡처된다 (안 넘기면 남의 사이트 화면이 섞임)
     exit_captures = capture_exit_hotspots(BASE_DIR, EXIT_CAPTURE_DIR, start_date, end_date,
@@ -1628,8 +1949,11 @@ def generate_report(start_date: str, end_date: str, output_path: str,
 
     # 4. HTML 생성
     print("\n[3/4] HTML 리포트 구성 중...")
+    host = (urlparse(origin).hostname or '').replace('www.', '')
+    site_name = host.split('.')[0].capitalize() if host else '쇼핑몰'
     html = build_html(start_date, end_date, profiles, ai_reports, font_reg, font_bold, funnel, exit_captures,
-                      marketing_html=marketing_html, commerce=commerce)
+                      marketing_html=marketing_html, commerce=commerce, site_name=site_name,
+                      overall_insight=overall_insight, usage_insight=usage_insight)
 
     # HTML 파일도 저장 (디버깅용)
     html_path = output_path.replace('.pdf', '.html')

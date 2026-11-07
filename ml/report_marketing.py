@@ -85,7 +85,7 @@ def _page(start: str, end: str, title: str, body: str) -> str:
     return f"""
 <div class="page">
   <div class="page-header">
-    <span class="brand">GHOSTTRACKER</span>
+    <span class="brand">SEER</span>
     <span class="page-title">{_esc(title)}</span>
     <span class="period">{_esc(start)} ~ {_esc(end)}</span>
   </div>
@@ -320,7 +320,7 @@ def _funnel_html(steps: list, leak) -> str:
                 f'<div style="{_cell(82, f"font-size:8.5pt;line-height:1.7;color:{color};font-weight:{weight};")}">{lost_txt}</div>'
                 f'</div>')
         w = max(s['sessions'] / top * 100, 1.2)
-        color = ORANGE if (leak is not None and i == leak) else BLUE
+        color = BLUE
         rows.append(
             f'<div style="display:table;table-layout:fixed;width:100%;">'
             f'<div style="{_cell(18, "text-align:right;padding-right:3mm;font-size:9pt;color:#37474f;vertical-align:middle;")}">{_esc(s["stage"])}</div>'
@@ -443,8 +443,8 @@ def _overview_page(metrics, start, end, steps, leak, worsened, channel_rows) -> 
     blocks = []
     for i, it in enumerate(items, 1):
         blocks.append(f"""
-    <div style="break-inside:avoid;border:1px solid #dde7f2;border-left:4px solid {BLUE};border-radius:8px;
-                padding:3.4mm 5mm;margin-bottom:3.4mm;background:#fff;">
+    <div style="break-inside:avoid;border:0;border-left:4px solid {BLUE};border-radius:0;
+                padding:3.4mm 5mm;margin-bottom:3.4mm;background:#f3f5f8;">
       <div style="font-size:10.5pt;font-weight:bold;color:#162252;">{i}. {_esc(it['title'])}</div>
       <div style="font-size:9pt;color:#37474f;line-height:1.7;margin-top:1.2mm;"><b>근거</b> {_esc(it['evidence'])}</div>
       <div style="font-size:9pt;color:#37474f;line-height:1.7;"><b>할 일</b> {_esc(it['action'])}</div>
