@@ -375,7 +375,9 @@ async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek
   const jobKey = `${key}:${period.weekStart}`;
   if (reportGenerationJobs.has(jobKey)) return reportGenerationJobs.get(jobKey);
 
-  const scriptPath = path.join(__dirname, '../../ml/report_html.py');
+  // The exact-template generator consumes the same weekly CSV/JSON inputs but
+  // preserves the approved 794x1123 report design page-for-page.
+  const scriptPath = path.join(__dirname, '../../ml/report_exact_template.py');
   const { pdfPath: outputPath } = weeklyArtifactPaths(origin, period.weekStart);
   const stamp = period.weekStart.replaceAll('-', '');
   const stagingPath = path.join(REPORTS_DIR, `.seer_weekly_report_${key}_${stamp}_${process.pid}.generating.pdf`);

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import csv
+import json
 import math
 import re
 import shutil
@@ -29,6 +31,277 @@ def split_pages(source: str) -> list[str]:
 def display_site(origin: str) -> str:
     host = (urlparse(origin).hostname or origin or "Dignolucir").split(".")[0]
     return host[:1].upper() + host[1:]
+
+
+def load_inputs(metrics_path: str = "", commerce_path: str = "", result_path: str = "") -> dict:
+    def load_json(path: str) -> dict:
+        if not path or not Path(path).exists():
+            return {}
+        return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+    profiles = []
+    if result_path and Path(result_path).exists():
+        with Path(result_path).open(encoding="utf-8-sig", newline="") as stream:
+            for row in csv.DictReader(stream):
+                row["count"] = int(float(row.get("count") or 0))
+                row["top_actions"] = json.loads(row.get("top_actions_json") or "[]")
+                row["page_dist"] = json.loads(row.get("page_dist_json") or "{}")
+                profiles.append(row)
+    return {"metrics": load_json(metrics_path), "commerce": load_json(commerce_path), "profiles": profiles}
+
+
+def profile_order(profiles: list[dict]) -> list[dict]:
+    keywords = ["짧은 방문", "가격 확인", "상호작용", "리뷰", "카테고리"]
+    ordered = []
+    for keyword in keywords:
+        match = next((p for p in profiles if keyword in p.get("name", "")), None)
+        if match:
+            ordered.append(match)
+    ordered.extend(p for p in profiles if p not in ordered)
+    return ordered[:5]
+
+
+def pct(value: int, total: int) -> int:
+    return round(value / total * 100) if total else 0
+
+
+def replace_first_conic(page: str, colors: list[str], values: list[int]) -> str:
+    total = sum(values) or 1
+    cursor = 0.0
+    stops = []
+    for color, value in zip(colors, values):
+        end = cursor + value / total * 100
+        stops.append(f"{color} {cursor:.1f}% {end:.1f}%")
+        cursor = end
+    return re.sub(r"conic-gradient\([^)]*\)", f"conic-gradient({','.join(stops)})", page, count=1)
+
+
+def set_style_value(tag, key: str, value: str) -> None:
+    style = tag.get("style", "")
+    if re.search(rf"(?:^|;)\s*{re.escape(key)}\s*:", style):
+        style = re.sub(rf"({re.escape(key)}\s*:)\s*[^;]+", rf"\g<1>{value}", style)
+    else:
+        style = f"{style};{key}:{value}"
+    tag["style"] = style
+
+
+def update_bar_group(soup, heading: str, items: list[dict]) -> None:
+    title = next((tag for tag in soup.find_all(["h2", "h3"]) if tag.get_text(" ", strip=True) == heading), None)
+    if not title:
+        return
+    container = title.find_next_sibling("div")
+    if not container:
+        return
+    rows = container.find_all("div", recursive=False)
+    maximum = max((int(item.get("sessions") or item.get("count") or item.get("views") or 0) for item in items), default=1) or 1
+    for row, item in zip(rows, items):
+        children = row.find_all("div", recursive=False)
+        if len(children) < 3:
+            continue
+        value = int(item.get("sessions") or item.get("count") or item.get("views") or 0)
+        children[0].string = str(item.get("label") or item.get("name") or "-")
+        suffix = "회" if children[-1].get_text(strip=True).endswith("회") else ""
+        children[-1].string = f"{value}{suffix}"
+        bar = children[1].find("div")
+        if bar:
+            set_style_value(bar, "width", f"{value / maximum * 100:.1f}%")
+
+
+def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
+    metrics = inputs.get("metrics") or {}
+    commerce = inputs.get("commerce") or {}
+    profiles = profile_order(inputs.get("profiles") or [])
+    overview = metrics.get("overview") or {}
+    previous = metrics.get("prev_overview") or {}
+    sessions = int(overview.get("sessions") or 0)
+    profile_total = sum(int(p.get("count") or 0) for p in profiles)
+    if not sessions:
+        sessions = profile_total
+
+    # Marketing overview pages use the same baseline values as the supplied design.
+    if source_index in {5, 6, 7, 8, 9} and overview:
+        replacements = {
+            "234": str(sessions), "242": str(previous.get("sessions", 0)),
+            "122": str(overview.get("product_sessions", 0)),
+            "114": str(overview.get("product_sessions", 0)),
+            "105": str(overview.get("product_sessions", 0)),
+        }
+        for old, new in replacements.items():
+            page = re.sub(rf"(?<!\d){re.escape(old)}(?!\d)", new, page)
+
+    if source_index == 5 and overview:
+        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        orders = int(overview.get("orders") or 0)
+        cart_sessions = int(overview.get("cart_sessions") or 0)
+        summary_kpis = {
+            "방문 세션": str(sessions), "주문 완료": f"{orders}건",
+            "주문 전환율": f"{orders / sessions * 100:.1f}%" if sessions else "0.0%",
+            "장바구니 도달률": f"{cart_sessions / sessions * 100:.1f}%" if sessions else "0.0%",
+        }
+        for label, value in summary_kpis.items():
+            label_tag = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == label), None)
+            if label_tag:
+                number = label_tag.find_next_sibling("div")
+                if number:
+                    number.string = value
+        page = str(soup)
+
+    if source_index == 8 and overview:
+        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        funnel = metrics.get("funnel") or []
+        for position, item in enumerate(funnel):
+            label = item.get("stage")
+            label_tag = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == label), None)
+            if not label_tag or not label_tag.parent:
+                continue
+            row = label_tag.parent
+            count = int(item.get("sessions") or 0)
+            share = pct(count, sessions)
+            children = row.find_all("div", recursive=False)
+            if len(children) >= 3:
+                children[-1].string = f"{count}명 ({share}%)"
+                bar = children[1].find("div")
+                if bar:
+                    set_style_value(bar, "width", f"{max(share, 1)}%")
+            transition = row.find_next_sibling("div")
+            if transition and position + 1 < len(funnel):
+                next_count = int(funnel[position + 1].get("sessions") or 0)
+                transition.string = f"▼ {pct(next_count, count)}% 진행 · {max(count - next_count, 0)}명 멈춤"
+        tables = soup.find_all("sc-raw-table")
+        devices = metrics.get("devices") or []
+        if tables and devices:
+            rows = tables[0].find_all("sc-raw-tr")[1:]
+            for row, item in zip(rows, devices):
+                cells = row.find_all("sc-raw-td")
+                total = int(item.get("sessions") or 0)
+                cart = int(item.get("cart_sessions") or 0)
+                orders = int(item.get("orders") or 0)
+                values = [item.get("name") or "-", total, f"{pct(cart, total)}%", f"{pct(orders, total)}%", f"{orders}건"]
+                for cell, value in zip(cells, values):
+                    cell.string = str(value)
+        update_bar_group(soup, "고객이 마지막에 머문 화면", metrics.get("exit_pages") or [])
+        update_bar_group(soup, "멈춘 흔적(추정)", metrics.get("exit_causes") or [])
+        page = str(soup)
+
+    if source_index == 9 and overview:
+        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        channels = metrics.get("channels") or []
+        tables = soup.find_all("sc-raw-table")
+        if tables and channels:
+            rows = tables[0].find_all("sc-raw-tr")[1:]
+            for row, item in zip(rows, channels):
+                cells = row.find_all("sc-raw-td")
+                count = int(item.get("sessions") or 0)
+                product = int(item.get("product_sessions") or 0)
+                cart = int(item.get("cart_sessions") or 0)
+                orders = int(item.get("orders") or 0)
+                name = str(item.get("name") or "-")
+                values = [name, f"{count} ({count / sessions * 100:.1f}%)", f"{pct(product, count)}%",
+                          f"{pct(cart, count)}%", f"{pct(orders, count)}% ({orders}건)",
+                          "주문 없음" if count >= 20 and not orders else "표본 적음"]
+                for cell, value in zip(cells, values):
+                    cell.clear()
+                    cell.append(str(value))
+        total_orders = sum(int(item.get("orders") or 0) for item in channels)
+        chart_title = next((tag for tag in soup.find_all("h2") if tag.get_text(strip=True) == "방문 비중 대 주문 비중"), None)
+        legend = chart_title.find_next_sibling("div") if chart_title else None
+        chart = legend.find_next_sibling("div") if legend else None
+        chart_rows = chart.find_all("div", recursive=False) if chart else []
+        for item, row in zip(channels, chart_rows):
+            name = str(item.get("name") or "-")
+            parts = row.find_all("div", recursive=False)
+            if len(parts) < 2:
+                continue
+            parts[0].string = name
+            metric_rows = parts[1].find_all("div", recursive=False)
+            shares = [int(item.get("sessions") or 0) / sessions * 100,
+                      int(item.get("orders") or 0) / total_orders * 100 if total_orders else 0]
+            for metric_row, share in zip(metric_rows, shares):
+                metric_parts = metric_row.find_all("div", recursive=False)
+                if len(metric_parts) < 3:
+                    continue
+                metric_parts[-1].string = f"{share:.1f}%" if 0 < share < 10 else f"{share:.0f}%"
+                bar = metric_parts[1].find("div")
+                if bar:
+                    set_style_value(bar, "width", f"{share:.1f}%")
+        direct_share = pct(int(channels[0].get("sessions") or 0), sessions) if channels else 0
+        intro = next((tag for tag in soup.find_all("p") if "직접 방문" in tag.get_text()), None)
+        if intro:
+            intro.string = f"방문의 {direct_share}%가 직접 방문이고, 이번 주는 주문이 {'있어요.' if overview.get('orders') else '없어요.'}"
+        page = str(soup)
+
+    # Customer-type overview and five detail pages.
+    if source_index == 10 and profiles:
+        old_counts = [110, 33, 19, 17, 7]
+        old_shares = [59, 18, 10, 9, 4]
+        colors = ["#332288", "#44AA99", "#DDCC77", "#CC6677", "#88CCEE"]
+        for old, profile in zip(old_counts, profiles):
+            page = re.sub(rf"(?<!\d){old}(?!\d)", str(profile["count"]), page)
+        for old, profile in zip(old_shares, profiles):
+            page = page.replace(f"{old}%", f"{pct(profile['count'], profile_total)}%")
+        page = page.replace("186", str(profile_total))
+        page = replace_first_conic(page, colors, [p["count"] for p in profiles])
+
+    detail_baselines = {
+        13: (0, 110, 59), 14: (1, 33, 18), 15: (2, 19, 10),
+        16: (3, 17, 9), 17: (4, 7, 4),
+    }
+    if source_index in detail_baselines and profiles:
+        position, old_count, old_share = detail_baselines[source_index]
+        if position < len(profiles):
+            profile = profiles[position]
+            page = re.sub(rf"(?<!\d){old_count}(?!\d)", str(profile["count"]), page)
+            page = page.replace(f"{old_share}%", f"{pct(profile['count'], profile_total)}%")
+            page = page.replace(
+                ["짧은 방문·행동 정보 부족형", "상품·가격 확인 중심 고객", "다양한 상호작용·구매 시도 고객", "리뷰 관련 신호 중심 고객", "상품·카테고리 반복 탐색 고객"][position],
+                profile.get("name", ""),
+            )
+            actions = profile.get("top_actions") or []
+            for action in actions[:7]:
+                label, count = str(action.get("label") or action.get("action") or ""), int(action.get("count") or 0)
+                # Counts are rendered next to the same label; update the first matching row.
+                page = re.sub(
+                    rf"({re.escape(label)}.*?)(\d+)(회)",
+                    lambda m: f"{m.group(1)}{count}{m.group(3)}", page, count=1,
+                )
+            page_dist = profile.get("page_dist") or {}
+            labels = list(page_dist.keys())[:5]
+            values = [int(page_dist[k]) for k in labels]
+            palette = ["#332288", "#7064AC", "#9990C4", "#BEB8D9", "#DAD7EA"]
+            page = replace_first_conic(page, palette[:len(values)], values)
+
+    # Commerce page values and rows.
+    if source_index == 11 and commerce:
+        counts = commerce.get("counts") or {}
+        products = commerce.get("products") or []
+        categories = commerce.get("categories") or []
+        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        kpis = {
+            "상품 클릭": counts.get("product_clicks", 0), "리뷰 확인": counts.get("review_views", 0),
+            "카트 방문": counts.get("cart_visits", 0), "장바구니 담기": counts.get("add_to_cart", 0),
+            "찜하기": counts.get("wishlist_adds", 0), "주문 완료": counts.get("order_completions", 0),
+        }
+        for label, value in kpis.items():
+            label_tag = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == label), None)
+            if label_tag:
+                number = label_tag.find_next_sibling("div")
+                if number:
+                    number.string = str(value)
+        tables = soup.find_all("sc-raw-table")
+        if tables:
+            rows = tables[0].find_all("sc-raw-tr")
+            for row, product in zip(rows[1:], products):
+                cells = row.find_all("sc-raw-td")
+                if len(cells) >= 3:
+                    cells[0].string = str(product.get("name") or "상품")
+                    cells[1].string = str(product.get("clicks") or 0)
+                    cells[2].string = str(product.get("detail_views") or 0)
+        update_bar_group(soup, "확인한 카테고리", categories)
+        page = str(soup)
+
+    if source_index in {18, 19}:
+        page = page.replace("186", str(profile_total or sessions)).replace("5개 고객 유형", f"{len(profiles)}개 고객 유형")
+    return page
 
 
 def _pie_path(start_pct: float, end_pct: float) -> str:
@@ -104,7 +377,7 @@ def insert_capture_images(page: str) -> str:
     return placeholder.sub(replace, page)
 
 
-def build_exact_html(source_path: Path, start: str, end: str, origin: str) -> str:
+def build_exact_html(source_path: Path, start: str, end: str, origin: str, inputs: dict | None = None) -> str:
     pages = split_pages(source_path.read_text(encoding="utf-8"))
     if len(pages) < 20:
         extracted = sorted((ROOT / "ml" / "templates" / "weekly_report").glob("design-page-*.html"))
@@ -129,11 +402,12 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str) -> st
         page = page.replace("2026.10.21 - 10.27", date_long)
         page = page.replace("2026년 10월 4주차 운영 현황", week)
         page = page.replace("2026.10.21 – 2026.10.27", date_short)
+        page = bind_weekly_data(page, source_index, inputs or {})
         page = replace_conic_charts(page)
         if source_index == 12:
             page = insert_capture_images(page)
         # Keep the original footer typography while making numbering truthful.
-        page = re.sub(r"\d+\s*/\s*17", f"{page_no} / {len(selected)}", page)
+        page = re.sub(r"\d+\s*/\s*\d+", f"{page_no} / {len(selected)}", page)
         rendered.append(f'<section class="report-page source-page-{source_index + 1}">{page}</section>')
 
     return f"""<!doctype html>
@@ -185,6 +459,9 @@ def main() -> None:
     parser.add_argument("--start", required=True)
     parser.add_argument("--end", required=True)
     parser.add_argument("--origin", default="https://dignolucir.co.kr")
+    parser.add_argument("--result-csv", default="")
+    parser.add_argument("--metrics-json", default="")
+    parser.add_argument("--commerce-json", default="")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
@@ -195,7 +472,8 @@ def main() -> None:
     output = Path(args.output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     html_path = output.with_suffix(".html")
-    html_path.write_text(build_exact_html(source, args.start, args.end, args.origin), encoding="utf-8")
+    inputs = load_inputs(args.metrics_json, args.commerce_json, args.result_csv)
+    html_path.write_text(build_exact_html(source, args.start, args.end, args.origin, inputs), encoding="utf-8")
 
     with tempfile.TemporaryDirectory(prefix="seer-exact-", ignore_cleanup_errors=True) as temp_dir:
         temp_dir_path = Path(temp_dir)
