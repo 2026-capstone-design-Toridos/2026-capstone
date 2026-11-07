@@ -64,6 +64,23 @@ def pct(value: int, total: int) -> int:
     return round(value / total * 100) if total else 0
 
 
+def rate(value: int, total: int) -> float:
+    return round(value / total * 100, 1) if total else 0.0
+
+
+def rate_text(value: float) -> str:
+    return f"{value:.1f}%"
+
+
+def delta_text(current: float, previous: float, suffix: str = "%p") -> str:
+    delta = round(current - previous, 1)
+    if delta > 0:
+        return f"▲ {abs(delta):.1f}{suffix}"
+    if delta < 0:
+        return f"▼ {abs(delta):.1f}{suffix}"
+    return f"- 0.0{suffix}"
+
+
 def replace_first_conic(page: str, colors: list[str], values: list[int]) -> str:
     total = sum(values) or 1
     cursor = 0.0
@@ -132,10 +149,16 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
         soup = __import__("bs4").BeautifulSoup(page, "html.parser")
         orders = int(overview.get("orders") or 0)
         cart_sessions = int(overview.get("cart_sessions") or 0)
+        prev_sessions = int(previous.get("sessions") or 0)
+        prev_orders = int(previous.get("orders") or 0)
+        prev_cart = int(previous.get("cart_sessions") or 0)
+        order_rate = rate(orders, sessions)
+        prev_order_rate = rate(prev_orders, prev_sessions)
+        cart_rate = rate(cart_sessions, sessions)
+        prev_cart_rate = rate(prev_cart, prev_sessions)
         summary_kpis = {
             "방문 세션": str(sessions), "주문 완료": f"{orders}건",
-            "주문 전환율": f"{orders / sessions * 100:.1f}%" if sessions else "0.0%",
-            "장바구니 도달률": f"{cart_sessions / sessions * 100:.1f}%" if sessions else "0.0%",
+            "주문 전환율": rate_text(order_rate), "장바구니 도달률": rate_text(cart_rate),
         }
         for label, value in summary_kpis.items():
             label_tag = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == label), None)
@@ -143,6 +166,105 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                 number = label_tag.find_next_sibling("div")
                 if number:
                     number.string = value
+                note = number.find_next_sibling("div") if number else None
+                if note and label == "방문 세션":
+                    note.string = f"변화 작음 (전주 {prev_sessions})"
+                elif note and label == "주문 완료":
+                    note.string = f"변화 작음 (전주 {prev_orders}건)"
+                elif note and label == "주문 전환율":
+                    note.string = f"{delta_text(order_rate, prev_order_rate)} (전주 {rate_text(prev_order_rate)})"
+                elif note and label == "장바구니 도달률":
+                    note.string = f"{delta_text(cart_rate, prev_cart_rate)} (전주 {rate_text(prev_cart_rate)})"
+        product_sessions = int(overview.get("product_sessions") or 0)
+        stopped = max(product_sessions - cart_sessions, 0)
+        progress = rate(cart_sessions, product_sessions)
+        action_blocks = [tag for tag in soup.find_all("div") if "상품 조회" in tag.get_text(" ", strip=True) and "명 중" in tag.get_text(" ", strip=True)]
+        if action_blocks:
+            block = action_blocks[0]
+            html = str(block)
+            html = re.sub(r"상품 조회 \d+명 중 \d+명만 다음 단계로 갔습니다 \([^)]*\)",
+                          f"상품 조회 {product_sessions}명 중 {cart_sessions}명만 다음 단계로 갔습니다 ({progress:.1f}%, {stopped}명 멈춤)", html)
+            block.replace_with(__import__("bs4").BeautifulSoup(html, "html.parser").find())
+        next_check = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True).startswith("다음 주 확인: 장바구니 진행률")), None)
+        if next_check:
+            next_check.string = f"다음 주 확인: 장바구니 진행률 {progress:.1f}% → 변화"
+        page = str(soup)
+
+    if source_index == 6 and overview and previous:
+        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        prev_sessions = int(previous.get("sessions") or 0)
+        current_orders, prev_orders = int(overview.get("orders") or 0), int(previous.get("orders") or 0)
+        current_cart, prev_cart = int(overview.get("cart_sessions") or 0), int(previous.get("cart_sessions") or 0)
+        current_product, prev_product = int(overview.get("product_sessions") or 0), int(previous.get("product_sessions") or 0)
+        current_order_rate, prev_order_rate = rate(current_orders, sessions), rate(prev_orders, prev_sessions)
+        current_cart_rate, prev_cart_rate = rate(current_cart, sessions), rate(prev_cart, prev_sessions)
+        current_product_rate, prev_product_rate = rate(current_product, sessions), rate(prev_product, prev_sessions)
+        rows_data = [
+            ("방문 세션", str(sessions), str(prev_sessions), sessions - prev_sessions, "count"),
+            ("주문 완료", f"{current_orders}건", f"{prev_orders}건", current_orders - prev_orders, "orders"),
+            ("주문 전환율", rate_text(current_order_rate), rate_text(prev_order_rate), current_order_rate - prev_order_rate, "rate"),
+            ("장바구니 도달률", rate_text(current_cart_rate), rate_text(prev_cart_rate), current_cart_rate - prev_cart_rate, "rate"),
+            ("상품 조회 진행률", rate_text(current_product_rate), rate_text(prev_product_rate), current_product_rate - prev_product_rate, "rate"),
+        ]
+        verdicts = []
+        table = soup.find("sc-raw-table")
+        if table:
+            rows = table.find_all("sc-raw-tr")[1:]
+            for row, (label, current, prev, delta, kind) in zip(rows, rows_data):
+                cells = row.find_all("sc-raw-td")
+                if kind == "count":
+                    change = f"{'▲' if delta > 0 else '▼' if delta < 0 else '-'} {abs(int(delta))} ({abs(delta) / prev_sessions * 100:.1f}%)"
+                    verdict = "변화 작음" if abs(delta) <= math.sqrt(prev_sessions or 1) else ("개선" if delta > 0 else "점검")
+                elif kind == "orders":
+                    change = f"{'▲' if delta > 0 else '▼' if delta < 0 else '-'} {abs(int(delta))}건"
+                    verdict = "변화 작음" if abs(delta) <= math.sqrt(prev_orders or 1) else ("개선" if delta > 0 else "점검")
+                else:
+                    change = delta_text(float(current.rstrip('%')), float(prev.rstrip('%')))
+                    verdict = "개선" if delta > 0 else "점검" if delta < 0 else "변화 작음"
+                verdicts.append(verdict)
+                values = [label, current, prev, change, verdict]
+                for cell, value in zip(cells, values):
+                    if cell.find(["b", "span"]):
+                        cell.find(["b", "span"]).string = value
+                    else:
+                        cell.string = value
+        counter_values = {"개선": verdicts.count("개선"), "변화 작음": verdicts.count("변화 작음"), "점검 필요": verdicts.count("점검")}
+        for label, value in counter_values.items():
+            label_tag = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == label), None)
+            if label_tag:
+                number = label_tag.find_next_sibling("div")
+                if number:
+                    number.string = str(value)
+        chart_title = next((tag for tag in soup.find_all("h2") if "비율 지표 이번 주" in tag.get_text()), None)
+        chart = chart_title.find_next_sibling("div") if chart_title else None
+        chart_values = [
+            (current_order_rate, prev_order_rate),
+            (current_cart_rate, prev_cart_rate),
+            (current_product_rate, prev_product_rate),
+        ]
+        if chart:
+            for group, (current_value, previous_value) in zip(chart.find_all("div", recursive=False), chart_values):
+                metric_box = group.find_all("div", recursive=False)
+                if len(metric_box) < 2:
+                    continue
+                comparison_rows = metric_box[1].find_all("div", recursive=False)
+                scale = max(current_value, previous_value, 0.1)
+                for comparison, value in zip(comparison_rows, [current_value, previous_value]):
+                    parts = comparison.find_all("div", recursive=False)
+                    if len(parts) < 3:
+                        continue
+                    parts[-1].string = rate_text(value)
+                    bar = parts[1].find("div")
+                    if bar:
+                        set_style_value(bar, "width", f"{value / scale * 100:.1f}%")
+        guide = next((tag for tag in soup.find_all("div") if "전주와의 차이가 우연 수준" in tag.get_text(" ", strip=True)), None)
+        if guide:
+            guide.clear()
+            guide.append(
+                "전주와의 차이가 우연 수준(건수의 제곱근 이내)이면 변화 작음으로 봐요. "
+                "주문 전환율과 장바구니 도달률은 전주보다 낮아졌고, 상품 조회 진행률은 높아졌어요. "
+                "원인은 데이터만으로 확정할 수 없어요."
+            )
         page = str(soup)
 
     if source_index == 8 and overview:
@@ -305,9 +427,30 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
         update_bar_group(soup, "확인한 카테고리", categories)
         page = str(soup)
 
+    if source_index == 12:
+        page = page.replace("탐색 중지 집중 화면", "고객이 가장 많이 나간 화면")
+        page = page.replace(
+            "session_end / tab_exit / inactivity를 page_url + section + scrollY로 묶어 상위 3곳을 골랐어요.",
+            "고객의 탐색이 끝난 위치를 화면·영역·스크롤 위치별로 묶어 상위 3곳을 보여드려요.",
+        )
+
     if source_index in {18, 19}:
         page = page.replace("186", str(profile_total or sessions)).replace("5개 고객 유형", f"{len(profiles)}개 고객 유형")
     if source_index == 18:
+        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        table = soup.find("sc-raw-table")
+        if table and profiles:
+            rows = table.find_all("sc-raw-tr")[1:]
+            for row, profile in zip(rows, profiles):
+                cells = row.find_all("sc-raw-td")
+                if len(cells) >= 3:
+                    marker = cells[0].find("span")
+                    cells[0].clear()
+                    if marker:
+                        cells[0].append(marker)
+                    cells[0].append(str(profile.get("name") or "고객 유형"))
+                    cells[2].string = str(profile.get("action") or "행동 패턴에 맞춘 운영 전략을 적용하세요.")
+        page = str(soup)
         page = re.sub(r'<h2\b[^>]*>\s*종합 제언\s*</h2>', '', page, count=1)
     return page
 
