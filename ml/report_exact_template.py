@@ -81,6 +81,14 @@ def delta_text(current: float, previous: float, suffix: str = "%p") -> str:
     return f"- 0.0{suffix}"
 
 
+def rate_delta_text(delta: float) -> str:
+    if delta > 0:
+        return f"▲ {abs(delta):.1f}%p"
+    if delta < 0:
+        return f"▼ {abs(delta):.1f}%p"
+    return "- 0.0%p"
+
+
 def replace_first_conic(page: str, colors: list[str], values: list[int]) -> str:
     total = sum(values) or 1
     cursor = 0.0
@@ -156,6 +164,8 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
         prev_order_rate = rate(prev_orders, prev_sessions)
         cart_rate = rate(cart_sessions, sessions)
         prev_cart_rate = rate(prev_cart, prev_sessions)
+        raw_order_delta = (orders / sessions * 100 if sessions else 0) - (prev_orders / prev_sessions * 100 if prev_sessions else 0)
+        raw_cart_delta = (cart_sessions / sessions * 100 if sessions else 0) - (prev_cart / prev_sessions * 100 if prev_sessions else 0)
         summary_kpis = {
             "방문 세션": str(sessions), "주문 완료": f"{orders}건",
             "주문 전환율": rate_text(order_rate), "장바구니 도달률": rate_text(cart_rate),
@@ -172,9 +182,9 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                 elif note and label == "주문 완료":
                     note.string = f"변화 작음 (전주 {prev_orders}건)"
                 elif note and label == "주문 전환율":
-                    note.string = f"{delta_text(order_rate, prev_order_rate)} (전주 {rate_text(prev_order_rate)})"
+                    note.string = f"{rate_delta_text(raw_order_delta)} (전주 {rate_text(prev_order_rate)})"
                 elif note and label == "장바구니 도달률":
-                    note.string = f"{delta_text(cart_rate, prev_cart_rate)} (전주 {rate_text(prev_cart_rate)})"
+                    note.string = f"{rate_delta_text(raw_cart_delta)} (전주 {rate_text(prev_cart_rate)})"
         product_sessions = int(overview.get("product_sessions") or 0)
         stopped = max(product_sessions - cart_sessions, 0)
         progress = rate(cart_sessions, product_sessions)
@@ -202,9 +212,12 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
         rows_data = [
             ("방문 세션", str(sessions), str(prev_sessions), sessions - prev_sessions, "count"),
             ("주문 완료", f"{current_orders}건", f"{prev_orders}건", current_orders - prev_orders, "orders"),
-            ("주문 전환율", rate_text(current_order_rate), rate_text(prev_order_rate), current_order_rate - prev_order_rate, "rate"),
-            ("장바구니 도달률", rate_text(current_cart_rate), rate_text(prev_cart_rate), current_cart_rate - prev_cart_rate, "rate"),
-            ("상품 조회 진행률", rate_text(current_product_rate), rate_text(prev_product_rate), current_product_rate - prev_product_rate, "rate"),
+            ("주문 전환율", rate_text(current_order_rate), rate_text(prev_order_rate),
+             (current_orders / sessions * 100 if sessions else 0) - (prev_orders / prev_sessions * 100 if prev_sessions else 0), "rate"),
+            ("장바구니 도달률", rate_text(current_cart_rate), rate_text(prev_cart_rate),
+             (current_cart / sessions * 100 if sessions else 0) - (prev_cart / prev_sessions * 100 if prev_sessions else 0), "rate"),
+            ("상품 조회 진행률", rate_text(current_product_rate), rate_text(prev_product_rate),
+             (current_product / sessions * 100 if sessions else 0) - (prev_product / prev_sessions * 100 if prev_sessions else 0), "rate"),
         ]
         verdicts = []
         table = soup.find("sc-raw-table")
@@ -219,7 +232,7 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     change = f"{'▲' if delta > 0 else '▼' if delta < 0 else '-'} {abs(int(delta))}건"
                     verdict = "변화 작음" if abs(delta) <= math.sqrt(prev_orders or 1) else ("개선" if delta > 0 else "점검")
                 else:
-                    change = delta_text(float(current.rstrip('%')), float(prev.rstrip('%')))
+                    change = rate_delta_text(delta)
                     verdict = "개선" if delta > 0 else "점검" if delta < 0 else "변화 작음"
                 verdicts.append(verdict)
                 values = [label, current, prev, change, verdict]
@@ -257,7 +270,8 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     bar = parts[1].find("div")
                     if bar:
                         set_style_value(bar, "width", f"{value / scale * 100:.1f}%")
-        guide = next((tag for tag in soup.find_all("div") if "전주와의 차이가 우연 수준" in tag.get_text(" ", strip=True)), None)
+        guide_candidates = [tag for tag in soup.find_all("div") if "전주와의 차이가 우연 수준" in tag.get_text(" ", strip=True)]
+        guide = min(guide_candidates, key=lambda tag: len(str(tag))) if guide_candidates else None
         if guide:
             guide.clear()
             guide.append(
@@ -371,6 +385,27 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
         position, old_count, old_share = detail_baselines[source_index]
         if position < len(profiles):
             profile = profiles[position]
+            soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+            title = soup.find("h1")
+            subtitle = title.find_next_sibling("p") if title else None
+            if subtitle:
+                subtitle.string = str(profile.get("action") or profile.get("summary") or "이 유형에 맞춘 운영 조치가 필요해요.")
+                set_style_value(subtitle, "margin", "0 0 12px")
+            elif title:
+                subtitle = soup.new_tag("p")
+                subtitle["style"] = "margin:0 0 12px;font-size:15px;color:#4a5670"
+                subtitle.string = str(profile.get("action") or profile.get("summary") or "이 유형에 맞춘 운영 조치가 필요해요.")
+                title.insert_after(subtitle)
+            banner = subtitle.find_next_sibling("div") if subtitle else None
+            if banner:
+                set_style_value(banner, "margin-top", "0")
+            evidence_title = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == "이 유형으로 분류한 근거"), None)
+            if evidence_title:
+                evidence = evidence_title.find_next_sibling("div")
+                if evidence:
+                    evidence_html = re.sub(r"<br\s*/?>\s*<b>운영 의미</b>.*$", "", str(evidence), flags=re.S)
+                    evidence.replace_with(__import__("bs4").BeautifulSoup(evidence_html, "html.parser").find())
+            page = str(soup)
             page = re.sub(rf"(?<!\d){old_count}(?!\d)", str(profile["count"]), page)
             page = page.replace(f"{old_share}%", f"{pct(profile['count'], profile_total)}%")
             page = page.replace(
@@ -397,6 +432,16 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             ]
             palette = palettes[position]
             page = replace_first_conic(page, palette[:len(values)], values)
+            translations = {
+                "Scroll Category": "카테고리 스크롤",
+                "View Section": "특정 영역 확인",
+                "Review Exploration Episode": "리뷰 집중 탐색",
+                "Price Review Episode": "가격·리뷰 반복 확인",
+                "BOARD": "게시판",
+                "UNKNOWN": "기타·미분류",
+            }
+            for english, korean in translations.items():
+                page = page.replace(english, korean)
 
     # Commerce page values and rows.
     if source_index == 11 and commerce:
@@ -452,6 +497,11 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     cells[2].string = str(profile.get("action") or "행동 패턴에 맞춘 운영 전략을 적용하세요.")
         page = str(soup)
         page = re.sub(r'<h2\b[^>]*>\s*종합 제언\s*</h2>', '', page, count=1)
+        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        label = next((tag for tag in soup.find_all("span") if tag.get_text(strip=True) == "종합 제언"), None)
+        if label and label.parent:
+            set_style_value(label.parent, "margin-top", "30px")
+        page = str(soup)
     return page
 
 
