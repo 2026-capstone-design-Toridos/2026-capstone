@@ -599,7 +599,100 @@ def insert_capture_images(page: str) -> str:
     return placeholder.sub(replace, page)
 
 
-def build_cafe24_appendix(start_dt: datetime, end_dt: datetime, site: str, page_no: int, total_pages: int) -> str:
+def cafe24_recommendation(inputs: dict) -> dict:
+    metrics = inputs.get("metrics") or {}
+    commerce = inputs.get("commerce") or {}
+    overview = metrics.get("overview") or {}
+    sessions = int(overview.get("sessions") or 0)
+    product_sessions = int(overview.get("product_sessions") or 0)
+    cart_sessions = int(overview.get("cart_sessions") or 0)
+    product_rate = rate(product_sessions, sessions)
+    cart_rate = rate(cart_sessions, product_sessions)
+    exit_pages = metrics.get("exit_pages") or []
+    top_exit = exit_pages[0] if exit_pages else {}
+    review_views = int((commerce.get("counts") or {}).get("review_views") or 0)
+
+    if product_sessions >= 10 and cart_rate < 2:
+        return {
+            "title": "상품 상세 상단에 구매 판단 정보 요약",
+            "description": f"상품 조회 {product_sessions}세션 중 장바구니 도달은 {cart_sessions}세션으로, 다음 단계 이동을 돕는 정보가 필요해요.",
+            "metric": f"장바구니 진행률 {cart_rate:.1f}%",
+            "path": "카페24 관리자 › 디자인 › 디자인 보관함 › 사용 중 디자인 수정 › 상품 상세(detail.html)",
+            "before": "배송·교환·사이즈·후기 정보가 흩어져 구매 판단에 시간이 걸릴 수 있어요.",
+            "after_title": "구매 전에 확인하세요",
+            "after_text": "배송·교환·사이즈·후기 정보를 한곳에서 확인할 수 있어요.",
+            "insert": "상품명·가격 영역 아래, 옵션 선택 영역 위에 추가",
+            "code": """<div class="seer-decision-guide">
+  <strong>구매 전에 확인하세요</strong>
+  <p>배송·교환 정책 · 사이즈·착용 정보 · 실구매자 후기</p>
+</div>
+<style>
+.seer-decision-guide { padding:14px 16px; margin:12px 0 18px;
+  background:#f3f5f9; color:#1d2a44; }
+.seer-decision-guide strong { display:block; margin-bottom:6px; }
+.seer-decision-guide p { margin:0; font-size:13px; }
+</style>""",
+            "check": f"다음 주 상품 조회→장바구니 진행률이 {cart_rate:.1f}%보다 높아지는지 확인해요.",
+        }
+    if product_rate < 35:
+        return {
+            "title": "첫 화면에 대표 상품 이동 버튼 강화",
+            "description": f"방문 {sessions}세션 중 상품 조회 도달은 {product_sessions}세션({product_rate:.1f}%)이에요.",
+            "metric": f"상품 조회 진행률 {product_rate:.1f}%",
+            "path": "카페24 관리자 › 디자인 › 디자인 보관함 › 사용 중 디자인 수정 › 메인 화면(index.html)",
+            "before": "첫 화면 콘텐츠에서 상품 목록으로 이어지는 다음 행동이 불명확할 수 있어요.",
+            "after_title": "이번 주 대표 상품 보기",
+            "after_text": "대표 상품 목록으로 바로 이동할 수 있어요.",
+            "insert": "메인 배너 바로 아래에 추가",
+            "code": """<a class="seer-main-cta" href="/product/list.html?cate_no=1">
+  이번 주 대표 상품 보기
+</a>
+<style>
+.seer-main-cta { display:block; padding:14px 18px; margin:16px 0;
+  background:#17407a; color:#fff; text-align:center; font-weight:700; }
+</style>""",
+            "check": f"다음 주 상품 조회 진행률이 {product_rate:.1f}%보다 높아지는지 확인해요.",
+        }
+    if "카테고리" in str(top_exit.get("label") or ""):
+        return {
+            "title": "카테고리 상단에 탐색 안내 추가",
+            "description": f"가장 많이 이탈한 화면은 {top_exit.get('label')} {top_exit.get('sessions', 0)}세션이에요.",
+            "metric": f"이탈 비중 {top_exit.get('share', 0)}%",
+            "path": "카페24 관리자 › 디자인 › 디자인 보관함 › 사용 중 디자인 수정 › 상품 분류(list.html)",
+            "before": "상품이 많을 때 비교 기준과 다음 탐색 경로를 찾기 어려울 수 있어요.",
+            "after_title": "원하는 상품을 빠르게 찾아보세요",
+            "after_text": "가격·신상품·인기순 정렬과 카테고리 이동을 안내해요.",
+            "insert": "상품 목록과 정렬 메뉴 바로 위에 추가",
+            "code": """<div class="seer-category-guide">
+  가격·신상품·인기순 정렬로 원하는 상품을 빠르게 찾아보세요.
+</div>
+<style>
+.seer-category-guide { padding:12px 16px; margin-bottom:14px;
+  background:#eef2fa; color:#17407a; font-size:13px; }
+</style>""",
+            "check": "다음 주 카테고리 화면 이탈 비중이 낮아지는지 확인해요.",
+        }
+    return {
+        "title": "상품 상세에 후기 탐색 연결 강화",
+        "description": f"이번 주 리뷰 확인은 {review_views}회로, 구매 판단 정보를 더 쉽게 연결할 여지가 있어요.",
+        "metric": f"리뷰 확인 {review_views}회",
+        "path": "카페24 관리자 › 디자인 › 디자인 보관함 › 사용 중 디자인 수정 › 상품 상세(detail.html)",
+        "before": "후기 영역이 상품 정보와 멀리 떨어져 있으면 구매 판단 흐름이 끊길 수 있어요.",
+        "after_title": "실구매자 후기를 확인해 보세요",
+        "after_text": "상품 정보에서 후기 영역으로 바로 이동할 수 있어요.",
+        "insert": "상품 요약 정보 아래에 추가하고 후기 영역 ID를 확인",
+        "code": """<a class="seer-review-link" href="#prdReview">
+  실구매자 후기 확인하기
+</a>
+<style>
+.seer-review-link { display:block; padding:12px 16px; margin:14px 0;
+  border:1px solid #17407a; color:#17407a; text-align:center; }
+</style>""",
+        "check": "다음 주 후기 확인 후 장바구니 도달률이 높아지는지 확인해요.",
+    }
+
+
+def build_cafe24_appendix(start_dt: datetime, end_dt: datetime, site: str, page_no: int, total_pages: int, inputs: dict) -> str:
     """Load the approved Cafe24 implementation guide as a report appendix."""
     source_path = ROOT / "prototypes" / "weekly-report-cafe24-code-guide.html"
     if not source_path.exists():
@@ -617,11 +710,66 @@ def build_cafe24_appendix(start_dt: datetime, end_dt: datetime, site: str, page_
         "", style, flags=re.S | re.I,
     )
     style = style.replace(".page", ".cafe24-appendix")
-    style += "\n.cafe24-appendix { margin:0 !important; }"
+    style += """
+.cafe24-appendix { margin:0 !important; }
+.source-page-cafe24 .footer { display:flex !important; justify-content:space-between !important; left:56px !important; right:68px !important; }
+.source-page-cafe24 .footer span:last-child { display:block !important; flex:none !important; min-width:56px !important; text-align:right !important; }
+"""
     main = main_match.group(0).replace('class="page"', 'class="cafe24-appendix"', 1)
     main = main.replace("Dignolucir", site)
     main = re.sub(r"2026\.10\.23\s*-\s*10\.29", f"{start_dt:%Y.%m.%d} - {end_dt:%m.%d}", main)
     main = re.sub(r"\d+\s*/\s*\d+", f"{page_no} / {total_pages}", main)
+    recommendation = cafe24_recommendation(inputs)
+    soup = __import__("bs4").BeautifulSoup(main, "html.parser")
+    subtitle = soup.select_one(".subtitle")
+    if subtitle:
+        subtitle.string = "이번 주 실제 행동 지표를 카페24 수정 위치와 코드로 연결했어요."
+    priority = soup.select_one(".priority-title")
+    if priority:
+        priority.clear()
+        priority.append(recommendation["title"])
+        detail = soup.new_tag("span")
+        detail.string = recommendation["description"]
+        priority.append(detail)
+    impact = soup.select_one(".impact")
+    if impact:
+        impact.clear()
+        impact.append("실제 분석 근거")
+        impact.append(soup.new_tag("br"))
+        impact.append(recommendation["metric"])
+    path = soup.select_one(".path")
+    if path:
+        path.string = recommendation["path"]
+    before = soup.select_one(".before-note")
+    if before:
+        before.string = recommendation["before"]
+    banner = soup.select_one(".benefit-banner")
+    if banner:
+        banner.clear()
+        strong = soup.new_tag("b")
+        strong.string = recommendation["after_title"]
+        detail = soup.new_tag("span")
+        detail.string = recommendation["after_text"]
+        banner.extend([strong, detail])
+    code_head = soup.select_one(".code-head span")
+    if code_head:
+        code_head.string = recommendation["insert"]
+    code = soup.find("pre")
+    if code:
+        code.string = recommendation["code"]
+    checks = soup.select(".check")
+    if len(checks) >= 3:
+        checks[0].find("b").string = "1. 모바일 화면"
+        checks[0].find("span").string = "안내 영역이 옵션 선택이나 구매 버튼을 가리지 않는지 확인해요."
+        checks[1].find("b").string = "2. 정보 정확성"
+        checks[1].find("span").string = "배송·교환·사이즈 문구가 실제 쇼핑몰 정책과 일치하는지 확인해요."
+        checks[2].find("b").string = "3. 다음 주 지표"
+        checks[2].find("span").string = recommendation["check"]
+    notice = soup.select_one(".notice")
+    if notice:
+        notice.clear()
+        notice.append("적용 전 확인 · 이번 주 행동 데이터로 자동 선택된 제안입니다. 디자인을 복사해 백업하고 PC·모바일 미리보기 후 게시하세요.")
+    main = str(soup)
     return f'<style class="cafe24-appendix-style">{style}</style>{main}'
 
 
@@ -645,7 +793,7 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
     rendered: list[str] = []
     for page_no, source_index in enumerate(selected, 1):
         if source_index == "cafe24-appendix":
-            appendix = build_cafe24_appendix(start_dt, end_dt, site, page_no, len(selected))
+            appendix = build_cafe24_appendix(start_dt, end_dt, site, page_no, len(selected), inputs or {})
             rendered.append(f'<section class="report-page source-page-cafe24">{appendix}</section>')
             continue
         assert isinstance(source_index, int)
