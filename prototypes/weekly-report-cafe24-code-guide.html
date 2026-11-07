@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SEER ANALYTICS - 카페24 개선 가이드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    @page { size: 794px 1123px; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #eef2f7; color: #1d2a44; font-family: "Noto Sans KR", sans-serif; }
+    .page { position: relative; width: 794px; height: 1123px; margin: 24px auto; overflow: hidden; background: #fff; padding: 48px 56px 88px; }
+    .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid #17407a; }
+    .brand { color: #17407a; font-size: 13px; font-weight: 700; letter-spacing: 2px; }
+    .date { color: #4a5670; font-size: 13px; }
+    h1 { margin: 30px 0 6px; color: #17407a; font-size: 28px; font-weight: 900; letter-spacing: -0.7px; }
+    .subtitle { margin: 0 0 20px; color: #4a5670; font-size: 15px; }
+    .priority { display: grid; grid-template-columns: 92px 1fr 142px; gap: 14px; align-items: center; padding: 16px 18px; background: #e9edf4; }
+    .priority-label { color: #17407a; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
+    .priority-title { font-size: 17px; font-weight: 900; }
+    .priority-title span { display: block; margin-top: 3px; color: #4a5670; font-size: 12px; font-weight: 500; }
+    .impact { padding: 9px 10px; background: #fff3dc; color: #8a5a00; font-size: 12px; font-weight: 700; text-align: center; }
+    .section-title { margin: 15px 0 7px; font-size: 18px; font-weight: 900; }
+    .path { display: flex; align-items: center; gap: 7px; padding: 12px 15px; border-left: 4px solid #17407a; background: #f3f5f9; font-size: 13px; }
+    .path b { color: #17407a; }
+    .arrow { color: #91a0b8; font-weight: 900; }
+    .proposal { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mock { min-height: 126px; padding: 12px 14px; border: 1px solid #d8dfeb; }
+    .mock.before { background: #fafbfc; }
+    .mock.after { border-color: #17407a; background: #f7f9fd; }
+    .mock-label { margin-bottom: 10px; color: #4a5670; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+    .product-line { height: 13px; margin: 7px 0; background: #e3e8f0; }
+    .product-line.short { width: 62%; }
+    .benefit-banner { margin-top: 11px; padding: 12px; background: #17407a; color: #fff; }
+    .benefit-banner b { display: block; font-size: 14px; }
+    .benefit-banner span { display: block; margin-top: 3px; color: #dce7f6; font-size: 11px; }
+    .before-note { margin-top: 14px; color: #a3341f; font-size: 12px; font-weight: 700; }
+    .code-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 13px; background: #17407a; color: #fff; font-size: 12px; }
+    .code-head span:last-child { color: #c9d8ed; font-weight: 500; }
+    pre { margin: 0; overflow: visible; padding: 11px 14px 13px; background: #142039; color: #edf4ff; font: 10.5px/1.42 Consolas, "Courier New", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .code-tag { color: #8bd5ff; }
+    .code-attr { color: #ffd479; }
+    .code-text { color: #c9f2c7; }
+    .checks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .check { min-height: 62px; padding: 9px 11px; background: #f3f5f9; }
+    .check b { display: block; margin-bottom: 4px; color: #17407a; font-size: 12px; }
+    .check span { color: #4a5670; font-size: 11.5px; line-height: 1.55; }
+    .notice { margin-top: 10px; padding: 9px 13px; border: 1px solid #17407a; font-size: 11.5px; line-height: 1.5; }
+    .notice b { color: #17407a; }
+    .footer { position: absolute; right: 68px; bottom: 32px; left: 56px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; color: #4a5670; font-size: 12px; }
+    .footer span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .footer span:last-child { min-width: 52px; text-align: right; white-space: nowrap; }
+    @media print { html, body { background: #fff; } .page { margin: 0; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div class="brand">SEER ANALYTICS</div>
+      <div class="date">2026.10.23 - 10.29</div>
+    </header>
+
+    <h1>카페24 디자인 개선 가이드</h1>
+    <p class="subtitle">이번 주 이탈 신호를 실제 수정 위치와 코드로 연결했어요.</p>
+
+    <section class="priority">
+      <div class="priority-label">우선 적용</div>
+      <div class="priority-title">상품 상세 상단에 혜택 배너 추가
+        <span>상품 조회 후 장바구니로 이동하지 않은 고객의 망설임을 줄여요.</span>
+      </div>
+      <div class="impact">예상 개선 지표<br>장바구니 도달률</div>
+    </section>
+
+    <h2 class="section-title">어디에서 수정하나요?</h2>
+    <div class="path">
+      <b>카페24 관리자</b><span class="arrow">›</span>디자인<span class="arrow">›</span>디자인 보관함<span class="arrow">›</span>사용 중 디자인 수정<span class="arrow">›</span><b>상품 상세(detail.html)</b>
+    </div>
+
+    <h2 class="section-title">이렇게 바꿔보세요</h2>
+    <section class="proposal">
+      <div class="mock before">
+        <div class="mock-label">BEFORE · 현재 화면</div>
+        <div class="product-line"></div><div class="product-line short"></div>
+        <div class="product-line"></div>
+        <div class="before-note">혜택과 배송 정보가 아래쪽에 있어 이탈 가능성 ↑</div>
+      </div>
+      <div class="mock after">
+        <div class="mock-label">AFTER · 제안 화면</div>
+        <div class="product-line"></div><div class="product-line short"></div>
+        <div class="benefit-banner"><b>오늘 주문 시 무료배송</b><span>신규 회원 10% 쿠폰도 함께 적용돼요.</span></div>
+      </div>
+    </section>
+
+    <h2 class="section-title">복사해서 붙여 넣을 코드</h2>
+    <div class="code-head"><span>상품 정보 영역 바로 위에 추가</span><span>HTML + CSS</span></div>
+    <pre><span class="code-tag">&lt;div</span> <span class="code-attr">class</span>=&quot;seer-benefit-banner&quot;<span class="code-tag">&gt;</span>
+  <span class="code-tag">&lt;strong&gt;</span><span class="code-text">오늘 주문 시 무료배송</span><span class="code-tag">&lt;/strong&gt;</span>
+  <span class="code-tag">&lt;span&gt;</span>신규 회원 10% 쿠폰도 함께 적용돼요.<span class="code-tag">&lt;/span&gt;</span>
+<span class="code-tag">&lt;/div&gt;</span>
+
+<span class="code-tag">&lt;style&gt;</span>
+.seer-benefit-banner { padding:16px 18px; margin-bottom:18px;
+  background:#17407a; color:#fff; }
+.seer-benefit-banner strong { display:block; font-size:16px; }
+.seer-benefit-banner span { display:block; margin-top:4px; font-size:12px; color:#dce7f6; }
+<span class="code-tag">&lt;/style&gt;</span></pre>
+
+    <h2 class="section-title">적용 후 확인할 것</h2>
+    <section class="checks">
+      <div class="check"><b>1. 모바일 화면</b><span>문구가 두 줄을 넘거나 구매 버튼을 가리지 않는지 확인해요.</span></div>
+      <div class="check"><b>2. 혜택 정확성</b><span>실제 쿠폰·배송 정책과 문구가 일치하는지 확인해요.</span></div>
+      <div class="check"><b>3. 다음 주 지표</b><span>상품 상세 진입률과 장바구니 도달률 변화를 비교해요.</span></div>
+    </section>
+
+    <div class="notice"><b>안전하게 적용하기</b> · 수정 전 디자인을 복사해 백업하고, 미리보기에서 PC·모바일을 확인한 뒤 게시하세요. 쇼핑몰 스킨마다 파일명과 삽입 위치가 다를 수 있어요.</div>
+
+    <footer class="footer"><span>Dignolucir 쇼핑몰 · 주간 리포트</span><span>16 / 17</span></footer>
+  </main>
+</body>
+</html>

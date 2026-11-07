@@ -599,6 +599,32 @@ def insert_capture_images(page: str) -> str:
     return placeholder.sub(replace, page)
 
 
+def build_cafe24_appendix(start_dt: datetime, end_dt: datetime, site: str, page_no: int, total_pages: int) -> str:
+    """Load the approved Cafe24 implementation guide as a report appendix."""
+    source_path = ROOT / "prototypes" / "weekly-report-cafe24-code-guide.html"
+    if not source_path.exists():
+        raise FileNotFoundError(f"Cafe24 appendix template was not found: {source_path}")
+    source = source_path.read_text(encoding="utf-8")
+    style_match = re.search(r"<style>(.*?)</style>", source, flags=re.S | re.I)
+    main_match = re.search(r"<main\b[^>]*class=\"page\"[^>]*>.*?</main>", source, flags=re.S | re.I)
+    if not style_match or not main_match:
+        raise ValueError("Cafe24 appendix template is missing its style or page element")
+    style = style_match.group(1)
+    style = re.sub(r"@page\s*\{[^}]*\}", "", style, flags=re.S | re.I)
+    style = re.sub(r"html\s*,\s*body\s*\{[^}]*\}", "", style, flags=re.S | re.I)
+    style = re.sub(
+        r"@media\s+print\s*\{\s*html\s*,\s*body\s*\{[^}]*\}\s*\.page\s*\{[^}]*\}\s*\}",
+        "", style, flags=re.S | re.I,
+    )
+    style = style.replace(".page", ".cafe24-appendix")
+    style += "\n.cafe24-appendix { margin:0 !important; }"
+    main = main_match.group(0).replace('class="page"', 'class="cafe24-appendix"', 1)
+    main = main.replace("Dignolucir", site)
+    main = re.sub(r"2026\.10\.23\s*-\s*10\.29", f"{start_dt:%Y.%m.%d} - {end_dt:%m.%d}", main)
+    main = re.sub(r"\d+\s*/\s*\d+", f"{page_no} / {total_pages}", main)
+    return f'<style class="cafe24-appendix-style">{style}</style>{main}'
+
+
 def build_exact_html(source_path: Path, start: str, end: str, origin: str, inputs: dict | None = None) -> str:
     pages = split_pages(source_path.read_text(encoding="utf-8"))
     if len(pages) < 20:
@@ -608,7 +634,7 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
         raise ValueError(f"Expected 20 design pages, found {len(pages)}")
 
     # Cover A + every unique body design. Cover alternatives B-E are excluded.
-    selected = [0, *range(5, 20)]
+    selected: list[int | str] = [0, *range(5, 19), "cafe24-appendix", 19]
     start_dt = datetime.strptime(start, "%Y-%m-%d")
     end_dt = datetime.strptime(end, "%Y-%m-%d")
     date_long = f"{start_dt:%Y.%m.%d} – {end_dt:%m.%d}"
@@ -618,6 +644,11 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
 
     rendered: list[str] = []
     for page_no, source_index in enumerate(selected, 1):
+        if source_index == "cafe24-appendix":
+            appendix = build_cafe24_appendix(start_dt, end_dt, site, page_no, len(selected))
+            rendered.append(f'<section class="report-page source-page-cafe24">{appendix}</section>')
+            continue
+        assert isinstance(source_index, int)
         page = pages[source_index]
         page = page.replace("Dignolucir", site)
         page = page.replace("2026.10.21 – 10.27", date_long)
