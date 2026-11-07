@@ -6,7 +6,6 @@ the report identity fields are replaced; no project CSS is layered on top.
 from __future__ import annotations
 
 import argparse
-import base64
 import csv
 import json
 import math
@@ -267,7 +266,14 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             page_dist = profile.get("page_dist") or {}
             labels = list(page_dist.keys())[:5]
             values = [int(page_dist[k]) for k in labels]
-            palette = ["#332288", "#7064AC", "#9990C4", "#BEB8D9", "#DAD7EA"]
+            palettes = [
+                ["#332288", "#7064AC", "#9990C4", "#BEB8D9", "#DAD7EA"],
+                ["#168477", "#44AA99", "#76C4B8", "#A8DED5", "#D7F0EC"],
+                ["#A07800", "#C6A83B", "#DDCC77", "#EADFAD", "#F4EED5"],
+                ["#A73E50", "#CC6677", "#D98D99", "#E7B6BE", "#F4DDE1"],
+                ["#167AA6", "#4CA8CE", "#88CCEE", "#B1DDF1", "#DCEFF8"],
+            ]
+            palette = palettes[position]
             page = replace_first_conic(page, palette[:len(values)], values)
 
     # Commerce page values and rows.
@@ -301,6 +307,8 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
 
     if source_index in {18, 19}:
         page = page.replace("186", str(profile_total or sessions)).replace("5개 고객 유형", f"{len(profiles)}개 고객 유형")
+    if source_index == 18:
+        page = re.sub(r'<h2\b[^>]*>\s*종합 제언\s*</h2>', '', page, count=1)
     return page
 
 
@@ -367,10 +375,10 @@ def insert_capture_images(page: str) -> str:
             path = next(image_iter)
         except StopIteration:
             return match.group(0)
-        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        image_uri = path.resolve().as_uri()
         return (
             f'<div style="{match.group("style")};overflow:hidden">'
-            f'<img src="data:image/png;base64,{encoded}" '
+            f'<img src="{image_uri}" '
             f'style="width:100%;height:100%;object-fit:cover;object-position:top;display:block"/></div>'
         )
 
@@ -484,6 +492,7 @@ def main() -> None:
         subprocess.run([
             chrome_path(), "--headless=new", "--disable-gpu", "--disable-extensions",
             "--disable-dev-shm-usage", "--no-first-run", "--no-sandbox",
+            "--allow-file-access-from-files", "--virtual-time-budget=5000",
             f"--user-data-dir={profile}", f"--print-to-pdf={temp_pdf}", temp_html.as_uri(),
         ], check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         shutil.copyfile(temp_pdf, output)
