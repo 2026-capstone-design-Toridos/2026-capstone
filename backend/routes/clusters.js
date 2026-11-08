@@ -40,6 +40,7 @@ const SNAPSHOT_DIR = path.resolve(
 );
 const ML_DIR = path.resolve(__dirname, '../../ml');
 const RETRAIN_SCRIPT = path.join(ML_DIR, 'retrain_centroids.py');
+const LOCAL_CLASSIFY_SCRIPT = path.join(ML_DIR, 'classify_batch_cli.py');
 const SITE_CLUSTER_EVENT_LIMIT = Math.min(
   // 운영 화면은 최근 행동 변화가 목적이므로 원문 10만 건 대신 최근 1만 건을 기본 표본으로 쓴다.
   // 필요하면 환경변수로 확장할 수 있다.
@@ -55,6 +56,34 @@ const SITE_CLUSTER_SESSION_LIMIT = Math.min(
   Math.max(Number(process.env.SITE_CLUSTER_SESSION_LIMIT) || 5000, 100),
   10000,
 );
+
+function classifyBatchLocally(sessions) {
+  return new Promise((resolve, reject) => {
+    const pythonBin = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
+    const child = spawn(pythonBin, ['-u', LOCAL_CLASSIFY_SCRIPT, '--model_dir', path.join(ML_DIR, 'output/unsupervised_semantic')], {
+      cwd: ML_DIR,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code !== 0) return reject(new Error(stderr.trim() || `local classifier exited ${code}`));
+      try {
+        const start = stdout.indexOf('{');
+        resolve(JSON.parse(start >= 0 ? stdout.slice(start) : stdout));
+      } catch (error) {
+        reject(new Error(`local classifier response error: ${error.message}`));
+      }
+    });
+    child.stdin.end(JSON.stringify({ sessions }));
+  });
+}
 let clusteringJob = null;
 const siteClassificationJobs = new Map();
 const siteSnapshotRefreshJobs = new Map();
@@ -687,19 +716,23 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     };
   }
 
-  const res = await fetch(`${CLUSTER_SERVER}/classify/batch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessions }),
-    signal: AbortSignal.timeout(120_000),
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `cluster server ${res.status}`);
+  let body;
+  try {
+    const res = await fetch(`${CLUSTER_SERVER}/classify/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessions }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({}));
+      throw new Error(errorBody.error || `cluster server ${res.status}`);
+    }
+    body = await res.json();
+  } catch (error) {
+    console.warn(`[clusters] 분류 서버 연결 실패 → 로컬 모델 실행: ${error.message}`);
+    body = await classifyBatchLocally(sessions);
   }
-
-  const body = await res.json();
   const modelMode = body.results?.find((result) => result.mode)?.mode || 'unknown';
   const sessionById = new Map(sessions.map((session) => [session.session_id, session]));
   const siteStats = new Map();

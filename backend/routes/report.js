@@ -410,11 +410,11 @@ async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek
         ],
         {
           cwd: path.join(__dirname, '../../ml'),
-          timeout: 90000,
+          timeout: 180000,
           maxBuffer: 2 * 1024 * 1024,
-          // 전체 고객 행동·상품 데이터가 들어가는 PDF는 외부 AI를 기다리거나
-          // 전송하지 않고 로컬 데이터 기반 문장으로 즉시 생성한다.
-          env: { ...process.env, GEMINI_API_KEY: '' },
+          // 새 주간 집계값을 Gemini가 해석해 유형별 인사이트와 제안을 만든다.
+          // 원본 이벤트나 고객 식별자가 아니라 생성기에 전달된 집계값만 사용한다.
+          env: { ...process.env },
         },
         (err, stdout, stderr) => {
           if (err) {
@@ -424,6 +424,7 @@ async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek
             reject(new Error('주간 보고서를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.'));
             return;
           }
+          if (stdout?.trim()) console.info('[report/generate]', stdout.trim());
           if (!fs.existsSync(stagingPath)) {
             removeGeneratedArtifact(stagingHtmlPath);
             reject(new Error('보고서 생성은 완료됐지만 PDF 파일을 찾지 못했습니다.'));
