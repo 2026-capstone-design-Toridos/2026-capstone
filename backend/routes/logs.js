@@ -8,9 +8,85 @@ const Event   = require('../models/Event');
 const { originFilter, canonicalOrigin } = require('../middleware/siteAccess');
 const { buildCommerceSummary } = require('../lib/commerceSummary');
 const { buildOperationalInsights, dayStartKST } = require('../lib/operationalInsights');
-const { resolveProductPrices } = require('../lib/productPriceResolver');
 
 const RISK_EVENTS = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag'];
+
+// 손실·운영 지표 계산에 필요한 필드만 읽는다. data 전체를 선택하면
+// data.source의 페이지 HTML까지 수천 건 전송되어 모바일의 8초 제한을 넘는다.
+const OPERATIONAL_EVENT_PROJECTION = [
+  'event_id',
+  'session_id',
+  'event_type',
+  'page_type',
+  'pathname',
+  'page_url',
+  'timestamp',
+  'received_at',
+  'product_id',
+  'product_price',
+  'product_currency',
+  'data.product_id',
+  'data.product_name',
+  'data.currency',
+  'data.price_currency',
+  'data.product_price',
+  'data.unit_price',
+  'data.product_price_source',
+  'data.subsection_id',
+  'data.subsection',
+  'data.subsection_label',
+  'data.section_id',
+  'data.section',
+  'data.section_label',
+].join(' ');
+
+const OPERATIONAL_SIGNAL_TYPES = [
+  'add_to_cart_success',
+  'add_to_cart',
+  'cart_add',
+  'basket_add',
+  'add_to_wishlist_success',
+  'add_to_wishlist',
+  'wishlist_add',
+  'favorite_add',
+  'remove_from_wishlist_success',
+  'order_complete',
+  'order_completed',
+  'order_success',
+  'purchase',
+  'purchase_complete',
+  'payment_complete',
+  'payment_success',
+  'guest_purchase',
+  'member_purchase',
+  'purchase_click',
+  'enter_product',
+  'product_click',
+  'product_view',
+  'view_product',
+  'section_enter',
+  'subsection_enter',
+  'section_revisit',
+  'subsection_revisit',
+];
+
+function operationalSignalFilter(baseFilter) {
+  return {
+    $and: [
+      baseFilter,
+      {
+        $or: [
+          { event_type: { $in: OPERATIONAL_SIGNAL_TYPES } },
+          { product_id: { $exists: true, $nin: [null, ''] } },
+          { 'data.product_id': { $exists: true, $nin: [null, ''] } },
+          { page_type: 'ORDER_SUCCESS' },
+          { pathname: { $regex: '/(?:product|order)/(?:[^/]+/)?(?:result|complete|success|\\d+)', $options: 'i' } },
+          { page_url: { $regex: '/(?:product|order)/(?:[^/]+/)?(?:result|complete|success|\\d+)', $options: 'i' } },
+        ],
+      },
+    ],
+  };
+}
 
 // 상품 요약에 실제로 필요한 payload만 읽는다. data.source에는 수십~수백 KB의
 // 페이지 HTML이 들어올 수 있어 data 전체를 projection하면 오늘 이벤트 몇 천 건만
@@ -575,14 +651,36 @@ router.get('/operator-insights', async (req, res) => {
     else filter.received_at = { $gte: new Date(dayStartKST(now) - 30 * 60000), $lte: new Date(now) };
 
     const limit = sessionId ? 5000 : 30000;
-    let rows = await Event.find(filter)
-      .select('event_id session_id event_type page_type pathname page_url timestamp received_at product_id product_price product_currency data')
-      .sort({ received_at: -1 })
-      .limit(limit + 1)
-      .maxTimeMS(15000)
-      .lean();
-    rows = await resolveProductPrices(rows, { origin });
-    const value = buildOperationalInsights(rows.slice(0, limit), {
+    const [rows, sessionMarkers] = await Promise.all([
+      Event.find(operationalSignalFilter(filter))
+        .select(OPERATIONAL_EVENT_PROJECTION)
+        .sort({ received_at: -1 })
+        .limit(limit + 1)
+        .maxTimeMS(12000)
+        .lean(),
+      // 신호 이벤트만 읽어도 활성/종료 판정은 전체 방문의 마지막 활동 시각을
+      // 사용해야 한다. 세션당 한 행만 추가해 기존 판정 정확도를 유지한다.
+      Event.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: '$session_id',
+            received_at: { $max: '$received_at' },
+            timestamp: { $max: '$timestamp' },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            session_id: '$_id',
+            event_type: { $literal: '__session_last__' },
+            received_at: 1,
+            timestamp: 1,
+          },
+        },
+      ]).option({ maxTimeMS: 12000 }),
+    ]);
+    const value = buildOperationalInsights(rows.slice(0, limit).concat(sessionMarkers), {
       now,
       truncated: rows.length > limit,
       selection: Boolean(sessionId),
@@ -594,6 +692,8 @@ router.get('/operator-insights', async (req, res) => {
     return res.json(value);
   } catch (err) {
     console.error('[operator-insights]', err.message);
+    const stale = operationalCache.get(cacheKey)?.value;
+    if (stale) return res.json({ ...stale, stale: true });
     return res.status(500).json({ error: '운영 지표를 불러오지 못했습니다.' });
   }
 });
@@ -868,6 +968,7 @@ router.get('/', async (req, res) => {
       .select('-data.source')
       .sort({ received_at: -1 })
       .limit(limit)
+      .maxTimeMS(15000)
       .lean();
 
     res.json(events);

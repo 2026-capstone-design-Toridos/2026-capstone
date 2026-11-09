@@ -124,7 +124,9 @@
     live.loading = true;
     const requestedOrigin = origin;
     try {
-      const payload = await api(`/api/logs/operator-insights?origin=${encodeURIComponent(origin)}`);
+      const payload = await api(`/api/logs/operator-insights?origin=${encodeURIComponent(origin)}`, {
+        signal: AbortSignal.timeout(20_000),
+      });
       if (state.origin !== requestedOrigin) return;
       live.origin = origin;
       renderOperationalInsights(payload);
@@ -137,7 +139,9 @@
     const requested = sessionId;
     $("ra-customer-detail").innerHTML = empty("선택 고객의 상품 행동을 불러오는 중입니다.");
     try {
-      const payload = await api(`/api/logs/operator-insights?origin=${encodeURIComponent(state.origin)}&session_id=${encodeURIComponent(sessionId)}`);
+      const payload = await api(`/api/logs/operator-insights?origin=${encodeURIComponent(state.origin)}&session_id=${encodeURIComponent(sessionId)}`, {
+        signal: AbortSignal.timeout(20_000),
+      });
       if (state.selectedSessionId !== requested) return;
       const products = payload.selection?.products || [];
       $("ra-customer-detail").innerHTML = products.length ? `<div class="ra-customer-list">${products.map((product) => `<div class="ra-customer-item"><div><b>${escapeHtml(product.name)}</b><div class="ra-note">상품 ${escapeHtml(product.id)} · ${product.stage === "cart" ? "장바구니" : product.stage === "wish" ? "찜" : "조회"}</div></div><div>${product.price === null ? "가격 미연결" : money(product.price)}</div></div>`).join("")}</div>` : empty("이 방문에서 상품 ID와 연결된 행동이 수집되지 않았습니다.");
@@ -163,5 +167,5 @@
   $("ra-print").addEventListener("click", () => window.print());
   $("site-filter").addEventListener("change", () => { live.origin = ""; clearOperationalInsights("새 사이트의 실제 데이터를 불러오는 중입니다."); setTimeout(() => loadOperationalInsights(true), 0); });
   setTimeout(() => loadOperationalInsights(true), 500);
-  setInterval(() => loadOperationalInsights(true), 30000);
+  setInterval(() => loadOperationalInsights(true), 60000);
 })();
