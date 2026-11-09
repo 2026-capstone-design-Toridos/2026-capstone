@@ -12,6 +12,79 @@ const { resolveProductPrices } = require('../lib/productPriceResolver');
 
 const RISK_EVENTS = ['tab_exit', 'inactivity', 'session_end', 'cart_abandon_flag'];
 
+// 상품 요약에 실제로 필요한 payload만 읽는다. data.source에는 수십~수백 KB의
+// 페이지 HTML이 들어올 수 있어 data 전체를 projection하면 오늘 이벤트 몇 천 건만
+//으로도 응답이 수십 초까지 늘어난다.
+const COMMERCE_EVENT_PROJECTION = [
+  'session_id',
+  'event_type',
+  'pathname',
+  'page_url',
+  'page_type',
+  'received_at',
+  'timestamp',
+  'data.product_id',
+  'data.product_name',
+  'data.category_id',
+  'data.category_name',
+  'data.subsection_id',
+  'data.subsection_label',
+  'data.ghost_role',
+  'data.click_text',
+  'data.text',
+  'data.target_text',
+  'data.element_text',
+  'data.button_text',
+  'data.label',
+].join(' ');
+
+const COMMERCE_EVENT_TYPES = [
+  'product_click',
+  'enter_product',
+  'enter_category',
+  'subsection_enter',
+  'add_to_cart',
+  'add_to_cart_success',
+  'cart_add',
+  'basket_add',
+  'view_cart',
+  'cart_view',
+  'add_to_wishlist',
+  'add_to_wishlist_success',
+  'wishlist_add',
+  'wishlist_intent',
+  'favorite_add',
+  'begin_checkout',
+  'checkout_start',
+  'order_start',
+  'purchase_click',
+  'order_complete',
+  'order_completed',
+  'order_success',
+  'purchase',
+  'purchase_complete',
+  'payment_complete',
+  'payment_success',
+  'guest_purchase',
+  // 장바구니·찜·결제 버튼은 일반 click payload로 들어올 수 있다.
+  'click',
+];
+
+function commerceEventFilter(baseFilter) {
+  return {
+    $and: [
+      baseFilter,
+      {
+        $or: [
+          { event_type: { $in: COMMERCE_EVENT_TYPES } },
+          { pathname: { $regex: '/(?:product|category|order|cart|basket)(?:/|$)', $options: 'i' } },
+          { page_url: { $regex: '/(?:product|category|order|cart|basket)(?:/|$)', $options: 'i' } },
+        ],
+      },
+    ],
+  };
+}
+
 // 유입값을 운영자가 알아보기 쉬운 채널명으로 바꿔준다
 function prettySourceName(raw) {
   const value = String(raw || '').trim().toLowerCase();
@@ -437,8 +510,11 @@ router.get('/sessions', async (req, res) => {
 // Expensive insight queries have a short, tenant-scoped cache independent of live polling.
 const operationalCache = new Map();
 const dashboardSummaryCache = new Map();
+const commerceSummaryCache = new Map();
+const commerceSummaryInFlight = new Map();
 const sourceSummaryCache = new Map();
 const DASHBOARD_CACHE_TTL_MS = 30 * 1000;
+const COMMERCE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function cachedDashboardValue(cache, key) {
   const row = cache.get(key);
@@ -448,6 +524,34 @@ function cachedDashboardValue(cache, key) {
 function rememberDashboardValue(cache, key, value) {
   if (cache.size >= 100) cache.delete(cache.keys().next().value);
   cache.set(key, { at: Date.now(), value });
+}
+
+function cachedCommerceValue(key) {
+  const row = commerceSummaryCache.get(key);
+  return row && Date.now() - row.at < COMMERCE_CACHE_TTL_MS ? row.value : null;
+}
+
+async function loadCommerceSummary(cacheKey, filter) {
+  const cached = cachedCommerceValue(cacheKey);
+  if (cached) return cached;
+  if (commerceSummaryInFlight.has(cacheKey)) return commerceSummaryInFlight.get(cacheKey);
+
+  const task = Event.find(commerceEventFilter(filter))
+    .select(COMMERCE_EVENT_PROJECTION)
+    .sort({ received_at: -1 })
+    .limit(20000)
+    .maxTimeMS(15000)
+    .lean()
+    .then((events) => {
+      const value = buildCommerceSummary(events);
+      if (commerceSummaryCache.size >= 100) commerceSummaryCache.delete(commerceSummaryCache.keys().next().value);
+      commerceSummaryCache.set(cacheKey, { at: Date.now(), value });
+      return value;
+    })
+    .finally(() => commerceSummaryInFlight.delete(cacheKey));
+
+  commerceSummaryInFlight.set(cacheKey, task);
+  return task;
 }
 
 router.get('/operator-insights', async (req, res) => {
@@ -494,6 +598,22 @@ router.get('/operator-insights', async (req, res) => {
   }
 });
 
+router.get('/commerce-summary', async (req, res) => {
+  const cacheKey = canonicalOrigin(req.siteOrigin || req.query.origin || '') || '__all__';
+  const now = Date.now();
+  const filter = { received_at: { $gte: new Date(dayStartKST(now)), $lte: new Date(now) } };
+  Object.assign(filter, originFilter(req));
+
+  try {
+    return res.json(await loadCommerceSummary(cacheKey, filter));
+  } catch (err) {
+    console.error('[commerce-summary] 오류:', err.message);
+    const stale = commerceSummaryCache.get(cacheKey)?.value;
+    if (stale) return res.json({ ...stale, stale: true });
+    return res.status(503).json({ error: '상품 행동 집계가 지연되고 있습니다.' });
+  }
+});
+
 router.get('/operator-summary', async (req, res) => {
   const cacheKey = canonicalOrigin(req.siteOrigin || req.query.origin || '') || '__all__';
   const cached = cachedDashboardValue(dashboardSummaryCache, cacheKey);
@@ -504,16 +624,9 @@ router.get('/operator-summary', async (req, res) => {
     const filter = { received_at: { $gte: new Date(dayStartKST(now)), $lte: new Date(now) } };
     Object.assign(filter, originFilter(req));   // 끝 슬래시 변형까지 매칭
 
-    const [sessions, commerceEvents] = await Promise.all([
-      Event.aggregate(buildSessionPipeline(filter)),
-      Event.find(filter)
-        .select('session_id event_type pathname page_url page_type data received_at timestamp')
-        .sort({ received_at: -1 })
-        .limit(20000)
-        .maxTimeMS(10000)
-        .lean(),
-    ]);
-    const commerce = buildCommerceSummary(commerceEvents);
+    // 손실·운영 요약은 빠른 세션 집계만 기다린다. 상품 행동은 별도 API에서
+    // 느리게 갱신하므로 이 쿼리가 대시보드 전체 연결 상태를 막지 않는다.
+    const sessions = await Event.aggregate(buildSessionPipeline(filter)).option({ maxTimeMS: 7000 });
     const riskySessions = sessions.filter((session) => session.risky && !session.completed);
     const totalRisky = riskySessions.length || 1;
 
@@ -609,7 +722,6 @@ router.get('/operator-summary', async (req, res) => {
       source_performance,
       risky_session_count: riskySessions.length,
       total_sessions: sessions.length,
-      commerce,
     };
     rememberDashboardValue(dashboardSummaryCache, cacheKey, value);
     res.json(value);

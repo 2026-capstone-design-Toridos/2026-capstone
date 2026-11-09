@@ -1195,6 +1195,7 @@
       operatorSummary: {},
       clusterPayload: {},
       clusterLastLoadedAt: 0,
+      commerceLastLoadedAt: 0,
       selectedSessionId: "",
       selectedEvents: [],
       analysis: null,
@@ -1238,6 +1239,7 @@
     let authBounced = false;
     let pollTimer   = null;   // 10초 갱신 타이머 (아래 초기화 블록에서 채운다)
     let refreshInFlight = false;
+    let commerceRefreshInFlight = false;
 
     function bounceToLogin(reason) {
       if (authBounced) return;
@@ -1839,7 +1841,6 @@
       $("marketing-recommendations").innerHTML = recommendations.length
         ? recommendations.map((item, idx) => `<div class="insight-item"><div class="insight-top"><div class="insight-name">${idx + 1}. ${item.title}</div></div><div class="insight-desc">${item.detail}</div></div>`).join("")
         : `<div class="empty">추천을 만들 만큼 데이터가 아직 충분하지 않습니다.</div>`;
-      renderCommerceSummary(summary.commerce || {});
     }
 
     function renderCommerceSummary(commerce = {}) {
@@ -2442,6 +2443,24 @@
       }
     }
 
+    async function refreshCommerceSummary() {
+      if (commerceRefreshInFlight) return;
+      if (state.commerceLastLoadedAt && Date.now() - state.commerceLastLoadedAt < 5 * 60 * 1000) return;
+      commerceRefreshInFlight = true;
+      try {
+        const origin = state.origin ? `?origin=${encodeURIComponent(state.origin)}` : "";
+        const commerce = await api(`/api/logs/commerce-summary${origin}`, {
+          signal: AbortSignal.timeout(30_000),
+        });
+        renderCommerceSummary(commerce);
+        state.commerceLastLoadedAt = Date.now();
+      } catch (err) {
+        $("commerce-tracking-note").textContent = "상품 행동 집계가 지연되고 있습니다. 손실·운영 요약과 다른 실시간 지표는 정상 갱신됩니다.";
+      } finally {
+        commerceRefreshInFlight = false;
+      }
+    }
+
     // 10초마다 호출되는 메인 갱신 함수. 이전 요청이 끝나지 않았으면 겹쳐 실행하지 않는다.
     async function refresh() {
       if (refreshInFlight) return;
@@ -2496,6 +2515,7 @@
       const successCount = results.filter((result) => result.status === "fulfilled").length;
       $("overview-updated").textContent = `마지막 갱신 ${new Date().toLocaleTimeString("ko-KR")}`;
       setStatus(successCount >= 4, successCount === results.length ? `Live · ${new Date().toLocaleTimeString("ko-KR")}` : `일부 연결 지연`);
+      void refreshCommerceSummary();
       } finally {
         refreshInFlight = false;
       }
@@ -2555,6 +2575,7 @@
       state.analysis = null;
       state.clusterPayload = {};
       state.clusterLastLoadedAt = 0;
+      state.commerceLastLoadedAt = 0;
       state.fullReportOrigin = null;
       state.weeklyReportWeek = "";
       $("session-input").value = "";
