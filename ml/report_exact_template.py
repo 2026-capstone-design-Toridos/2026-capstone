@@ -18,7 +18,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -64,8 +64,8 @@ def _extract_gemini_json(payload: dict) -> dict:
     return json.loads(match.group(0) if match else text)
 
 
-def generate_weekly_ai(inputs: dict, start: str, end: str, origin: str) -> dict:
-    """Interpret weekly aggregates with Gemini, with deterministic copy as fallback."""
+def generate_weekly_ai(inputs: dict, start: str, end: str, origin: str, report_kind: str = "weekly") -> dict:
+    """Interpret selected aggregates with Gemini, with deterministic copy as fallback."""
     if not GEMINI_KEY:
         print("[report] GEMINI_API_KEY 없음 - 규칙 기반 문구로 생성", flush=True)
         return {}
@@ -90,7 +90,10 @@ def generate_weekly_ai(inputs: dict, start: str, end: str, origin: str) -> dict:
             "page_dist": p.get("page_dist") or {},
         } for p in profiles],
     }
-    prompt = """당신은 이커머스 주간 행동 데이터 분석가입니다. 아래 집계 데이터만 근거로 쇼핑몰 운영자가 바로 이해하고 실행할 수 있는 한국어 리포트 문구를 작성하세요.
+    period_name = "이번 주" if report_kind == "weekly" else "선택 기간"
+    comparison_name = "전주" if report_kind == "weekly" else "직전 동일 기간"
+    next_period_name = "다음 주" if report_kind == "weekly" else "다음 비교 기간"
+    prompt = f"""당신은 이커머스 고객 행동 데이터 분석가입니다. 아래 {period_name} 집계 데이터만 근거로 쇼핑몰 운영자가 바로 이해하고 실행할 수 있는 한국어 리포트 문구를 작성하세요.
 
 [절대 규칙]
 1. 입력에 없는 숫자, 상품명, 채널, 원인, 감정, 고객 특성, 할인율, 기대 매출을 만들지 마세요.
@@ -100,18 +103,18 @@ def generate_weekly_ai(inputs: dict, start: str, end: str, origin: str) -> dict:
 5. 표본이 작거나 주문이 없으면 확정적 성과 판단을 피하세요. 마크다운, 번호 목록, HTML은 쓰지 마세요.
 
 [필드별 작성 규칙]
-- weekly_summary: 이번 주 핵심 변화 2문장.
+- weekly_summary: {period_name} 핵심 변화 2문장.
 - weekly_tasks: 가장 중요한 할 일 2개. title은 18자 이내, reason은 근거 수치 1개 이상, action은 화면·메시지·동선을 구체적으로 제시.
-- funnel_guide: 가장 큰 중단 구간과 전주 비교를 읽는 법 2~3문장.
+- funnel_guide: 가장 큰 중단 구간과 {comparison_name} 비교를 읽는 법 2~3문장.
 - channel_note: 채널별 표본과 주문 성과를 과장 없이 읽는 법 2문장.
 - type_summary_intro: 가장 큰 유형 이름과 비율을 포함한 1문장.
 - type_priority_action: 가장 먼저 대응할 유형과 이유, 조치를 2문장.
 - commerce_summary: 상품·리뷰·카트·주문 행동을 연결한 2~3문장. 수집 오류를 임의 추정하지 말 것.
 - customer_types.operational_meaning: 상세 제목 아래에 들어갈 1문장.
 - customer_types.insight: 해당 유형의 근거 수치를 포함한 3문장. 마지막 문장은 운영상 의미를 설명.
-- customer_types.recommended_action: 쇼핑몰 운영자가 수정할 화면·정보·메시지·동선과 다음 주 확인 항목을 포함한 구체적인 실행 조치 1~2문장. '개선하세요', '강화하세요'로만 끝내지 말 것.
+- customer_types.recommended_action: 쇼핑몰 운영자가 수정할 화면·정보·메시지·동선과 {next_period_name} 확인 항목을 포함한 구체적인 실행 조치 1~2문장. '개선하세요', '강화하세요'로만 끝내지 말 것.
 - overall_recommendation: 5개 유형 전체를 아우르는 우선순위 제안 4문장.
-- next_metrics: 이번 주 문제와 연결된 추적 지표 3개. metric_baselines_percent에 있는 지표를 우선 사용. success_signal에는 반드시 입력된 현재 기준값을 포함해 '현재 0.0%에서 상승'처럼 구체적으로 작성하고 새 목표 수치는 만들지 말 것.
+- next_metrics: {period_name} 문제와 연결된 추적 지표 3개. metric_baselines_percent에 있는 지표를 우선 사용. success_signal에는 반드시 입력된 현재 기준값을 포함해 '현재 0.0%에서 상승'처럼 구체적으로 작성하고 새 목표 수치는 만들지 말 것.
 
 반드시 지정된 JSON 구조로만 반환하세요.
 
@@ -159,7 +162,7 @@ def generate_weekly_ai(inputs: dict, start: str, end: str, origin: str) -> dict:
             with urllib.request.urlopen(request, timeout=25) as response:
                 result = _extract_gemini_json(json.loads(response.read()))
                 result["source"] = "gemini"
-                print(f"[report] Gemini 주간 해석 적용 ({GEMINI_MODEL})", flush=True)
+                print(f"[report] Gemini {report_kind} 해석 적용 ({GEMINI_MODEL})", flush=True)
                 return result
         except urllib.error.HTTPError as error:
             print(f"[report] Gemini HTTP {error.code} (시도 {attempt + 1}/3)", flush=True)
@@ -1405,6 +1408,146 @@ sc-raw-tr:nth-child(odd):not(:first-child) sc-raw-td {{ background:#f3f5f9; }}
 </style></head><body>{''.join(rendered)}</body></html>"""
 
 
+def _period_series(metrics: dict, start: str, end: str) -> tuple[str, list[tuple[str, int]]]:
+    """Choose stable chart buckets for arbitrary report lengths."""
+    start_dt = datetime.strptime(start, "%Y-%m-%d")
+    end_dt = datetime.strptime(end, "%Y-%m-%d")
+    day_count = (end_dt - start_dt).days + 1
+    daily_source = {str(row.get("date")): int(row.get("sessions") or 0) for row in metrics.get("daily") or []}
+    daily: list[tuple[datetime, int]] = []
+    for offset in range(day_count):
+        date = start_dt + timedelta(days=offset)
+        daily.append((date, daily_source.get(date.strftime("%Y-%m-%d"), 0)))
+
+    if day_count == 1:
+        hourly = [int(value or 0) for value in (metrics.get("hourly") or [0] * 24)][:24]
+        hourly += [0] * (24 - len(hourly))
+        return "시간대별", [(f"{hour:02d}~{hour + 3:02d}시", sum(hourly[hour:hour + 3])) for hour in range(0, 24, 3)]
+    if day_count <= 14:
+        return "날짜별", [(date.strftime("%m/%d"), value) for date, value in daily]
+    if day_count <= 62:
+        rows = []
+        for index in range(0, len(daily), 7):
+            chunk = daily[index:index + 7]
+            label = f"{chunk[0][0].strftime('%m/%d')}~{chunk[-1][0].strftime('%m/%d')}"
+            rows.append((label, sum(value for _, value in chunk)))
+        return "주차별", rows
+
+    months: dict[str, int] = {}
+    for date, value in daily:
+        key = date.strftime("%Y.%m")
+        months[key] = months.get(key, 0) + value
+    return "월별", list(months.items())
+
+
+def _period_trend_page(metrics: dict, start: str, end: str, site: str) -> str:
+    unit, series = _period_series(metrics, start, end)
+    total = sum(value for _, value in series) or 1
+    maximum = max((value for _, value in series), default=0)
+    max_index = max(range(len(series)), key=lambda index: series[index][1]) if series else 0
+    hourly = [int(value or 0) for value in (metrics.get("hourly") or [0] * 24)][:24]
+    hourly += [0] * (24 - len(hourly))
+    hour_buckets = [sum(hourly[index:index + 3]) for index in range(0, 24, 3)]
+    peak_hour = max(range(8), key=lambda index: hour_buckets[index]) if hour_buckets else 0
+    peak_hour_share = hour_buckets[peak_hour] / max(sum(hourly), 1) * 100
+    split = max(1, len(series) // 2)
+    first_total = sum(value for _, value in series[:split])
+    second_total = sum(value for _, value in series[split:])
+    first_share = first_total / total * 100
+    second_share = second_total / total * 100
+    start_label = datetime.strptime(start, "%Y-%m-%d").strftime("%Y.%m.%d")
+    end_label = datetime.strptime(end, "%Y-%m-%d").strftime("%m.%d")
+    best_label, best_value = series[max_index] if series else ("-", 0)
+
+    bars = []
+    bar_width = max(20, min(58, int(560 / max(len(series), 1)) - 10))
+    for index, (label, value) in enumerate(series):
+        height = max(4, value / max(maximum, 1) * 140)
+        share = value / total * 100
+        color = "#e0852a" if index == max_index else "#9fb4e6"
+        bars.append(f"""
+        <div style="flex:1;min-width:{bar_width}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:190px">
+          <div style="font-size:12px;font-weight:800;margin-bottom:7px;color:{'#8a4a00' if index == max_index else '#1d2a44'}">{share:.0f}%</div>
+          <div style="width:{bar_width}px;height:{height:.1f}px;background:{color}"></div>
+          <div style="font-size:10.5px;color:#4a5670;margin-top:7px;white-space:nowrap">{label}</div>
+        </div>""")
+
+    def combined_label(rows: list[tuple[str, int]]) -> str:
+        if not rows:
+            return "후반 구간 없음"
+        first = rows[0][0].split("~", 1)[0]
+        last = rows[-1][0].rsplit("~", 1)[-1]
+        return first if first == last else f"{first}~{last}"
+
+    first_label = combined_label(series[:split])
+    second_label = combined_label(series[split:])
+    return f"""<section class="report-page source-page-period-trend"><x-dc>
+<div style="width:794px;height:1123px;box-sizing:border-box;position:relative;overflow:hidden;background:#fff;font-family:Noto Sans KR,sans-serif;color:#1d2a44;padding:104px 56px 48px">
+  <div style="position:absolute;left:56px;right:56px;top:48px;height:34px;border-bottom:2px solid #17407a"><span style="position:absolute;left:0;top:0;font-size:13px;font-weight:700;letter-spacing:2px;color:#17407a">SEER ANALYTICS</span><span style="position:absolute;right:0;top:0;font-size:13px;color:#4a5670">{start_label} – {end_label}</span></div>
+  <h1 style="margin:0 0 6px;font-size:28px;font-weight:900;color:#17407a">기간 내 방문 추이</h1>
+  <p style="margin:0 0 22px;font-size:15px;color:#4a5670">선택한 기간 길이에 맞춰 {unit} 방문 변화로 자동 집계했어요.</p>
+  <div style="display:flex;gap:14px;margin-bottom:28px"><div style="flex:1;background:#e9edf4;padding:16px 18px"><div style="font-size:13px;color:#4a5670">방문이 가장 많은 구간</div><div style="font-size:27px;font-weight:900;color:#17407a;margin-top:4px">{best_label} · {best_value}회</div></div><div style="flex:1;background:#e9edf4;padding:16px 18px"><div style="font-size:13px;color:#4a5670">방문이 몰리는 시간</div><div style="font-size:27px;font-weight:900;color:#17407a;margin-top:4px">{peak_hour * 3:02d}~{peak_hour * 3 + 3:02d}시 · {peak_hour_share:.0f}%</div></div></div>
+  <h2 style="margin:0 0 4px;font-size:21px;font-weight:900">{unit} 방문 비중</h2><p style="margin:0 0 16px;font-size:13px;color:#4a5670">전체 선택 기간 방문 대비 각 구간의 비중</p>
+  <div style="height:230px;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;border-bottom:1px solid #cbd5e1;padding:0 8px 12px">{''.join(bars)}</div>
+  <h2 style="margin:30px 0 12px;font-size:21px;font-weight:900">기간 전반과 후반 비교</h2>
+  <div style="display:flex;gap:14px"><div style="flex:1;background:#f3f5f9;padding:18px"><div style="font-size:13px;color:#4a5670">기간 전반 · {first_label}</div><div style="font-size:30px;font-weight:900;color:#17407a;margin:5px 0">{first_share:.0f}%</div><div style="font-size:13px;color:#4a5670">{first_total}회 방문이 확인됐어요.</div></div><div style="flex:1;background:#f3f5f9;padding:18px"><div style="font-size:13px;color:#4a5670">기간 후반 · {second_label}</div><div style="font-size:30px;font-weight:900;color:#17407a;margin:5px 0">{second_share:.0f}%</div><div style="font-size:13px;color:#4a5670">{second_total}회 방문이 확인됐어요.</div></div></div>
+  <div style="position:relative;margin-top:34px;border:1px solid #17407a;padding:22px 18px 16px"><span style="position:absolute;left:14px;top:-11px;background:#17407a;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;letter-spacing:1px">활용 제안</span><div style="font-size:14px;line-height:1.75">방문이 가장 많았던 구간과 시간대에 실행한 캠페인·배너·상품 노출을 함께 확인하세요. 선택 기간의 길이가 달라져도 같은 집계 단위로 직전 동일 기간과 비교해 변화를 판단해요.</div></div>
+  <div style="position:absolute;left:56px;bottom:32px;font-size:12px;color:#4a5670">{site} 쇼핑몰 · 기간별 리포트</div><div style="position:absolute;right:56px;bottom:32px;font-size:12px;color:#4a5670">4 / 17</div>
+</div></x-dc></section>"""
+
+
+def adapt_period_html(html: str, inputs: dict, start: str, end: str, origin: str) -> str:
+    """Convert the weekly wording/pages into an arbitrary-range report."""
+    replacements = [
+        ("고객 행동 분석<br>주간 리포트", "고객 행동 분석<br>기간별 리포트"),
+        (re.compile(r"\d{4}년 \d{1,2}월 \d+주차 운영 현황"), "선택 기간 운영 현황"),
+        ("전주 대비 변화", "직전 동일 기간 대비 변화"),
+        ("이번 주 vs 전주", "선택 기간 vs 직전 동일 기간"),
+        ("전주와의", "직전 동일 기간과의"), ("전주와", "직전 동일 기간과"),
+        ("전주를", "직전 동일 기간을"), ("전주의", "직전 동일 기간의"),
+        ("지난주", "직전 동일 기간"), ("전주", "직전 동일 기간"),
+        ("이번 주", "선택 기간"), ("다음 주", "다음 비교 기간"),
+        ("다음 달 추적 지표", "다음 기간 추적 지표"),
+        ("주간 리포트", "기간별 리포트"),
+    ]
+    for old, new in replacements:
+        html = old.sub(new, html) if hasattr(old, "sub") else html.replace(old, new)
+    html = re.sub(r">이번<", ">선택<", html)
+
+    # The overview page keeps the useful hourly chart but removes fixed Mon-Sun bars.
+    soup = __import__("bs4").BeautifulSoup(html, "html.parser")
+    overview_page = soup.select_one(".source-page-6")
+    if overview_page:
+        title = next((tag for tag in overview_page.find_all("h2") if "방문이 몰리는 시간" in tag.get_text()), None)
+        chart = title.find_next_sibling("div") if title else None
+        if chart:
+            children = chart.find_all("div", recursive=False)
+            # The design groups 24 hourly bars and seven weekday bars in two
+            # direct child wrappers. Arbitrary ranges keep the useful hourly
+            # distribution and drop the fixed Mon-Sun wrapper.
+            for child in children[1:]:
+                child.decompose()
+            if children:
+                set_style_value(children[0], "flex", "1")
+            set_style_value(chart, "gap", "0")
+        metrics = inputs.get("metrics") or {}
+        hourly = [int(value or 0) for value in (metrics.get("hourly") or [0] * 24)][:24]
+        hourly += [0] * (24 - len(hourly))
+        buckets = [sum(hourly[index:index + 3]) for index in range(0, 24, 3)]
+        peak = max(range(8), key=lambda index: buckets[index]) if buckets else 0
+        peak_share = buckets[peak] / max(sum(hourly), 1) * 100
+        for paragraph in overview_page.find_all("p"):
+            if "요일은" in paragraph.get_text():
+                paragraph.string = (
+                    f"선택 기간에는 {peak * 3:02d}~{peak * 3 + 3:02d}시에 방문이 가장 몰립니다"
+                    f"(전체의 {peak_share:.0f}%). 운영 메시지는 이 시간 전후로 시험해 보세요."
+                )
+    html = str(soup)
+    trend = _period_trend_page(inputs.get("metrics") or {}, start, end, display_site(origin))
+    html = re.sub(r'<section class="report-page source-page-8">.*?</section>', trend, html, count=1, flags=re.S)
+    return html
+
+
 def chrome_path() -> str:
     candidates = [
         shutil.which("chrome"), shutil.which("chrome.exe"), shutil.which("msedge"),
@@ -1426,6 +1569,7 @@ def main() -> None:
     parser.add_argument("--result-csv", default="")
     parser.add_argument("--metrics-json", default="")
     parser.add_argument("--commerce-json", default="")
+    parser.add_argument("--report-kind", choices=("weekly", "period"), default="weekly")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
@@ -1438,8 +1582,11 @@ def main() -> None:
     html_path = output.with_suffix(".html")
     inputs = load_inputs(args.metrics_json, args.commerce_json, args.result_csv)
     inputs["exit_hotspots"] = load_exit_hotspots(args.start, args.end, args.origin)
-    inputs["ai"] = generate_weekly_ai(inputs, args.start, args.end, args.origin)
-    html_path.write_text(build_exact_html(source, args.start, args.end, args.origin, inputs), encoding="utf-8")
+    inputs["ai"] = generate_weekly_ai(inputs, args.start, args.end, args.origin, args.report_kind)
+    html = build_exact_html(source, args.start, args.end, args.origin, inputs)
+    if args.report_kind == "period":
+        html = adapt_period_html(html, inputs, args.start, args.end, args.origin)
+    html_path.write_text(html, encoding="utf-8")
 
     with tempfile.TemporaryDirectory(prefix="seer-exact-", ignore_cleanup_errors=True) as temp_dir:
         temp_dir_path = Path(temp_dir)

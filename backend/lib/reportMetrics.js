@@ -164,13 +164,19 @@ function topLabels(sessions, labelOf) {
 function timeOf(sessions) {
   const hourly = Array(24).fill(0);
   const weekday = Array(7).fill(0);
+  const dailyMap = new Map();
   for (const s of sessions) {
     if (!s.first_at) continue;
     const kst = new Date(new Date(s.first_at).getTime() + KST_OFFSET_MS);
     hourly[kst.getUTCHours()] += 1;
     weekday[(kst.getUTCDay() + 6) % 7] += 1;
+    const day = kst.toISOString().slice(0, 10);
+    dailyMap.set(day, (dailyMap.get(day) || 0) + 1);
   }
-  return { hourly, weekday };
+  const daily = [...dailyMap.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, sessions]) => ({ date, sessions }));
+  return { hourly, weekday, daily };
 }
 
 // ── 조회 ──────────────────────────────────────────────────────────────────────

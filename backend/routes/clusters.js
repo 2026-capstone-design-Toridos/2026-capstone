@@ -59,7 +59,9 @@ const SITE_CLUSTER_SESSION_LIMIT = Math.min(
 
 function classifyBatchLocally(sessions) {
   return new Promise((resolve, reject) => {
-    const pythonBin = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
+    const oraclePython = '/home/opc/ghosttracker-venv/bin/python3.11';
+    const pythonBin = process.env.PYTHON_BIN
+      || (fs.existsSync(oraclePython) ? oraclePython : (process.platform === 'win32' ? 'python' : 'python3'));
     const child = spawn(pythonBin, ['-u', LOCAL_CLASSIFY_SCRIPT, '--model_dir', path.join(ML_DIR, 'output/unsupervised_semantic')], {
       cwd: ML_DIR,
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
@@ -67,12 +69,28 @@ function classifyBatchLocally(sessions) {
     });
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    const timeoutMs = Math.max(Number(process.env.LOCAL_CLASSIFY_TIMEOUT_MS) || 180_000, 30_000);
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill('SIGKILL');
+      reject(new Error(`local classifier timed out after ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (chunk) => { stdout += chunk; });
     child.stderr.on('data', (chunk) => { stderr += chunk; });
-    child.on('error', reject);
+    child.on('error', (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    });
     child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (code !== 0) return reject(new Error(stderr.trim() || `local classifier exited ${code}`));
       try {
         const start = stdout.indexOf('{');
