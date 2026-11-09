@@ -56,9 +56,7 @@ async function tick(service) {
     const { period, origins } = await ensureCurrentWeekRecords(service);
     const now = new Date();
     const clock = kstClock(now);
-    // 월요일에는 시간 제한 없이 완료될 때까지 재시도한다. 서버 재시작이나
-    // 일시 장애로 오전 9시를 넘겼다고 다음 날까지 pending/failed로 남기지 않는다.
-    const generationWindow = (clock.weekday === 1)
+    const generationWindow = (clock.weekday === 1 && clock.hour < 9)
       || (clock.weekday !== 1 && clock.hour < 6);
 
     // 한 번에 한 쇼핑몰만 시작해 MongoDB·분류 서버 부하가 대시보드에 번지지 않게 한다.
@@ -69,7 +67,6 @@ async function tick(service) {
         { status: 'pending' },
         { status: 'failed', next_generation_attempt_at: { $lte: now } },
         { status: 'generating', generation_lease_until: { $lte: now } },
-        { status: 'generating', generation_lease_until: { $exists: false } },
       ],
     }).sort({ created_at: 1 }).lean() : null;
     if (dueGeneration) service.queueWeeklyReport(dueGeneration.origin, period);

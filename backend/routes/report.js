@@ -46,10 +46,7 @@ const reportGenerationStatus = new Map();
 const REPORT_INPUT_DIR = path.join(REPORTS_DIR, 'inputs');
 // 단계별 시한(Mongo 30초 + 분류 서버 120초 + Python 180초)을 다 합쳐도 약 6분이다.
 // 이 값을 넘기면 어느 단계에서 멈췄든 작업을 실패 처리해 "생성 중"이 남지 않게 한다.
-const REPORT_JOB_TIMEOUT_MS = Math.max(Number(process.env.REPORT_JOB_TIMEOUT_MS) || 720000, 120000);
-// Gemini 재시도, 캡처 분석, Chrome 인쇄가 한 Python 프로세스 안에서 순차 실행된다.
-// 3분이면 정상 작업도 잘릴 수 있어 전체 작업 제한 안에서 최대 6분을 허용한다.
-const REPORT_RENDER_TIMEOUT_MS = Math.max(Number(process.env.REPORT_RENDER_TIMEOUT_MS) || 360000, 120000);
+const REPORT_JOB_TIMEOUT_MS = Math.max(Number(process.env.REPORT_JOB_TIMEOUT_MS) || 420000, 60000);
 
 // 마케팅 지표 집계(Mongo 30초 시한 + 여유). 이 단계가 실패해도 보고서 자체는 지표 쪽 없이 만든다.
 const REPORT_METRICS_TIMEOUT_MS = Math.max(Number(process.env.REPORT_METRICS_TIMEOUT_MS) || 45000, 5000);
@@ -123,46 +120,9 @@ function periodForWeekStart(weekStart) {
   };
 }
 
-/** 임의 선택 기간(양 끝 날짜 포함, KST). 비교·차트 안정성을 위해 최대 366일로 제한한다. */
-function periodForRange(startDate, endDate) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(startDate || ''))
-      || !/^\d{4}-\d{2}-\d{2}$/.test(String(endDate || ''))) {
-    throw new Error('시작일과 종료일을 YYYY-MM-DD 형식으로 선택해주세요.');
-  }
-  const startMs = Date.parse(`${startDate}T00:00:00Z`);
-  const endMs = Date.parse(`${endDate}T00:00:00Z`);
-  if (Number.isNaN(startMs) || Number.isNaN(endMs)
-      || dateStringFromUtcMs(startMs) !== startDate || dateStringFromUtcMs(endMs) !== endDate
-      || endMs < startMs) {
-    throw new Error('종료일은 시작일보다 빠를 수 없습니다.');
-  }
-  const dayCount = Math.round((endMs - startMs) / DAY_MS) + 1;
-  if (dayCount > 366) throw new Error('기간별 리포트는 한 번에 최대 366일까지 만들 수 있습니다.');
-  return {
-    reportKind: 'period',
-    weekStart: startDate,
-    weekEnd: endDate,
-    startDate,
-    endDate,
-    dayCount,
-    from: new Date(`${startDate}T00:00:00+09:00`),
-    to: new Date(`${addDateDays(endDate, 1)}T00:00:00+09:00`),
-  };
-}
-
 function weeklyArtifactPaths(origin, weekStart) {
   const compact = weekStart.replaceAll('-', '');
   const base = `seer_weekly_report_${siteKey(origin)}_${compact}`;
-  return {
-    htmlPath: path.join(REPORTS_DIR, `${base}.html`),
-    pdfPath: path.join(REPORTS_DIR, `${base}.pdf`),
-  };
-}
-
-function periodArtifactPaths(origin, startDate, endDate) {
-  const start = startDate.replaceAll('-', '');
-  const end = endDate.replaceAll('-', '');
-  const base = `seer_period_report_${siteKey(origin)}_${start}_${end}`;
   return {
     htmlPath: path.join(REPORTS_DIR, `${base}.html`),
     pdfPath: path.join(REPORTS_DIR, `${base}.pdf`),
@@ -348,7 +308,7 @@ function removeGeneratedArtifact(filePath) {
  * 마케팅 지표(이번 주·전주)를 집계해 JSON으로 저장하고 경로를 돌려준다.
  * 집계가 실패하거나 늦어지면 빈 문자열을 돌려줘 보고서가 지표 쪽 없이 계속 만들어지게 한다.
  */
-async function writeSiteMetricsJson(origin, startDate, endDate, artifactTag = startDate) {
+async function writeSiteMetricsJson(origin, startDate, endDate, weekStart = startDate) {
   try {
     const metrics = await withDeadline(
       buildReportMetrics(origin, { startDate, endDate }),
@@ -356,7 +316,7 @@ async function writeSiteMetricsJson(origin, startDate, endDate, artifactTag = st
       '마케팅 지표 집계 시간이 초과됐습니다.',
     );
     fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
-    const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${artifactTag.replaceAll('-', '')}_metrics.json`);
+    const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${weekStart.replaceAll('-', '')}_metrics.json`);
     fs.writeFileSync(jsonPath, JSON.stringify(metrics), 'utf8');
     return jsonPath;
   } catch (err) {
@@ -375,8 +335,7 @@ async function writeSiteResultCsv(origin, period) {
   }
 
   fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
-  const artifactTag = period.reportKind === 'period' ? `${period.weekStart}_${period.weekEnd}` : period.weekStart;
-  const csvPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${artifactTag.replaceAll('-', '')}_result.csv`);
+  const csvPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${period.weekStart.replaceAll('-', '')}_result.csv`);
   const headers = [
     'origin', 'total_sessions', 'cluster_id', 'name', 'count',
     'summary', 'action', 'top_actions_json', 'page_dist_json',
@@ -402,45 +361,38 @@ async function writeCommerceJson(origin, period) {
     .lean();
   const summary = buildCommerceSummary(events);
   fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
-  const artifactTag = period.reportKind === 'period' ? `${period.weekStart}_${period.weekEnd}` : period.weekStart;
-  const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${artifactTag.replaceAll('-', '')}_commerce.json`);
+  const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${period.weekStart.replaceAll('-', '')}_commerce.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(summary, null, 2), 'utf8');
   return jsonPath;
 }
 
-async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek(), options = {}) {
+async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek()) {
   const key = siteKey(origin);
   if (!key) return Promise.reject(new Error('보고서를 생성할 사이트 정보가 없습니다.'));
-  const reportKind = options.reportKind || requestedPeriod.reportKind || 'weekly';
-  const period = reportKind === 'period'
-    ? periodForRange(requestedPeriod.startDate || requestedPeriod.weekStart, requestedPeriod.endDate || requestedPeriod.weekEnd)
-    : (requestedPeriod.weekStart ? periodForWeekStart(requestedPeriod.weekStart) : previousCompletedWeek());
-  const jobKey = `${reportKind}:${key}:${period.weekStart}:${period.weekEnd}`;
+  const period = requestedPeriod.weekStart
+    ? periodForWeekStart(requestedPeriod.weekStart)
+    : previousCompletedWeek();
+  const jobKey = `${key}:${period.weekStart}`;
   if (reportGenerationJobs.has(jobKey)) return reportGenerationJobs.get(jobKey);
 
   // The exact-template generator consumes the same weekly CSV/JSON inputs but
   // preserves the approved 794x1123 report design page-for-page.
   const scriptPath = path.join(__dirname, '../../ml/report_exact_template.py');
-  const { pdfPath: outputPath } = reportKind === 'period'
-    ? periodArtifactPaths(origin, period.weekStart, period.weekEnd)
-    : weeklyArtifactPaths(origin, period.weekStart);
-  const stamp = reportKind === 'period'
-    ? `${period.weekStart.replaceAll('-', '')}_${period.weekEnd.replaceAll('-', '')}`
-    : period.weekStart.replaceAll('-', '');
-  const stagingPath = path.join(REPORTS_DIR, `.seer_${reportKind}_report_${key}_${stamp}_${process.pid}.generating.pdf`);
+  const { pdfPath: outputPath } = weeklyArtifactPaths(origin, period.weekStart);
+  const stamp = period.weekStart.replaceAll('-', '');
+  const stagingPath = path.join(REPORTS_DIR, `.seer_weekly_report_${key}_${stamp}_${process.pid}.generating.pdf`);
   const stagingHtmlPath = stagingPath.replace(/\.pdf$/i, '.html');
   const oraclePython = '/home/opc/ghosttracker-venv/bin/python3.11';
   const pythonBin = process.env.PYTHON_BIN
     || (fs.existsSync(oraclePython) ? oraclePython : (process.platform === 'win32' ? 'python' : 'python3'));
   const startDate = period.weekStart;
   const endDate = period.weekEnd;
-  const artifactTag = reportKind === 'period' ? `${startDate}_${endDate}` : startDate;
 
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
   const job = withDeadline((async () => {
     const [resultCsv, metricsJson, commerceJson] = await Promise.all([
       writeSiteResultCsv(origin, period),
-      writeSiteMetricsJson(origin, startDate, endDate, artifactTag),
+      writeSiteMetricsJson(origin, startDate, endDate, period.weekStart),
       writeCommerceJson(origin, period),
     ]);
     return new Promise((resolve, reject) => {
@@ -454,12 +406,11 @@ async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek
           '--start', startDate,
           '--end', endDate,
           '--commerce-json', commerceJson,
-          '--report-kind', reportKind,
           '--output', stagingPath,
         ],
         {
           cwd: path.join(__dirname, '../../ml'),
-          timeout: REPORT_RENDER_TIMEOUT_MS,
+          timeout: 180000,
           maxBuffer: 2 * 1024 * 1024,
           // 새 주간 집계값을 Gemini가 해석해 유형별 인사이트와 제안을 만든다.
           // 원본 이벤트나 고객 식별자가 아니라 생성기에 전달된 집계값만 사용한다.
@@ -470,14 +421,7 @@ async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek
             console.error('[report/generate] 실패:', stderr || stdout || err.message);
             removeGeneratedArtifact(stagingPath);
             removeGeneratedArtifact(stagingHtmlPath);
-            const rawDetail = String(stderr || stdout || err.message || '')
-              .replaceAll(GEMINI_API_KEY || '__NO_GEMINI_KEY__', '[REDACTED]')
-              .replace(/(mongodb(?:\+srv)?:\/\/)[^@\s]+@/gi, '$1[REDACTED]@')
-              .replace(/([?&]key=)[^&\s]+/gi, '$1[REDACTED]')
-              .replace(/[\r\n]+/g, ' ')
-              .trim()
-              .slice(-1200);
-            reject(new Error(`${reportKind === 'period' ? '기간별' : '주간'} 보고서 생성 실패${rawDetail ? `: ${rawDetail}` : ''}`));
+            reject(new Error('주간 보고서를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.'));
             return;
           }
           if (stdout?.trim()) console.info('[report/generate]', stdout.trim());
@@ -496,7 +440,7 @@ async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek
           } catch (moveErr) {
             removeGeneratedArtifact(stagingPath);
             removeGeneratedArtifact(stagingHtmlPath);
-            reject(new Error(`완성된 ${reportKind === 'period' ? '기간별' : '주간'} 보고서를 저장하지 못했습니다.`));
+            reject(new Error('완성된 주간 보고서를 저장하지 못했습니다.'));
           }
         },
       );
@@ -522,39 +466,6 @@ function queuePdfReport(origin, period = previousCompletedWeek()) {
       console.error('[report/generate/background] 오류:', err.message);
       reportGenerationStatus.set(jobKey, { status: 'error', error: err.message, finished_at: new Date().toISOString() });
     });
-}
-
-function periodJobKey(origin, period) {
-  return `period:${siteKey(origin)}:${period.weekStart}:${period.weekEnd}`;
-}
-
-function periodArtifactsReady(origin, period) {
-  const paths = periodArtifactPaths(origin, period.weekStart, period.weekEnd);
-  if (!fs.existsSync(paths.htmlPath) || !fs.existsSync(paths.pdfPath)) return null;
-  // 오늘을 포함한 기간은 데이터가 계속 들어오므로 오래된 산출물을 영구 재사용하지 않는다.
-  const includesToday = period.weekEnd >= kstDateString(new Date());
-  const newestMtime = Math.min(fs.statSync(paths.htmlPath).mtimeMs, fs.statSync(paths.pdfPath).mtimeMs);
-  if (includesToday && Date.now() - newestMtime > 5 * 60_000) return null;
-  return paths;
-}
-
-function queuePeriodReport(origin, period) {
-  const normalizedPeriod = periodForRange(period.weekStart || period.startDate, period.weekEnd || period.endDate);
-  const jobKey = periodJobKey(origin, normalizedPeriod);
-  if (reportGenerationJobs.has(jobKey)) return reportGenerationJobs.get(jobKey);
-  reportGenerationStatus.set(jobKey, { status: 'generating', started_at: new Date().toISOString() });
-  const job = generatePdfReport(origin, normalizedPeriod, { reportKind: 'period' })
-    .then((pdfPath) => {
-      reportGenerationStatus.set(jobKey, { status: 'ready', finished_at: new Date().toISOString() });
-      return pdfPath;
-    })
-    .catch((err) => {
-      console.error('[report/period/background] 오류:', err.message);
-      reportGenerationStatus.set(jobKey, { status: 'error', error: err.message, finished_at: new Date().toISOString() });
-      return null;
-    });
-  // generatePdfReport가 동일 키를 이미 관리하므로 별도 Map 등록은 하지 않는다.
-  return job;
 }
 
 async function ensureWeeklyReport(origin, period = previousCompletedWeek()) {
@@ -593,18 +504,9 @@ async function runWeeklyReportGeneration(origin, period = previousCompletedWeek(
     $or: [
       { status: { $in: ['pending', 'failed'] }, next_generation_attempt_at: { $lte: now } },
       { status: 'generating', generation_lease_until: { $lte: now } },
-      { status: 'generating', generation_lease_until: { $exists: false } },
     ],
   };
-  if (options.force) {
-    // 수동/화면 재시도는 예약된 backoff 시간은 무시하되, 완성된 보고서나
-    // 아직 임대가 유효한 다른 생성 작업을 덮어쓰지 않는다.
-    claimFilter.$or = [
-      { status: { $in: ['pending', 'failed'] } },
-      { status: 'generating', generation_lease_until: { $lte: now } },
-      { status: 'generating', generation_lease_until: { $exists: false } },
-    ];
-  }
+  if (options.force) delete claimFilter.$or;
 
   const claimed = await WeeklyReport.findOneAndUpdate(
     claimFilter,
@@ -665,10 +567,6 @@ function queueWeeklyReport(origin, period = previousCompletedWeek(), options = {
     .finally(() => reportGenerationJobs.delete(jobKey));
   reportGenerationJobs.set(jobKey, job);
   return job;
-}
-
-function weeklyReportJobRunning(origin, period) {
-  return reportGenerationJobs.has(`${siteKey(origin)}:${period.weekStart}:db`);
 }
 
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
@@ -1188,62 +1086,6 @@ router.get('/cache/clear', (req, res) => {
   res.json({ message: '캐시 초기화 완료', cleared, scope: origin });
 });
 
-function requestedPeriod(req) {
-  return periodForRange(String(req.query.start || ''), String(req.query.end || ''));
-}
-
-// ── 기간별 전체 리포트 ──────────────────────────────────────────────────────
-router.get('/period/view', async (req, res) => {
-  try {
-    const origin = req.siteOrigin || null;
-    if (!origin) return res.status(400).json({ error: '리포트를 볼 쇼핑몰을 먼저 선택해주세요.' });
-    const period = requestedPeriod(req);
-    const ready = periodArtifactsReady(origin, period);
-    if (ready) return res.sendFile(ready.htmlPath);
-    queuePeriodReport(origin, period);
-    return res.status(202).json({
-      status: 'generating', start: period.weekStart, end: period.weekEnd,
-      aggregation: period.dayCount === 1 ? '3시간' : period.dayCount <= 14 ? '일' : period.dayCount <= 62 ? '주' : '월',
-    });
-  } catch (err) {
-    const code = /형식|빠를|최대/.test(err.message) ? 400 : 500;
-    return res.status(code).json({ error: err.message });
-  }
-});
-
-router.get('/period/status', async (req, res) => {
-  try {
-    const origin = req.siteOrigin || null;
-    if (!origin) return res.status(400).json({ error: '리포트를 볼 쇼핑몰을 먼저 선택해주세요.' });
-    const period = requestedPeriod(req);
-    if (periodArtifactsReady(origin, period)) {
-      return res.json({ status: 'ready', start: period.weekStart, end: period.weekEnd });
-    }
-    const status = reportGenerationStatus.get(periodJobKey(origin, period));
-    if (status?.status === 'error') return res.status(503).json(status);
-    if (!status || status.status !== 'generating') queuePeriodReport(origin, period);
-    return res.status(202).json(status?.status === 'generating' ? status : { status: 'generating' });
-  } catch (err) {
-    const code = /형식|빠를|최대/.test(err.message) ? 400 : 500;
-    return res.status(code).json({ error: err.message });
-  }
-});
-
-router.get('/period/download', async (req, res) => {
-  try {
-    const origin = req.siteOrigin || null;
-    if (!origin) return res.status(400).json({ error: '리포트를 만들 쇼핑몰을 먼저 선택해주세요.' });
-    const period = requestedPeriod(req);
-    const ready = periodArtifactsReady(origin, period);
-    if (ready) return res.download(ready.pdfPath, `SEER_기간리포트_${period.weekStart}_${period.weekEnd}.pdf`);
-    queuePeriodReport(origin, period);
-    return res.status(202).json({ status: 'generating', start: period.weekStart, end: period.weekEnd });
-  } catch (err) {
-    const code = /형식|빠를|최대/.test(err.message) ? 400 : 500;
-    return res.status(code).json({ error: err.message });
-  }
-});
-
 // ── GET /api/report/weekly/download ───────────────────────────────────────────
 router.get('/weekly/download', async (req, res) => {
   try {
@@ -1252,8 +1094,9 @@ router.get('/weekly/download', async (req, res) => {
     const period = previousCompletedWeek();
     const report = await ensureWeeklyReport(origin, period);
     if (!artifactExists(report)) {
-      queueWeeklyReport(origin, period, { force: true });
-      return res.status(202).json({ status: 'generating', message: '주간 리포트를 다시 생성하고 있습니다.' });
+      const legacy = findLegacyReportPair(origin);
+      if (legacy) return res.download(legacy.pdfPath, `SEER_주간리포트_기존자료.pdf`);
+      return res.status(202).json({ status: report.status, message: '주간 리포트를 백그라운드에서 준비하고 있습니다.' });
     }
     res.download(report.pdf_path, `SEER_주간리포트_${period.weekStart}_${period.weekEnd}.pdf`);
   } catch (err) {
@@ -1272,22 +1115,15 @@ router.get('/weekly/status', async (req, res) => {
       status: 'ready', week_start: report.week_start, week_end: report.week_end,
       generated_at: report.generated_at,
     });
-    if (weeklyReportJobRunning(origin, period)) {
-      return res.status(202).json({
-        status: 'generating', week_start: report.week_start, week_end: report.week_end,
-      });
-    }
-    if (report.status === 'failed') {
-      return res.status(503).json({
-        status: 'failed', week_start: report.week_start, week_end: report.week_end,
-        error: report.generation_error || '주간 리포트 생성에 실패했습니다.',
-      });
-    }
-    queueWeeklyReport(origin, period);
-    return res.status(202).json({
-      status: report.status === 'generating' ? 'generating' : 'pending',
+    if (findLegacyReportPair(origin)) return res.json({
+      status: 'ready', source: 'local_fallback', week_start: period.weekStart, week_end: period.weekEnd,
+    });
+    const code = report.status === 'failed' ? 503 : 202;
+    return res.status(code).json({
+      status: report.status,
       week_start: report.week_start,
       week_end: report.week_end,
+      error: report.generation_error || undefined,
     });
   } catch (err) {
     return res.status(500).json({ status: 'failed', error: err.message });
@@ -1305,13 +1141,13 @@ router.get('/weekly/view', async (req, res) => {
     const period = previousCompletedWeek();
     const report = await ensureWeeklyReport(origin, period);
     if (!artifactExists(report)) {
-      queueWeeklyReport(origin, period, { force: true });
+      const legacy = findLegacyReportPair(origin);
+      if (legacy) return sendLegacyHtml(res, legacy);
       return res.status(202).json({
-        status: 'generating',
+        status: report.status,
         week_start: period.weekStart,
         week_end: period.weekEnd,
-        message: '주간 리포트를 다시 생성하고 있습니다.',
-        previous_error: report.generation_error || undefined,
+        message: '주간 리포트를 백그라운드에서 준비하고 있습니다.',
       });
     }
     res.sendFile(report.html_path);
@@ -1327,19 +1163,26 @@ router.get('/weekly/weeks', async (req, res) => {
     const origin = req.siteOrigin || null;
     if (!origin) return res.status(400).json({ error: '쇼핑몰을 먼저 선택해주세요.' });
     const reports = await WeeklyReport.find({ origin: canonicalOrigin(origin) })
-      .select('week_start week_end status generated_at generation_error email_status emailed_at html_path pdf_path')
+      .select('week_start week_end status generated_at generation_error email_status emailed_at')
       .sort({ week_start: -1 })
       .limit(52)
       .lean();
     const currentPeriod = previousCompletedWeek();
     const current = reports.find((report) => report.week_start === currentPeriod.weekStart);
-    if (!artifactExists(current)) queueWeeklyReport(origin, currentPeriod, { force: true });
-    const publicReports = reports.map(({ html_path, pdf_path, ...report }) => report);
-    return res.json({
-      reports: publicReports,
-      current_week_start: currentPeriod.weekStart,
-      current_week_end: currentPeriod.weekEnd,
-    });
+    const legacy = findLegacyReportPair(origin);
+    if (!artifactExists(current) && legacy) {
+      reports.unshift({
+        week_start: currentPeriod.weekStart,
+        week_end: currentPeriod.weekEnd,
+        status: 'ready',
+        source: 'local_fallback',
+        display_start: legacy.displayStart,
+        display_end: legacy.displayEnd,
+        generated_at: null,
+        email_status: current?.email_status || 'disabled',
+      });
+    }
+    return res.json({ reports });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -1352,6 +1195,9 @@ router.get('/weekly/weeks/:weekStart/view', async (req, res) => {
       origin: canonicalOrigin(req.siteOrigin), week_start: period.weekStart, status: 'ready',
     }).lean();
     if (!artifactExists(report)) {
+      const current = previousCompletedWeek();
+      const legacy = period.weekStart === current.weekStart ? findLegacyReportPair(req.siteOrigin) : null;
+      if (legacy) return sendLegacyHtml(res, legacy);
       return res.status(404).send('<p>이 주차의 리포트가 아직 준비되지 않았습니다.</p>');
     }
     return res.sendFile(report.html_path);
@@ -1367,6 +1213,9 @@ router.get('/weekly/weeks/:weekStart/download', async (req, res) => {
       origin: canonicalOrigin(req.siteOrigin), week_start: period.weekStart, status: 'ready',
     }).lean();
     if (!artifactExists(report)) {
+      const current = previousCompletedWeek();
+      const legacy = period.weekStart === current.weekStart ? findLegacyReportPair(req.siteOrigin) : null;
+      if (legacy) return res.download(legacy.pdfPath, `SEER_주간리포트_기존자료.pdf`);
       return res.status(404).json({ error: '이 주차의 리포트가 아직 준비되지 않았습니다.' });
     }
     return res.download(report.pdf_path, `SEER_주간리포트_${report.week_start}_${report.week_end}.pdf`);
@@ -1378,11 +1227,8 @@ router.get('/weekly/weeks/:weekStart/download', async (req, res) => {
 router.weeklyReportService = {
   previousCompletedWeek,
   periodForWeekStart,
-  periodForRange,
-  periodArtifactPaths,
   ensureWeeklyReport,
   queueWeeklyReport,
-  queuePeriodReport,
   runWeeklyReportGeneration,
   artifactExists,
 };
