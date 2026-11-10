@@ -84,7 +84,10 @@ jobs:
             REPORT_BROWSER_CACHE="/home/opc/.cache/ghosttracker-browser"
             if ! find "$REPORT_BROWSER_CACHE" -type f -name chrome -perm -111 -print -quit 2>/dev/null | grep -q .; then
               mkdir -p "$REPORT_BROWSER_CACHE"
-              REPORT_BROWSER_URL="$(/home/opc/ghosttracker-venv/bin/python3.11 -c 'import json,urllib.request; d=json.load(urllib.request.urlopen("https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json", timeout=30)); print(next(x["url"] for x in d["channels"]["Stable"]["downloads"]["chrome"] if x["platform"] == "linux64"))')"
+              REPORT_BROWSER_URL="$(curl --fail --silent --show-error --location \
+                --retry 3 --max-time 60 \
+                https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json \
+                | /home/opc/ghosttracker-venv/bin/python3.11 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["url"] for x in d["channels"]["Stable"]["downloads"]["chrome"] if x["platform"] == "linux64"))')"
               test -n "$REPORT_BROWSER_URL"
               curl --fail --location --retry 3 --max-time 300 \
                 "$REPORT_BROWSER_URL" --output /tmp/ghosttracker-chrome-linux64.zip
