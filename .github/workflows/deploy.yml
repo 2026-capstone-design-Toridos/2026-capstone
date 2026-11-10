@@ -97,6 +97,21 @@ jobs:
             fi
             REPORT_BROWSER_BIN="$(find "$REPORT_BROWSER_CACHE" -type f -name chrome -perm -111 -print -quit)"
             test -n "$REPORT_BROWSER_BIN"
+            if ! "$REPORT_BROWSER_BIN" --version >/dev/null 2>&1; then
+              echo "Chrome runtime libraries are missing; installing them"
+              if command -v dnf >/dev/null 2>&1; then
+                sudo dnf install -y \
+                  atk at-spi2-atk alsa-lib cups-libs gtk3 libXcomposite \
+                  libXdamage libXrandr libdrm libxkbcommon mesa-libgbm nss pango
+              elif command -v yum >/dev/null 2>&1; then
+                sudo yum install -y \
+                  atk at-spi2-atk alsa-lib cups-libs gtk3 libXcomposite \
+                  libXdamage libXrandr libdrm libxkbcommon mesa-libgbm nss pango
+              else
+                echo "No supported package manager found for Chrome runtime libraries"
+                exit 1
+              fi
+            fi
             "$REPORT_BROWSER_BIN" --version
 
             echo "4. Build SDK"
