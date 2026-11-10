@@ -1406,16 +1406,20 @@ sc-raw-tr:nth-child(odd):not(:first-child) sc-raw-td {{ background:#f3f5f9; }}
 
 
 def chrome_path() -> str:
+    cache_root = Path(os.environ.get("SEER_BROWSER_CACHE", "/home/opc/.cache/ghosttracker-browser"))
+    cached = list(cache_root.glob("**/chrome")) if cache_root.exists() else []
     candidates = [
+        os.environ.get("CHROME_BIN"),
         shutil.which("chrome"), shutil.which("google-chrome"),
         shutil.which("google-chrome-stable"), shutil.which("chromium"),
         shutil.which("chromium-browser"), shutil.which("chrome.exe"),
         shutil.which("msedge"),
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        *cached,
     ]
     for candidate in candidates:
-        if candidate and Path(candidate).exists():
+        if candidate and Path(candidate).is_file() and os.access(candidate, os.X_OK):
             return str(candidate)
     raise FileNotFoundError("Chrome or Edge was not found")
 

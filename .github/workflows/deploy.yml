@@ -80,21 +80,31 @@ jobs:
               beautifulsoup4==4.12.3 weasyprint==62.3
             /home/opc/ghosttracker-venv/bin/python3.11 -c "import bs4, weasyprint; print('report runtime ok')"
 
-            echo "3. Build SDK"
+            echo "3. Ensure headless Chrome for weekly PDF rendering"
+            REPORT_BROWSER_CACHE="/home/opc/.cache/ghosttracker-browser"
+            if ! find "$REPORT_BROWSER_CACHE" -type f -name chrome -perm -111 -print -quit 2>/dev/null | grep -q .; then
+              mkdir -p "$REPORT_BROWSER_CACHE"
+              timeout 300 npx --yes @puppeteer/browsers install chrome@stable --path "$REPORT_BROWSER_CACHE"
+            fi
+            REPORT_BROWSER_BIN="$(find "$REPORT_BROWSER_CACHE" -type f -name chrome -perm -111 -print -quit)"
+            test -n "$REPORT_BROWSER_BIN"
+            "$REPORT_BROWSER_BIN" --version
+
+            echo "4. Build SDK"
             npm run build
 
-            echo "4. Restart PM2"
+            echo "5. Restart PM2"
             pm2 restart all
 
-            echo "5. Check PM2"
+            echo "6. Check PM2"
             pm2 status
 
-            echo "6. Check backend health"
+            echo "7. Check backend health"
             sleep 5
             curl --fail http://localhost:4000/health
 
             echo ""
-            echo "7. Check cluster server health"
+            echo "8. Check cluster server health"
             # 분류 서버는 모델 파일과 코드가 맞지 않으면 기동을 거부한다.
             # 여기서 확인하지 않으면 "배포 성공"으로 뜬 뒤에야
             # 운영자 화면에서 고객 유형 분석이 안 되는 걸 발견하게 된다.
