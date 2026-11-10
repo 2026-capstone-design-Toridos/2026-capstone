@@ -84,7 +84,13 @@ jobs:
             REPORT_BROWSER_CACHE="/home/opc/.cache/ghosttracker-browser"
             if ! find "$REPORT_BROWSER_CACHE" -type f -name chrome -perm -111 -print -quit 2>/dev/null | grep -q .; then
               mkdir -p "$REPORT_BROWSER_CACHE"
-              timeout 300 npx --yes @puppeteer/browsers install chrome@stable --path "$REPORT_BROWSER_CACHE"
+              REPORT_BROWSER_URL="$(/home/opc/ghosttracker-venv/bin/python3.11 -c 'import json,urllib.request; d=json.load(urllib.request.urlopen("https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json", timeout=30)); print(next(x["url"] for x in d["channels"]["Stable"]["downloads"]["chrome"] if x["platform"] == "linux64"))')"
+              test -n "$REPORT_BROWSER_URL"
+              curl --fail --location --retry 3 --max-time 300 \
+                "$REPORT_BROWSER_URL" --output /tmp/ghosttracker-chrome-linux64.zip
+              /home/opc/ghosttracker-venv/bin/python3.11 -m zipfile -e \
+                /tmp/ghosttracker-chrome-linux64.zip "$REPORT_BROWSER_CACHE"
+              chmod +x "$REPORT_BROWSER_CACHE/chrome-linux64/chrome"
             fi
             REPORT_BROWSER_BIN="$(find "$REPORT_BROWSER_CACHE" -type f -name chrome -perm -111 -print -quit)"
             test -n "$REPORT_BROWSER_BIN"
