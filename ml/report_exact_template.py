@@ -1407,7 +1407,10 @@ sc-raw-tr:nth-child(odd):not(:first-child) sc-raw-td {{ background:#f3f5f9; }}
 
 def chrome_path() -> str:
     candidates = [
-        shutil.which("chrome"), shutil.which("chrome.exe"), shutil.which("msedge"),
+        shutil.which("chrome"), shutil.which("google-chrome"),
+        shutil.which("google-chrome-stable"), shutil.which("chromium"),
+        shutil.which("chromium-browser"), shutil.which("chrome.exe"),
+        shutil.which("msedge"),
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     ]
@@ -1447,12 +1450,20 @@ def main() -> None:
         temp_pdf = temp_dir_path / "report.pdf"
         profile = temp_dir_path / "chrome-profile"
         shutil.copyfile(html_path, temp_html)
-        subprocess.run([
-            chrome_path(), "--headless=new", "--disable-gpu", "--disable-extensions",
-            "--disable-dev-shm-usage", "--no-first-run", "--no-sandbox",
-            "--allow-file-access-from-files", "--virtual-time-budget=5000",
-            f"--user-data-dir={profile}", f"--print-to-pdf={temp_pdf}", temp_html.as_uri(),
-        ], check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            browser = chrome_path()
+        except FileNotFoundError:
+            # Oracle 서버에 브라우저 패키지가 없는 경우에도 HTML/PDF 자동 생성이
+            # 멈추지 않도록 기존 리포트 런타임의 WeasyPrint를 사용한다.
+            from weasyprint import HTML
+            HTML(filename=str(temp_html)).write_pdf(str(temp_pdf))
+        else:
+            subprocess.run([
+                browser, "--headless=new", "--disable-gpu", "--disable-extensions",
+                "--disable-dev-shm-usage", "--no-first-run", "--no-sandbox",
+                "--allow-file-access-from-files", "--virtual-time-budget=5000",
+                f"--user-data-dir={profile}", f"--print-to-pdf={temp_pdf}", temp_html.as_uri(),
+            ], check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         shutil.copyfile(temp_pdf, output)
     print(output)
 

@@ -76,7 +76,9 @@ jobs:
 
             echo "2. Install weekly report Python dependencies"
             timeout 120 /home/opc/ghosttracker-venv/bin/python3.11 -m pip install \
-              --disable-pip-version-check --no-input beautifulsoup4==4.12.3
+              --disable-pip-version-check --no-input \
+              beautifulsoup4==4.12.3 weasyprint==62.3
+            /home/opc/ghosttracker-venv/bin/python3.11 -c "import bs4, weasyprint; print('report runtime ok')"
 
             echo "3. Build SDK"
             npm run build
