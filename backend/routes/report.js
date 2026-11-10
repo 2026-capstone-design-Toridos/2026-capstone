@@ -44,9 +44,10 @@ const reportCache = new Map();
 const reportGenerationJobs = new Map();
 const reportGenerationStatus = new Map();
 const REPORT_INPUT_DIR = path.join(REPORTS_DIR, 'inputs');
-// 단계별 시한(Mongo 30초 + 분류 서버 120초 + Python 180초)을 다 합쳐도 약 6분이다.
-// 이 값을 넘기면 어느 단계에서 멈췄든 작업을 실패 처리해 "생성 중"이 남지 않게 한다.
-const REPORT_JOB_TIMEOUT_MS = Math.max(Number(process.env.REPORT_JOB_TIMEOUT_MS) || 420000, 60000);
+// Gemini 재시도와 Chrome 인쇄까지 포함하면 Python 단계가 3분을 넘을 수 있다.
+// 전체 작업은 12분, Python 렌더링은 6분까지 허용하되 무한 대기는 막는다.
+const REPORT_JOB_TIMEOUT_MS = Math.max(Number(process.env.REPORT_JOB_TIMEOUT_MS) || 720000, 120000);
+const REPORT_RENDER_TIMEOUT_MS = Math.max(Number(process.env.REPORT_RENDER_TIMEOUT_MS) || 360000, 120000);
 
 // 마케팅 지표 집계(Mongo 30초 시한 + 여유). 이 단계가 실패해도 보고서 자체는 지표 쪽 없이 만든다.
 const REPORT_METRICS_TIMEOUT_MS = Math.max(Number(process.env.REPORT_METRICS_TIMEOUT_MS) || 45000, 5000);
@@ -350,18 +351,33 @@ async function writeSiteResultCsv(origin, period) {
 }
 
 async function writeCommerceJson(origin, period) {
-  const events = await Event.find({
-    ...originCondition(canonicalOrigin(origin)),
-    received_at: { $gte: period.from, $lt: period.to },
-  })
-    .select('session_id event_type pathname page_url page_type data received_at timestamp')
-    .sort({ received_at: -1 })
-    .limit(20000)
-    .maxTimeMS(30000)
-    .lean();
-  const summary = buildCommerceSummary(events);
   fs.mkdirSync(REPORT_INPUT_DIR, { recursive: true });
   const jsonPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${period.weekStart.replaceAll('-', '')}_commerce.json`);
+  let summary;
+  try {
+    const events = await Event.find({
+      ...originCondition(canonicalOrigin(origin)),
+      received_at: { $gte: period.from, $lt: period.to },
+    })
+      // data.source에는 페이지 HTML 전체가 들어올 수 있다. 상품 집계에 실제로
+      // 사용하는 payload만 선택해 주간 데이터 전송량과 Mongo 지연을 줄인다.
+      .select([
+        'session_id', 'event_type', 'pathname', 'page_url', 'page_type',
+        'received_at', 'timestamp', 'data.product_id', 'data.product_name',
+        'data.category_id', 'data.category_name', 'data.subsection_id',
+        'data.subsection_label', 'data.ghost_role', 'data.click_text', 'data.text',
+        'data.target_text', 'data.element_text', 'data.button_text', 'data.label',
+      ].join(' '))
+      .sort({ received_at: -1 })
+      .limit(20000)
+      .maxTimeMS(30000)
+      .lean();
+    summary = buildCommerceSummary(events);
+  } catch (err) {
+    // 상품 부록 집계 하나가 늦어도 핵심 주간 리포트 생성은 계속한다.
+    console.warn('[report/generate] 상품 행동 집계 실패 → 빈 상품 요약으로 생성:', err.message);
+    summary = buildCommerceSummary([]);
+  }
   fs.writeFileSync(jsonPath, JSON.stringify(summary, null, 2), 'utf8');
   return jsonPath;
 }
@@ -410,7 +426,7 @@ async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek
         ],
         {
           cwd: path.join(__dirname, '../../ml'),
-          timeout: 180000,
+          timeout: REPORT_RENDER_TIMEOUT_MS,
           maxBuffer: 2 * 1024 * 1024,
           // 새 주간 집계값을 Gemini가 해석해 유형별 인사이트와 제안을 만든다.
           // 원본 이벤트나 고객 식별자가 아니라 생성기에 전달된 집계값만 사용한다.
@@ -421,7 +437,14 @@ async function generatePdfReport(origin, requestedPeriod = previousCompletedWeek
             console.error('[report/generate] 실패:', stderr || stdout || err.message);
             removeGeneratedArtifact(stagingPath);
             removeGeneratedArtifact(stagingHtmlPath);
-            reject(new Error('주간 보고서를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.'));
+            const rawDetail = String(stderr || stdout || err.message || '')
+              .replaceAll(GEMINI_API_KEY || '__NO_GEMINI_KEY__', '[REDACTED]')
+              .replace(/(mongodb(?:\+srv)?:\/\/)[^@\s]+@/gi, '$1[REDACTED]@')
+              .replace(/([?&]key=)[^&\s]+/gi, '$1[REDACTED]')
+              .replace(/[\r\n]+/g, ' ')
+              .trim()
+              .slice(-1200);
+            reject(new Error(`주간 보고서 생성 실패${rawDetail ? `: ${rawDetail}` : ''}`));
             return;
           }
           if (stdout?.trim()) console.info('[report/generate]', stdout.trim());

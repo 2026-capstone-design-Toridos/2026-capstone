@@ -56,8 +56,10 @@ async function tick(service) {
     const { period, origins } = await ensureCurrentWeekRecords(service);
     const now = new Date();
     const clock = kstClock(now);
-    const generationWindow = (clock.weekday === 1 && clock.hour < 9)
-      || (clock.weekday !== 1 && clock.hour < 6);
+    // 현재 완료 주의 리포트가 준비될 때까지 요일·시간과 관계없이 backoff에
+    // 맞춰 재시도한다. 이전 구현은 화요일 06:00에 재시도를 예약하면서 동시에
+    // 06:00부터 생성 창을 닫아 failed 상태가 영구히 남을 수 있었다.
+    const generationWindow = true;
 
     // 한 번에 한 쇼핑몰만 시작해 MongoDB·분류 서버 부하가 대시보드에 번지지 않게 한다.
     const dueGeneration = generationWindow && origins.length ? await WeeklyReport.findOne({
@@ -67,6 +69,7 @@ async function tick(service) {
         { status: 'pending' },
         { status: 'failed', next_generation_attempt_at: { $lte: now } },
         { status: 'generating', generation_lease_until: { $lte: now } },
+        { status: 'generating', generation_lease_until: { $exists: false } },
       ],
     }).sort({ created_at: 1 }).lean() : null;
     if (dueGeneration) service.queueWeeklyReport(dueGeneration.origin, period);
