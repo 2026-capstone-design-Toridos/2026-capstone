@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import base64
 import time
 import urllib.error
 import urllib.request
@@ -1146,7 +1147,8 @@ def insert_capture_images(page: str) -> str:
             path = next(image_iter)
         except StopIteration:
             return match.group(0)
-        image_uri = path.resolve().as_uri()
+        image_data = base64.b64encode(path.read_bytes()).decode("ascii")
+        image_uri = f"data:image/png;base64.{image_data}"
         return (
             f'<div style="{match.group("style")};overflow:hidden">'
             f'<img src="{image_uri}" '
