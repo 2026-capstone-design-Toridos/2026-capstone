@@ -2989,9 +2989,12 @@
         // 않는다. 오래된 리포트의 로컬 폰트와 런타임 스크립트를 제거해 콘솔
         // 경고 없이 정적 보고서만 표시한다.
         html = html
+          .replace(/data:image\/(png|jpe?g|webp);base64\./gi, "data:image/$1;base64,")
+          .replace(/<script\b[^>]*\/>/gi, "")
           .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
           .replace(/@font-face\s*\{[^}]*file:\/\/[^}]*\}/gi, "")
-          .replace(/url\(\s*(['"]?)file:\/\/[^)'"\s]+\1\s*\)/gi, "none");
+          .replace(/url\(\s*(['"]?)file:\/\/[^)'"\s]+\1\s*\)/gi, "none")
+          .replace(/(<img\b[^>]*\bsrc=["'])file:\/{2,3}[^"']+(["'][^>]*>)/gi, "$1$2");
         const responsiveStyle = `<style id="seer-dashboard-report-view">@media screen{body{background:#eef3f8!important}.page{max-width:100%!important;margin:0 auto 18px!important;box-shadow:0 8px 24px rgba(23,32,51,.08)!important}}@media screen and (max-width:720px){.page{width:100%!important;height:auto!important;min-height:0!important;padding:18px!important}.summary-kpi-row,.charts-row,.stats-row{flex-wrap:wrap!important}.chart-box{min-width:100%!important}.rec-table,table{display:block!important;width:100%!important;overflow-x:auto!important;white-space:nowrap!important;font-size:11px!important}.rec-table tbody,table tbody{display:table!important;min-width:760px!important}}</style>`;
         if (html.includes("</head>")) html = html.replace("</head>", `${responsiveStyle}</head>`);
         frame.srcdoc = html;

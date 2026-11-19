@@ -228,6 +228,22 @@ function serverSummary(plan, tools) {
   return '선택한 기간의 운영 지표를 검증된 집계 기준으로 분석했습니다.';
 }
 
+function comparisonAnswer(tools) {
+  const overview = tools.get_period_overview || {};
+  const sessions = overview.sessions || {};
+  const orders = overview.orders || {};
+  const risky = overview.risky_sessions || {};
+  const direction = (delta) => Number(delta) > 0 ? '증가' : Number(delta) < 0 ? '감소' : '변화 없음';
+  return {
+    summary: `직전 동일 기간과 비교하면 방문 세션은 ${Math.abs(Number(sessions.delta || 0)).toLocaleString('ko-KR')}건 ${direction(sessions.delta)}했고, 주문 완료는 ${Math.abs(Number(orders.delta || 0)).toLocaleString('ko-KR')}건 ${direction(orders.delta)}했습니다.`,
+    observations: [
+      { id: 'comparison.sessions', statement: `방문 세션: 직전 ${Number(sessions.previous || 0).toLocaleString('ko-KR')}건 → 현재 ${Number(sessions.current || 0).toLocaleString('ko-KR')}건 (${Number(sessions.delta || 0) >= 0 ? '+' : ''}${Number(sessions.delta || 0).toLocaleString('ko-KR')}건)` },
+      { id: 'comparison.orders', statement: `주문 완료: 직전 ${Number(orders.previous || 0).toLocaleString('ko-KR')}건 → 현재 ${Number(orders.current || 0).toLocaleString('ko-KR')}건 (${Number(orders.delta || 0) >= 0 ? '+' : ''}${Number(orders.delta || 0).toLocaleString('ko-KR')}건)` },
+      { id: 'comparison.risky', statement: `탐색 중지 신호 세션: 직전 ${Number(risky.previous || 0).toLocaleString('ko-KR')}건 → 현재 ${Number(risky.current || 0).toLocaleString('ko-KR')}건 (${Number(risky.delta || 0) >= 0 ? '+' : ''}${Number(risky.delta || 0).toLocaleString('ko-KR')}건)` },
+    ],
+  };
+}
+
 function verifiedKpis(plan, tools) {
   const rows = [];
   const top = tools.get_funnel_overview?.transitions?.slice().sort((a, b) => b.stopped - a.stopped)[0];
@@ -329,19 +345,20 @@ async function answerQuestion({ origin, question, days = 7, history = [], snapsh
     ];
     narrative.kpis = [];
   }
+  const comparison = plan.response_mode === 'period_comparison' ? comparisonAnswer(built.tools) : null;
   const answer = {
     // 요약과 모든 수치 근거는 서버가 작성한다. Gemini는 가설·조치 문장만 담당한다.
     response_mode: plan.response_mode,
-    summary: plan.response_mode === 'execution_plan' ? narrative.summary : serverSummary(plan, built.tools),
+    summary: comparison?.summary || (plan.response_mode === 'execution_plan' ? narrative.summary : serverSummary(plan, built.tools)),
     observations: plan.response_mode === 'execution_plan'
       ? []
       : plan.response_mode === 'visual_diagnosis'
         ? observations.filter((row) => /visual_exit|exit\.top_page|funnel\.top_stop/.test(row.id)).slice(0, 2)
-        : observations,
-    hypotheses: narrative.hypotheses,
-    actions: narrative.actions,
+        : comparison?.observations || observations,
+    hypotheses: comparison ? [] : narrative.hypotheses,
+    actions: comparison ? [] : narrative.actions,
     // 목표 수치는 Agent가 추정하지 않는다. 서버가 실제 현재값과 판정 방향만 만든다.
-    kpis: verifiedKpis(plan, built.tools),
+    kpis: comparison ? [] : verifiedKpis(plan, built.tools),
     caveats: [...new Set([
       ...narrative.caveats,
       ...toolNotes.filter((note) => /없|못|초과|녹화가 아닙니다/.test(note)),

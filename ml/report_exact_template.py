@@ -1423,7 +1423,7 @@ def insert_capture_images(page: str) -> str:
         except StopIteration:
             return match.group(0)
         image_data = base64.b64encode(path.read_bytes()).decode("ascii")
-        image_uri = f"data:image/png;base64.{image_data}"
+        image_uri = f"data:image/png;base64,{image_data}"
         return (
             f'<div style="{match.group("style")};overflow:hidden">'
             f'<img src="{image_uri}" '

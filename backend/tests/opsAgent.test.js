@@ -92,6 +92,12 @@ test('캡처 후속 질문은 시각 진단 모드로 구분한다', () => {
   assert.ok(plan.required_tools.includes('get_visual_exit_hotspots'));
 });
 
+test('동일 기간 비교 질문은 일반 진단이 아니라 기간 비교 모드로 구분한다', () => {
+  const plan = planQuestion('지난 동일 기간과 비교해줘', { days: 7, now: NOW });
+  assert.equal(plan.response_mode, 'period_comparison');
+  assert.ok(plan.required_tools.includes('get_period_overview'));
+});
+
 test('화면 캡처 Python은 운영 전용 3.11 설정을 우선한다', () => {
   const old = process.env.AGENT_CAPTURE_PYTHON_BIN;
   process.env.AGENT_CAPTURE_PYTHON_BIN = '/tmp/python3.11';

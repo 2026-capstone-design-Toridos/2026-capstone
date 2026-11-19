@@ -279,12 +279,48 @@ function findLegacyReportPair(origin) {
 }
 
 function sendLegacyHtml(res, legacy) {
-  const html = fs.readFileSync(legacy.htmlPath, 'utf8')
+  const html = dashboardReportHtml(legacy.htmlPath)
     .replaceAll('GHOSTTRACKER', 'SEER')
     .replaceAll('GhostTracker Analytics', 'SEER Analytics')
     .replaceAll('GhostTracker AI 분석 시스템', 'SEER 고객 행동 분석 시스템')
     .replaceAll('GhostTracker AI 분석 결과', 'SEER 행동 분석 결과');
   res.type('html').send(html);
+}
+
+function fileMime(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  if (ext === '.webp') return 'image/webp';
+  return '';
+}
+
+// srcdoc 안에서는 서버의 file:// 자원을 읽을 수 없다. 리포트 폴더 아래의
+// 캡처만 data URI로 내장하고, 실행 스크립트·로컬 폰트는 제거한 정적 HTML을 보낸다.
+function dashboardReportHtml(htmlPath) {
+  let html = fs.readFileSync(htmlPath, 'utf8')
+    .replace(/data:image\/(png|jpe?g|webp);base64\./gi, 'data:image/$1;base64,')
+    .replace(/<script\b[^>]*\/>/gi, '')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/@font-face\s*\{[^}]*file:\/\/[^}]*\}/gi, '')
+    .replace(/url\(\s*(['"]?)file:\/\/[^)'"\s]+\1\s*\)/gi, 'none');
+  const reportRoot = path.resolve(REPORTS_DIR) + path.sep;
+  html = html.replace(/(<img\b[^>]*\bsrc=["'])(file:\/{2,3}[^"']+)(["'][^>]*>)/gi, (match, before, uri, after) => {
+    try {
+      const decoded = decodeURIComponent(uri.replace(/^file:\/{2,3}/i, process.platform === 'win32' ? '' : '/')).replace(/\\/g, path.sep);
+      const target = path.resolve(decoded);
+      const mime = fileMime(target);
+      if (!mime || !target.startsWith(reportRoot) || !fs.existsSync(target)) return `${before}${after}`;
+      return `${before}data:${mime};base64,${fs.readFileSync(target).toString('base64')}${after}`;
+    } catch {
+      return `${before}${after}`;
+    }
+  });
+  return html;
+}
+
+function sendDashboardReportHtml(res, htmlPath) {
+  res.type('html').send(dashboardReportHtml(htmlPath));
 }
 
 /**
@@ -1207,7 +1243,7 @@ router.get('/weekly/view', async (req, res) => {
         message: '주간 리포트를 백그라운드에서 준비하고 있습니다.',
       });
     }
-    res.sendFile(resolveReportArtifacts(report).htmlPath);
+    sendDashboardReportHtml(res, resolveReportArtifacts(report).htmlPath);
   } catch (err) {
     console.error('[report/weekly/view] 오류:', err.message);
     res.status(500).send(`<html lang="ko"><body><p>리포트를 준비하지 못했습니다. ${String(err.message).replace(/[<>&"]/g, '')}</p></body></html>`);
@@ -1267,7 +1303,7 @@ router.get('/weekly/weeks/:weekStart/view', async (req, res) => {
       if (legacy) return sendLegacyHtml(res, legacy);
       return res.status(404).send('<p>이 주차의 리포트가 아직 준비되지 않았습니다.</p>');
     }
-    return res.sendFile(resolveReportArtifacts(report).htmlPath);
+    return sendDashboardReportHtml(res, resolveReportArtifacts(report).htmlPath);
   } catch (err) {
     return res.status(400).send(`<p>${String(err.message).replace(/[<>&"]/g, '')}</p>`);
   }
@@ -1298,5 +1334,6 @@ router.weeklyReportService = {
   queueWeeklyReport,
   runWeeklyReportGeneration,
   artifactExists,
+  dashboardReportHtml,
 };
 module.exports = router;
