@@ -2,7 +2,10 @@
  * server.js — GhostTracker 백엔드 진입점
  * 역할: Express 서버를 띄우고 수집·로그·분류·클러스터·리포트 라우터를 한곳에 연결
  */
-require('dotenv').config();
+// 실행 위치가 프로젝트 루트이든 backend 폴더이든 같은 환경변수를 읽는다.
+// 이전에는 process.cwd() 기준이라 `node backend/server.js`로 실행하면
+// backend/.env의 GEMINI_API_KEY를 놓치고 Agent가 규칙 fallback으로 내려갔다.
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const express     = require('express');
 const cors        = require('cors');
@@ -16,6 +19,7 @@ const predictRouter  = require('./routes/predict');
 const clustersRouter = require('./routes/clusters');
 const classifyRouter = require('./routes/classify');
 const reportRouter   = require('./routes/report');
+const opsAgentRouter = require('./routes/opsAgent');
 const adminKeysRouter = require('./routes/adminKeys');
 const { startWeeklyReportScheduler } = require('./services/weeklyReportScheduler');
 
@@ -89,6 +93,7 @@ app.use('/api/predict',  requireSite, predictRouter);
 app.use('/api/clusters', requireSite, clustersRouter);
 app.use('/api/classify', requireSite, classifyRouter);
 app.use('/api/report',   requireSite, reportRouter);
+app.use('/api/agent',    requireSite, opsAgentRouter);
 
 // 키 발급·폐기 — 사이트 키가 아니라 ADMIN_KEY로 보호한다.
 // 이 화면이 뚫리면 아무나 아무 사이트의 키를 만들 수 있다.

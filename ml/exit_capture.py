@@ -162,16 +162,20 @@ def find_exit_hotspots(base_dir: str, start: str, end: str, limit: int = 3,
             "data": 1,
             "received_at": 1,
         }
-        cursor = (
-            db.events.find(query, projection)
-            .sort([("session_id", 1), ("event_seq", 1), ("timestamp", 1)])
-            .limit(50000)
-        )
+        # MongoDB에서 session_id까지 전역 정렬하면 이벤트가 많은 기간에는
+        # 32MB 정렬 메모리 제한을 넘는다. 최대 5만 건만 읽고 Python에서
+        # 세션·이벤트 순서로 정렬해 같은 상태 추적 결과를 만든다.
+        docs = list(db.events.find(query, projection).limit(50000))
+        docs.sort(key=lambda doc: (
+            str(doc.get("session_id") or ""),
+            int(doc.get("event_seq") or 0),
+            int(doc.get("timestamp") or 0),
+        ))
 
         state: dict[str, dict] = {}
         buckets: dict[tuple, dict] = {}
         total_exits = 0
-        for doc in cursor:
+        for doc in docs:
             sid = doc.get("session_id") or ""
             data = event_data(doc)
             st = state.setdefault(sid, {"section": None, "subsection": None, "scroll": 0, "url": ""})

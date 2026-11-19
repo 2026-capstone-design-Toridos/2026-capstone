@@ -185,13 +185,16 @@ function loadSessions(origin, from, to) {
  * @param {{startDate: string, endDate: string}} period 한국 날짜 'YYYY-MM-DD' (양 끝 포함)
  * @returns 이번 기간과 직전 같은 길이 기간의 지표
  */
-async function buildReportMetrics(origin, { startDate, endDate }) {
+async function buildReportMetrics(origin, { startDate, endDate, asOf = null }) {
   const from = new Date(`${startDate}T00:00:00+09:00`);
-  const to = new Date(new Date(`${endDate}T00:00:00+09:00`).getTime() + DAY_MS);
+  const requestedTo = new Date(new Date(`${endDate}T00:00:00+09:00`).getTime() + DAY_MS);
+  const cutoff = asOf ? new Date(asOf) : requestedTo;
+  const to = cutoff < requestedTo ? cutoff : requestedTo;
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from >= to) {
     throw new Error(`보고서 기간이 올바르지 않습니다: ${startDate} ~ ${endDate}`);
   }
   const span = to.getTime() - from.getTime();
+  if (span <= 0) throw new Error('집계 기준시각이 분석 시작일보다 빠릅니다.');
 
   const [current, previous] = await Promise.all([
     loadSessions(origin, from, to),
@@ -200,7 +203,7 @@ async function buildReportMetrics(origin, { startDate, endDate }) {
 
   const overview = overviewOf(current);
   return {
-    period: { start: startDate, end: endDate, timezone: 'Asia/Seoul' },
+    period: { start: startDate, end: endDate, timezone: 'Asia/Seoul', as_of: to.toISOString() },
     overview,
     prev_overview: overviewOf(previous),
     funnel: funnelOf(overview),

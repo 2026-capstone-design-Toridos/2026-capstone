@@ -766,20 +766,30 @@
     .actions #rediscover-types { display: none; }
     main { max-width: 1480px; padding: 0 24px 40px; }
     .workspace-nav {
-      position: sticky; top: 61px; z-index: 9; display: flex; gap: 6px;
-      margin: 0 -24px 22px; padding: 10px 24px; overflow-x: auto;
+      position: sticky; top: 61px; z-index: 9; display: flex; align-items:flex-end; gap: 5px;
+      min-height:58px; box-sizing:border-box; margin: 0 -24px 22px; padding: 12px 24px 0; overflow-x: auto; overflow-y:hidden;
       background: rgba(244, 247, 251, .94); border-bottom: 1px solid var(--line);
       backdrop-filter: blur(12px);
       scrollbar-width: none;
     }
     .workspace-nav::-webkit-scrollbar { display:none; }
     .nav-button {
-      flex: 0 0 auto; height: 38px; padding: 0 16px; border-radius: 9px;
-      border: 1px solid transparent; background: transparent; color: var(--muted);
-      box-shadow: none; font-family: var(--font-body); font-weight: 700;
+      --index-ink:#315f8d; --index-bg:#eaf4fb; --index-line:#d4e6f3;
+      position:relative; flex: 0 0 auto; height: 46px; padding: 0 18px 5px; border-radius:0;
+      border: 1px solid var(--index-line); border-bottom:0; background: var(--index-bg); color: var(--index-ink);
+      box-shadow:none; font-family:var(--font-point); font-weight:500;
+      transform:translateY(8px); transform-origin:50% 100%;
+      transition:transform 260ms cubic-bezier(.2,1.65,.38,1),box-shadow 180ms ease,background-color 180ms ease,color 180ms ease;
     }
-    .nav-button:hover { transform: none; background: #fff; }
-    .nav-button.active { color: var(--blue); background: #fff; border-color: #cdddf7; box-shadow: 0 5px 14px rgba(24,90,219,.08); }
+    .nav-button:nth-child(1) { --index-bg:#e8f3fb; --index-line:#d2e5f3; }
+    .nav-button:nth-child(2) { --index-bg:#edf6fc; --index-line:#d8e9f5; }
+    .nav-button:nth-child(3) { --index-bg:#e6f1f9; --index-line:#d0e3f0; }
+    .nav-button:nth-child(4) { --index-bg:#ebf5fb; --index-line:#d6e8f3; }
+    .nav-button:nth-child(5) { --index-bg:#e7f2fa; --index-line:#d1e4f1; }
+    .nav-button:nth-child(6) { --index-bg:#edf5fa; --index-line:#d9e7f1; }
+    .nav-button:hover,.nav-button:focus-visible { transform:translateY(1px); color:#174f86; box-shadow:none; outline:none; }
+    .nav-button.active { transform:translateY(0); color:#0f4f85; background:#d7eaf7; border-color:#bfdbea; box-shadow:none; }
+    @media (prefers-reduced-motion:reduce) { .nav-button { transition:none; } }
     .view { display: none; }
     .view.active { display: block; animation: view-in 160ms ease-out; }
     @keyframes view-in { from { opacity: .5; transform: translateY(3px); } }
@@ -853,6 +863,232 @@
       .session-search, .custom-range { grid-template-columns:1fr; }
       .result-grid { grid-template-columns:1fr; }
     }
+    .agent-page-head { align-items:center; margin-bottom:18px; }
+    .agent-workbench { display:grid; gap:16px; }
+    .agent-query-card { overflow:hidden; border:1px solid #d9e4f3; background:linear-gradient(135deg,#fff 0%,#f8fbff 64%,#f3fbf9 100%); }
+    .agent-query-card .card-body { padding:22px 24px; }
+    .agent-query-top { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+    .agent-query-title { font-family:var(--font-point); font-size:1.05rem; font-weight:700; }
+    .agent-query-sub { margin-top:4px; color:var(--muted); font-size:.84rem; }
+    .agent-period { display:flex; align-items:center; gap:9px; color:#4a607e; font-size:.8rem; font-weight:700; white-space:nowrap; }
+    .agent-period select { min-width:118px; padding:9px 30px 9px 11px; border:1px solid #cdd9ea; border-radius:9px; background:#fff; color:var(--text); font:inherit; }
+    .agent-composer { display:grid; grid-template-columns:minmax(0,1fr) 52px; gap:10px; }
+    .agent-composer input { height:52px; min-height:52px; border:1px solid #c8d7ec; border-radius:11px; padding:0 16px; background:#fff; color:var(--text); font:inherit; line-height:52px; box-shadow:0 4px 14px rgba(29,68,124,.04); }
+    .agent-composer input:focus { outline:2px solid rgba(20,86,224,.2); border-color:var(--blue); }
+    .agent-send { display:grid; place-items:center; align-self:start; width:52px; min-width:52px; height:52px; min-height:52px; padding:0; border-radius:11px; }
+    .agent-send svg { width:21px; height:21px; }
+    .agent-send.is-loading svg { display:none; }
+    .agent-send.is-loading::after { content:""; width:18px; height:18px; border:2px solid rgba(255,255,255,.45); border-top-color:#fff; border-radius:50%; animation:agent-spin .8s linear infinite; }
+    @keyframes agent-spin { to { transform:rotate(360deg); } }
+    .agent-quick-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:14px; }
+    .agent-quick-label { color:var(--muted); font-size:.76rem; font-weight:800; margin-right:2px; }
+    .agent-suggestion { border:1px solid #d4deec; background:#fff; color:#355272; padding:8px 11px; border-radius:999px; font:inherit; font-size:.78rem; cursor:pointer; box-shadow:none; }
+    .agent-suggestion:hover { transform:none; border-color:#a9c3eb; background:#f5f9ff; color:var(--blue); }
+    .agent-starter { padding:20px 22px; }
+    .agent-section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .agent-section-heading h3 { margin:0; font-family:var(--font-point); font-size:1rem; }
+    .agent-section-heading p { margin:4px 0 0; color:var(--muted); font-size:.8rem; }
+    .agent-starter-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .agent-starter-card { position:relative; display:block; min-height:106px; padding:16px; text-align:left; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--text); box-shadow:none; }
+    .agent-starter-card:hover { transform:translateY(-1px); border-color:#b7cdef; background:#f9fbff; }
+    .agent-starter-title { display:block; margin:1px 0 5px; font-weight:800; line-height:1.35; }
+    .agent-starter-copy { display:block; color:var(--muted); font-size:.77rem; font-weight:500; line-height:1.55; }
+    .agent-shell { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(270px,.62fr); gap:16px; align-items:start; }
+    .agent-results { min-width:0; overflow:hidden; }
+    .agent-results > .card-head { border-bottom:1px solid var(--line); }
+    .agent-messages { min-height:420px; display:grid; gap:16px; padding:18px; background:#f8fafc; }
+    .agent-message { width:100%; line-height:1.65; }
+    .agent-message.user { padding:12px 15px; border:1px solid #dbe4f0; border-radius:10px; background:#fff; color:var(--text); }
+    .agent-message.user .agent-message-label { margin-bottom:3px; }
+    .agent-message.assistant { padding:0; border:1px solid #cbdcf2; border-radius:12px; background:#fff; color:var(--text); box-shadow:0 8px 22px rgba(23,55,96,.06); overflow:hidden; }
+    .agent-message-label { color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.02em; }
+    .agent-analysis-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 16px; background:#f4f8ff; border-bottom:1px solid #dbe6f5; }
+    .agent-analysis-head .agent-message-label { color:#315f9c; }
+    .agent-answer-body { padding:20px; }
+    .agent-answer-title { margin:0; font-family:var(--font-point); font-size:1.15rem; font-weight:700; line-height:1.55; }
+    .agent-visual-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:17px; }
+    .agent-visual-card { margin:0; overflow:hidden; border:1px solid #d9e3ef; border-radius:10px; background:#fff; }
+    .agent-visual-card img { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; background:linear-gradient(135deg,#eef3f9,#f7f9fc); }
+    .agent-visual-card figcaption { padding:11px 12px 12px; }
+    .agent-visual-card strong { display:block; color:#294766; font-size:.8rem; }
+    .agent-visual-card span { display:block; margin-top:3px; color:var(--muted); font-size:.73rem; }
+    .agent-visual-url { display:block; margin-top:5px; overflow:hidden; color:#52708e; font-size:.68rem; text-overflow:ellipsis; white-space:nowrap; }
+    .agent-visual-error { display:grid; place-items:center; aspect-ratio:16/10; padding:20px; color:var(--muted); background:#f6f8fb; font-size:.75rem; text-align:center; }
+    .agent-answer-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:17px; }
+    .agent-answer-section { min-width:0; padding:14px; border:1px solid #e0e7f0; border-radius:10px; background:#fbfcfe; }
+    .agent-answer-section.wide { grid-column:1/-1; }
+    .agent-answer-section strong { display:block; margin-bottom:8px; color:#314b6a; font-size:.78rem; }
+    .agent-answer-section ul { display:grid; gap:7px; margin:0; padding:0; list-style:none; }
+    .agent-answer-section li { position:relative; padding-left:15px; color:#40536c; font-size:.83rem; line-height:1.55; }
+    .agent-answer-section li::before { content:""; position:absolute; left:0; top:.67em; width:5px; height:5px; border-radius:50%; background:#4f7fc5; }
+    .agent-answer-section.actions { background:#f4fbf8; border-color:#d5ebe3; }
+    .agent-answer-section.actions ul { counter-reset:agent-action; }
+    .agent-answer-section.actions li { padding:10px 11px 10px 38px; border-radius:8px; background:#fff; border:1px solid #d5ebe3; }
+    .agent-answer-section.actions li::before { content:counter(agent-action); counter-increment:agent-action; display:grid; place-items:center; top:10px; width:20px; height:20px; color:#fff; background:#16866f; font-size:.67rem; font-weight:900; }
+    .agent-answer-section.kpis { background:#f5f8ff; border-color:#d8e3f3; }
+    .agent-answer-section.kpis li::before { background:#315f9c; }
+    .agent-answer-section.caveats { background:#fffaf1; border-color:#f0dfbe; }
+    .agent-answer-section.caveats li::before { background:#dc8a23; }
+    .agent-sidebar { display:grid; gap:12px; position:sticky; top:118px; }
+    .agent-scope { padding:17px; border:1px solid #d4e1f2; border-radius:11px; background:#fff; box-shadow:0 7px 20px rgba(23,32,51,.05); }
+    .agent-scope-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px; }
+    .agent-scope strong { color:var(--text); font-size:.95rem; }
+    .agent-connection { color:#11836d; background:#e9f7f1; border-radius:999px; padding:4px 8px; font-size:.67rem; font-weight:800; white-space:nowrap; }
+    .agent-scope p { margin:0; color:var(--muted); font-size:.78rem; line-height:1.55; }
+    .agent-source-list { display:grid; gap:7px; margin-top:13px; }
+    .agent-source { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 10px; border:1px solid var(--line); border-radius:8px; color:#40536c; font-size:.76rem; font-weight:700; }
+    .agent-source span:last-child { color:#16866f; font-size:.68rem; }
+    .agent-guardrails { display:grid; gap:7px; margin-top:13px; }
+    .agent-guardrail { position:relative; padding:9px 10px 9px 26px; border-radius:8px; background:#f8fafc; border:1px solid var(--line); font-size:.75rem; color:var(--muted); line-height:1.45; }
+    .agent-guardrail::before { content:"✓"; position:absolute; left:10px; color:#16866f; font-weight:900; }
+    .agent-recent-list { display:grid; gap:7px; margin-top:12px; }
+    .agent-recent-question { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:#40536c; box-shadow:none; text-align:left; font:inherit; font-size:.75rem; font-weight:700; line-height:1.45; }
+    .agent-recent-question:hover { transform:none; border-color:#b7cdef; background:#f7faff; color:var(--blue); }
+    .agent-empty { display:grid; place-items:center; min-height:360px; padding:36px; text-align:center; color:var(--muted); }
+    .agent-empty strong { display:block; margin-bottom:7px; color:#344a67; font-size:1rem; }
+    @media(max-width:1000px){ .agent-shell{grid-template-columns:1fr}.agent-sidebar{position:static;grid-template-columns:1fr 1fr}.agent-starter-grid{grid-template-columns:1fr 1fr}.agent-starter-card:last-child{grid-column:1/-1} }
+    @media(max-width:700px){ .agent-query-card .card-body{padding:17px}.agent-query-top{align-items:flex-start;flex-direction:column}.agent-period{width:100%;justify-content:space-between}.agent-period select{flex:1}.agent-starter-grid,.agent-sidebar,.agent-answer-grid,.agent-visual-grid{grid-template-columns:1fr}.agent-starter-card:last-child,.agent-answer-section.wide{grid-column:auto}.agent-messages{padding:12px}.agent-answer-body{padding:16px}.agent-quick-row{align-items:flex-start}.agent-quick-label{width:100%} }
+
+    /* ── Product-grade operations Agent workspace ─────────────────── */
+    #view-agent { margin:-10px 0 -40px; }
+    .agent-product-shell { display:grid; grid-template-columns:244px minmax(480px,1fr) 318px; grid-template-rows:minmax(0,1fr); height:calc(100dvh - 172px); min-height:620px; border:1px solid #dce4ef; border-radius:16px; overflow:hidden; background:#fff; box-shadow:0 18px 48px rgba(31,55,82,.08); }
+    .agent-thread-rail { display:flex; min-width:0; flex-direction:column; padding:18px 14px; border-right:1px solid #e1e7ef; background:#f7f9fc; }
+    .agent-rail-brand { display:flex; align-items:center; gap:10px; padding:2px 5px 18px; }
+    .agent-empty-mark { display:grid; place-items:center; flex:0 0 auto; width:34px; height:34px; border-radius:11px; color:#fff; background:linear-gradient(145deg,#176ee8,#0d4eb9); font-family:var(--font-point); font-weight:800; box-shadow:0 7px 16px rgba(23,110,232,.22); }
+    .agent-rail-brand div { min-width:0; }
+    .agent-rail-brand strong,.agent-rail-brand span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .agent-rail-brand strong { font-size:.9rem; }
+    .agent-rail-brand span { margin-top:2px; color:#718097; font-size:.75rem; }
+    .agent-new-thread { width:100%; min-height:42px; border:1px solid #bfd3ef; border-radius:10px; color:#145fca; background:#fff; box-shadow:none; font:inherit; font-size:.84rem; font-weight:800; }
+    .agent-new-thread:hover { transform:none; background:#eef5ff; }
+    .agent-thread-label { margin:22px 7px 9px; color:#7a8799; font-size:.75rem; font-weight:800; }
+    .agent-thread-list { display:grid; align-content:start; gap:6px; min-height:0; overflow-x:hidden; overflow-y:auto; }
+    .agent-thread-item { display:flex; flex-direction:column; justify-content:space-between; box-sizing:border-box; width:100%; min-width:0; min-height:80px; height:80px; overflow:hidden; padding:10px; border:1px solid transparent; border-radius:9px; color:#40516a; background:transparent; box-shadow:none; text-align:left; font:inherit; }
+    .agent-thread-item:hover { transform:none; background:#fff; border-color:#e0e7f0; }
+    .agent-thread-item.active { color:#184f99; background:#eaf2ff; border-color:#cbdcf4; }
+    .agent-thread-item strong { display:-webkit-box; min-height:2.8em; overflow:hidden; font-size:.8rem; line-height:1.4; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+    .agent-thread-item > span:not(.agent-thread-meta) { display:none; }
+    .agent-thread-item span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .agent-thread-meta { display:flex!important; flex:0 0 auto; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; font-size:.68rem; line-height:1.2; }
+    .agent-thread-empty { padding:14px 9px; color:#8390a3; font-size:.76rem; line-height:1.55; }
+    .agent-rail-foot { display:flex; align-items:center; gap:9px; margin-top:auto; padding:14px 6px 2px; border-top:1px solid #e2e7ee; }
+    .agent-secure-dot { width:9px; height:9px; border-radius:50%; background:#159675; box-shadow:0 0 0 4px #dff4ed; }
+    .agent-rail-foot strong,.agent-rail-foot span { display:block; }
+    .agent-rail-foot strong { font-size:.74rem; }
+    .agent-rail-foot span { margin-top:2px; color:#7e8a9b; font-size:.68rem; }
+
+    .agent-conversation { position:relative; display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; background:#fff; }
+    .agent-conversation-head { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:18px; min-height:92px; padding:17px 24px; border-bottom:1px solid #e4e9f0; }
+    .agent-conversation-head > div:first-child { min-width:0; }
+    .agent-conversation-head h2 { margin:4px 0 2px; font-family:var(--font-point); font-size:1.06rem; }
+    .agent-conversation-head p { margin:0; overflow:hidden; color:#7b889b; font-size:.75rem; text-overflow:ellipsis; white-space:nowrap; }
+    .agent-head-controls { display:flex; flex:0 0 auto; align-items:center; gap:8px; }
+    .agent-mobile-control { display:none; min-height:36px; padding:7px 9px; border:1px solid #d6dfeb; border-radius:8px; color:#405b7b; background:#fff; box-shadow:none; font:inherit; font-size:.72rem; font-weight:800; }
+    .agent-head-controls label { color:#748198; font-size:.72rem; font-weight:700; white-space:nowrap; }
+    .agent-head-controls select { min-width:104px; height:38px; padding:0 32px 0 11px; border:1px solid #d8e0eb; border-radius:9px; background-color:#fff; font:inherit; font-size:.78rem; }
+
+    .agent-conversation .agent-messages { display:block; flex:1 1 auto; box-sizing:border-box; width:100%; min-height:0; max-height:none; overflow-y:auto; padding:28px clamp(18px,4vw,54px); background:#fff; }
+    .agent-empty-state { display:grid; place-items:center; max-width:720px; min-height:430px; margin:0 auto; text-align:center; }
+    .agent-empty-mark { width:46px; height:46px; border-radius:15px; font-size:1.05rem; }
+    .agent-empty-state h3 { margin:18px 0 8px; font-family:var(--font-point); font-size:1.25rem; }
+    .agent-empty-state > p { max-width:560px; margin:0; color:#758398; font-size:.88rem; line-height:1.65; }
+    .agent-empty-prompts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; width:100%; margin-top:28px; }
+    .agent-empty-prompts .agent-suggestion { min-height:118px; padding:16px; border-radius:12px; text-align:left; }
+    .agent-empty-prompts .agent-suggestion strong,.agent-empty-prompts .agent-suggestion span { display:block; }
+    .agent-empty-prompts .agent-suggestion strong { color:#233955; font-size:.82rem; }
+    .agent-empty-prompts .agent-suggestion span { margin-top:8px; color:#77869b; font-size:.74rem; line-height:1.55; }
+
+    .agent-conversation .agent-message { box-sizing:border-box; width:100%; min-width:0; max-width:820px; margin:0 auto 22px; }
+    .agent-conversation .agent-message.user { width:fit-content; max-width:72%; margin-right:0; padding:11px 15px; border:0; border-radius:15px 15px 4px 15px; color:#fff; background:#176ee8; }
+    .agent-conversation .agent-message.user .agent-message-label { display:none; }
+    .agent-conversation .agent-message.assistant { border:0; border-radius:0; box-shadow:none; overflow:visible; }
+    .agent-conversation .agent-analysis-head { padding:0 0 8px; border:0; background:transparent; }
+    .agent-conversation .agent-analysis-head .agent-message-label { color:#1a67c8; font-size:.75rem; }
+    .agent-conversation .agent-answer-body { box-sizing:border-box; width:100%; min-width:0; padding:0; }
+    .agent-conversation .agent-answer-title { padding-bottom:18px; border-bottom:1px solid #e3e9f1; font-size:1.18rem; }
+    .agent-conversation .agent-answer-grid { width:100%; min-width:0; gap:10px; }
+    .agent-conversation .agent-answer-section { overflow-wrap:anywhere; padding:15px 16px; border-radius:11px; }
+    .agent-response-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:13px; padding-top:12px; border-top:1px solid #e5eaf1; }
+    .agent-response-actions button,.agent-followups button { min-height:34px; padding:7px 10px; border:1px solid #d5dfeb; border-radius:8px; color:#49627f; background:#fff; box-shadow:none; font:inherit; font-size:.72rem; font-weight:750; }
+    .agent-response-actions button:hover,.agent-followups button:hover { transform:none; color:#145fca; border-color:#a9c4e9; background:#f5f9ff; }
+    .agent-response-actions button.saved { color:#13775f; border-color:#b9dfd3; background:#edf8f4; }
+    .agent-followups { display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
+    .agent-followups::before { content:"이어서 확인"; width:100%; color:#7c899b; font-size:.7rem; font-weight:800; }
+
+    .agent-run-status { display:flex; align-items:center; gap:11px; margin:0 28px 12px; padding:12px 14px; border:1px solid #d9e7fa; border-radius:11px; background:#f4f8ff; }
+    .agent-run-status[hidden] { display:none; }
+    .agent-run-pulse { width:10px; height:10px; border-radius:50%; background:#176ee8; box-shadow:0 0 0 0 rgba(23,110,232,.35); animation:agent-pulse 1.5s infinite; }
+    @keyframes agent-pulse { 70%{box-shadow:0 0 0 8px rgba(23,110,232,0)} 100%{box-shadow:0 0 0 0 rgba(23,110,232,0)} }
+    .agent-run-status strong,.agent-run-status span { display:block; }
+    .agent-run-status strong { font-size:.79rem; }
+    .agent-run-status span { margin-top:2px; color:#74849a; font-size:.72rem; }
+
+    .agent-composer-dock { position:relative; flex:0 0 auto; z-index:2; box-sizing:border-box; padding:12px 24px 16px; border-top:1px solid #e3e8ef; background:#fff; }
+    .agent-context-chips { display:flex; gap:6px; overflow-x:auto; margin-bottom:8px; }
+    .agent-context-chips:empty { display:none; }
+    .agent-context-chips button { flex:0 0 auto; padding:6px 9px; border:1px solid #dbe3ed; border-radius:999px; color:#5d718a; background:#f8fafc; box-shadow:none; font:inherit; font-size:.7rem; }
+    .agent-composer { display:grid; grid-template-columns:minmax(0,1fr) 50px; align-items:end; gap:9px; }
+    .agent-composer textarea { box-sizing:border-box; width:100%; height:50px; min-height:50px; max-height:120px; padding:13px 15px; resize:none; border:1px solid #cfd9e6; border-radius:12px; outline:none; font:inherit; font-size:.88rem; line-height:1.45; }
+    .agent-composer textarea:focus { border-color:#73a2e4; box-shadow:0 0 0 3px rgba(23,110,232,.1); }
+    .agent-composer .agent-send { width:50px; min-width:50px; height:50px; min-height:50px; }
+    .agent-composer-note { margin-top:7px; color:#8a96a7; font-size:.66rem; text-align:center; }
+
+    .agent-context-panel { min-width:0; padding:20px 16px; border-left:1px solid #e1e7ef; background:#f8fafc; overflow-y:auto; }
+    .agent-context-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:0 3px 16px; }
+    .agent-context-head span { color:#75849a; font-size:.7rem; font-weight:800; }
+    .agent-context-head h3 { margin:3px 0 0; font-family:var(--font-point); font-size:.98rem; }
+    .agent-context-tools { display:flex; align-items:center; gap:6px; }
+    .agent-context-close { display:none; min-height:30px; padding:5px 8px; border:1px solid #d7e0ec; border-radius:8px; color:#53647c; background:#fff; box-shadow:none; font:inherit; font-size:.7rem; font-weight:800; }
+    .agent-context-block { padding:14px; margin-bottom:10px; border:1px solid #e0e6ee; border-radius:11px; background:#fff; }
+    .agent-context-label { margin-bottom:9px; color:#718098; font-size:.7rem; font-weight:800; }
+    .agent-context-period strong,.agent-context-period span { display:block; }
+    .agent-context-period strong { font-size:.85rem; }
+    .agent-context-period span { margin-top:4px; color:#7f8c9f; font-size:.7rem; line-height:1.5; }
+    .agent-context-evidence,.agent-saved-actions { display:grid; gap:7px; }
+    .agent-evidence-row,.agent-saved-action { padding:9px 10px; border-radius:8px; background:#f6f8fb; color:#445972; font-size:.73rem; line-height:1.5; }
+    .agent-evidence-row::before { content:""; display:inline-block; width:6px; height:6px; margin-right:7px; border-radius:50%; background:#2777dc; vertical-align:1px; }
+    .agent-saved-action { position:relative; padding-left:28px; }
+    .agent-saved-action::before { content:"✓"; position:absolute; left:10px; color:#15836a; font-weight:900; }
+    .agent-context-empty { color:#8a96a7; font-size:.72rem; line-height:1.55; }
+    .agent-data-details { padding:12px 14px; border:1px solid #e0e6ee; border-radius:11px; background:#fff; }
+    .agent-data-details summary { cursor:pointer; color:#536a85; font-size:.75rem; font-weight:800; }
+    .agent-data-details .agent-source-list { margin-top:11px; }
+    .agent-data-details .agent-source { padding:7px 8px; font-size:.7rem; }
+
+    @media(max-width:1260px){
+      .agent-product-shell{grid-template-columns:210px minmax(0,1fr)}
+      #view-agent{margin:-10px 0 -32px}
+      .agent-context-panel{display:none;position:fixed;z-index:90;top:16px;right:16px;bottom:16px;width:min(360px,calc(100vw - 32px));box-sizing:border-box;border:1px solid #d8e2ee;border-radius:14px;box-shadow:0 24px 70px rgba(26,43,66,.24)}
+      .agent-context-panel.show-detail{display:block}
+      .agent-context-close{display:inline-flex;align-items:center;justify-content:center}
+    }
+    @media(max-width:1040px){
+      .agent-conversation .agent-messages{padding-right:24px;padding-left:24px}
+      .agent-answer-grid{grid-template-columns:1fr}
+      .agent-answer-section.wide{grid-column:auto}
+    }
+    @media(max-width:760px){
+      #view-agent{margin:-8px 0 -28px}
+      .agent-product-shell{display:block;height:calc(100dvh - 148px);min-height:560px;border-radius:12px}
+      .agent-thread-rail{display:none;position:fixed;z-index:80;inset:0 auto 0 0;width:280px;box-sizing:border-box;box-shadow:18px 0 42px rgba(28,44,68,.2)}
+      .agent-thread-rail.show-mobile{display:flex}
+      .agent-conversation{height:100%;min-height:0}
+      .agent-conversation-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:flex-start;min-height:auto;padding:14px 16px}
+      .agent-conversation-head p,.agent-head-controls label{display:none}
+      .agent-head-controls{display:grid;grid-template-columns:auto auto;justify-content:end;gap:5px}
+      .agent-mobile-control{display:inline-flex;align-items:center;justify-content:center}
+      .agent-head-controls select{grid-column:1/-1;justify-self:end;min-width:96px}
+      .agent-context-panel{top:10px;right:10px;bottom:10px;width:calc(100vw - 20px)}
+      .agent-conversation .agent-messages{max-height:none;padding:20px 14px}
+      .agent-empty-state{min-height:360px}
+      .agent-empty-prompts{grid-template-columns:1fr}
+      .agent-empty-prompts .agent-suggestion{min-height:auto}
+      .agent-conversation .agent-message.user{max-width:88%}
+      .agent-answer-grid{grid-template-columns:1fr}
+      .agent-answer-section.wide{grid-column:auto}
+      .agent-composer-dock{padding:10px 12px 13px}
+      .agent-composer-note{display:none}
+    }
   </style>
 <style id="seer-brand-logo-style">.seer-brand-logo{display:block;width:52px;height:52px;object-fit:contain;flex:0 0 auto;background:transparent;border:0;box-shadow:none;border-radius:0}@media(max-width:520px){.topbar .brand{display:flex}.seer-brand-logo{width:42px;height:42px}}</style>
 <link rel="stylesheet" href="/operator-revenue.css">
@@ -886,6 +1122,7 @@
       <button class="nav-button" data-view="overview">운영 요약</button>
       <button class="nav-button" data-view="marketing">마케팅 분석</button>
       <button class="nav-button" data-view="visits">방문 분석</button>
+      <button class="nav-button" data-view="agent">운영 제안</button>
       <button class="nav-button" data-view="reports">리포트</button>
     </nav>
 
@@ -1117,6 +1354,90 @@
       </div>
     </section>
 
+    <section class="view" id="view-agent" data-view-panel="agent">
+      <div class="agent-product-shell">
+        <aside class="agent-thread-rail" aria-label="운영 대화 목록">
+          <div class="agent-rail-brand">
+            <div><strong>SEER 운영 Agent</strong><span id="agent-scope-name">담당 쇼핑몰 전용</span></div>
+          </div>
+          <button class="agent-new-thread" id="agent-new-thread" type="button">새 운영 대화</button>
+          <div class="agent-thread-label">최근 대화</div>
+          <div class="agent-thread-list" id="agent-thread-list"><div class="agent-thread-empty">대화 목록을 불러오는 중입니다.</div></div>
+          <div class="agent-rail-foot">
+            <span class="agent-secure-dot"></span>
+            <div><strong>쇼핑몰별 데이터 격리</strong><span>읽기 전용 분석 연결</span></div>
+          </div>
+        </aside>
+
+        <section class="agent-conversation" aria-label="운영 Agent 대화">
+          <header class="agent-conversation-head">
+            <div>
+              <h2 id="agent-thread-title">새 운영 대화</h2>
+              <p id="agent-scope-description">담당 쇼핑몰의 실제 행동 데이터만 사용합니다.</p>
+            </div>
+            <div class="agent-head-controls">
+              <button class="agent-mobile-control" id="agent-mobile-threads" type="button">대화</button>
+              <button class="agent-mobile-control" id="agent-new-thread-mobile" type="button">새 대화</button>
+              <label for="agent-days">분석 기간</label>
+              <select id="agent-days"><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
+            </div>
+          </header>
+
+          <div class="agent-messages" id="agent-messages" aria-live="polite">
+            <div class="agent-empty-state">
+              <span class="agent-empty-mark">S</span>
+              <h3>오늘 어떤 운영 결정을 도와드릴까요?</h3>
+              <p>SEER가 구매 여정, 유입, 상품 행동과 이탈 화면을 함께 확인해 실행할 일을 제안합니다.</p>
+              <div class="agent-empty-prompts" id="agent-suggestions">
+                <button class="agent-suggestion" type="button" data-question="지금 가장 먼저 개선할 부분은?"><strong>가장 시급한 문제 찾기</strong><span>구매 여정 전체를 비교해 우선순위를 정합니다.</span></button>
+                <button class="agent-suggestion" type="button" data-question="구매 여정에서 가장 많이 멈추는 단계는?"><strong>구매 중단 구간 확인</strong><span>가장 많이 줄어드는 단계와 화면을 찾습니다.</span></button>
+                <button class="agent-suggestion" type="button" data-question="이탈이 집중된 화면을 캡처해서 보여줘"><strong>이탈 화면 직접 보기</strong><span>종료 신호가 모인 위치를 캡처로 확인합니다.</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="agent-run-status" id="agent-run-status" hidden>
+            <div class="agent-run-pulse"></div>
+            <div><strong id="agent-run-title">요청을 이해하고 있습니다</strong><span id="agent-run-detail">질문의 기간과 분석 대상을 확인합니다.</span></div>
+          </div>
+
+          <footer class="agent-composer-dock">
+            <div class="agent-context-chips" id="agent-context-chips"></div>
+            <form class="agent-composer" id="agent-form">
+              <textarea id="agent-question" rows="1" maxlength="1000" placeholder="운영 문제를 질문하세요. 예: 장바구니까지 온 고객이 주문하지 않는 이유는?" aria-label="운영 제안 질문"></textarea>
+              <button class="agent-send" type="submit" id="agent-send" aria-label="분석 요청" title="분석 요청"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg></button>
+            </form>
+            <div class="agent-composer-note">Enter로 전송 · Shift+Enter로 줄바꿈 · 답변 수치는 서버 집계값을 사용합니다.</div>
+          </footer>
+        </section>
+
+        <aside class="agent-context-panel" aria-label="현재 분석 근거">
+          <div class="agent-context-head"><div><span>현재 분석</span><h3>근거와 실행 계획</h3></div><div class="agent-context-tools"><button class="agent-context-close" id="agent-context-close" type="button" aria-label="근거 상세 닫기">닫기</button></div></div>
+          <section class="agent-context-block">
+            <div class="agent-context-label">분석 범위</div>
+            <div class="agent-context-period" id="agent-context-period"><strong>최근 7일</strong><span>질문을 시작하면 실제 기간이 표시됩니다.</span></div>
+          </section>
+          <section class="agent-context-block">
+            <div class="agent-context-label">핵심 근거</div>
+            <div class="agent-context-evidence" id="agent-context-evidence"><div class="agent-context-empty">답변의 근거가 이곳에 연결됩니다.</div></div>
+          </section>
+          <section class="agent-context-block">
+            <div class="agent-context-label">저장한 실행안</div>
+            <div class="agent-saved-actions" id="agent-saved-actions"><div class="agent-context-empty">저장된 실행안이 없습니다.</div></div>
+          </section>
+          <details class="agent-data-details">
+            <summary>Agent가 사용하는 데이터</summary>
+            <div class="agent-source-list">
+              <div class="agent-source"><span>기간·전환 요약</span><span>연결</span></div>
+              <div class="agent-source"><span>구매 여정·이탈 화면</span><span>연결</span></div>
+              <div class="agent-source"><span>유입·캠페인</span><span>연결</span></div>
+              <div class="agent-source"><span>상품·고객 유형</span><span>연결</span></div>
+            </div>
+          </details>
+        </aside>
+      </div>
+    </section>
+
     <section class="view" id="view-reports" data-view-panel="reports">
       <div class="view-head"><div><h2>리포트</h2><p>다운로드 없이 원하는 기간의 결과를 화면에서 바로 확인합니다.</p></div></div>
       <div class="stack">
@@ -1169,6 +1490,7 @@
        주소창에 키가 남아 있으면 화면 공유·발표자료 스크린샷에 그대로 노출된다.
        이후 요청은 X-GT-Key 헤더로 보낸다.                              */
     const SITE_KEY_STORAGE = "gt_site_key";
+    const AGENT_THREAD_STORAGE = "seer_agent_thread";
 
     const siteKey = (() => {
       const params = new URLSearchParams(window.location.search);
@@ -1206,6 +1528,14 @@
       fullReportOrigin: null,
       sessionEventCache: new Map(),
       periodReportCache: new Map(),
+      agentLoaded: false,
+      agentInFlight: false,
+      agentThreadId: (() => { try { return localStorage.getItem(AGENT_THREAD_STORAGE) || "operations-v2"; } catch { return "operations-v2"; } })(),
+      agentThreads: [],
+      agentProfile: null,
+      agentAnswers: new Map(),
+      agentSavedActions: [],
+      agentProgressTimer: null,
     };
 
     const $ = (id) => document.getElementById(id); // id로 엘리먼트 가져오기
@@ -1229,7 +1559,280 @@
         if (state.reportMode === "custom") renderPeriodReport("custom");
         else loadFullReport();
       }
+      if (view === "agent" && !state.agentLoaded) loadAgentWorkspace();
       window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}#${view}`);
+    }
+
+    function agentEmptyMarkup() {
+      return `<div class="agent-empty-state"><span class="agent-empty-mark">S</span><h3>오늘 어떤 운영 결정을 도와드릴까요?</h3><p>SEER가 구매 여정, 유입, 상품 행동과 이탈 화면을 함께 확인해 실행할 일을 제안합니다.</p><div class="agent-empty-prompts" id="agent-suggestions"><button class="agent-suggestion" type="button" data-question="지금 가장 먼저 개선할 부분은?"><strong>가장 시급한 문제 찾기</strong><span>구매 여정 전체를 비교해 우선순위를 정합니다.</span></button><button class="agent-suggestion" type="button" data-question="구매 여정에서 가장 많이 멈추는 단계는?"><strong>구매 중단 구간 확인</strong><span>가장 많이 줄어드는 단계와 화면을 찾습니다.</span></button><button class="agent-suggestion" type="button" data-question="이탈이 집중된 화면을 캡처해서 보여줘"><strong>이탈 화면 직접 보기</strong><span>종료 신호가 모인 위치를 캡처로 확인합니다.</span></button></div></div>`;
+    }
+
+    function followUpsFor(answer = {}, meta = {}) {
+      const targets = meta.plan?.targets || [];
+      const rows = [];
+      if (targets.includes("funnel") || /구간|상품 조회|장바구니/.test(answer.summary || "")) rows.push("이 구간의 이탈 화면을 캡처해서 보여줘");
+      if (targets.includes("channel")) rows.push("성과가 좋은 유입 경로와 비교해줘");
+      if (targets.includes("visual_exit")) rows.push("이 화면에서 바로 바꿀 요소 3개를 알려줘");
+      rows.push("이 제안을 이번 주 실행 순서로 정리해줘");
+      rows.push("지난 동일 기간과 비교해줘");
+      return [...new Set(rows)].slice(0, 3);
+    }
+
+    function renderAgentAnswer(answer = {}, meta = {}) {
+      const section = (label, items, className = "") => Array.isArray(items) && items.length
+        ? `<div class="agent-answer-section ${className}"><strong>${label}</strong><ul>${items.map((item) => `<li>${escapeHtml(typeof item === "string" ? item : item.statement || item.id || "")}</li>`).join("")}</ul></div>`
+        : "";
+      const observations = answer.observations || answer.evidence || [];
+      const caveats = (answer.caveats || []).filter((item) => !/Gemini|규칙으로 생성|API|집계 기준시각|DB 변경/.test(String(item)));
+      const visuals = (Array.isArray(answer.visuals) ? answer.visuals : []).map((item) => `<figure class="agent-visual-card"><img data-capture-url="${escapeHtml(item.image_url || '')}" alt="${escapeHtml(item.title || '이탈 집중 구역 캡처')}" loading="lazy"><figcaption><strong>${escapeHtml(item.title || '이탈 집중 구역')}</strong><span>${escapeHtml(item.description || '')}</span><span class="agent-visual-url">${escapeHtml(item.url || '')}</span></figcaption></figure>`).join("");
+      const requestId = escapeHtml(meta.request_id || "");
+      const feedback = escapeHtml(meta.feedback || "");
+      return `<div class="agent-analysis-head"><div class="agent-message-label">SEER 운영 Agent</div></div><div class="agent-answer-body"><h3 class="agent-answer-title">${escapeHtml(answer.summary || "우선 실행할 항목을 찾지 못했습니다.")}</h3>${visuals ? `<div class="agent-visual-grid">${visuals}</div>` : ''}<div class="agent-answer-grid">${section("이 판단을 한 이유", observations, "wide")}${section("확인할 가능성", answer.hypotheses)}${section("오늘 바꿀 것", answer.actions, "actions wide")}${section("7일 뒤 성공 기준", answer.kpis, "kpis")}${section("판단할 때 참고", caveats, "caveats")}</div><div class="agent-response-actions"><button type="button" data-agent-save="${requestId}">실행안 저장</button><button type="button" data-agent-context="${requestId}">근거 상세</button>${requestId ? `<button type="button" data-agent-feedback="helpful" data-request-id="${requestId}" class="${feedback === 'helpful' ? 'saved' : ''}">도움됨</button><button type="button" data-agent-feedback="not_helpful" data-request-id="${requestId}" class="${feedback === 'not_helpful' ? 'saved' : ''}">맞지 않음</button>` : ''}</div></div>`;
+    }
+
+    async function loadAgentVisualImages(scope) {
+      const headers = siteKey ? { "X-GT-Key": siteKey } : {};
+      await Promise.all([...scope.querySelectorAll("img[data-capture-url]")].map(async (image) => {
+        const url = image.dataset.captureUrl;
+        if (!url) return;
+        try {
+          const response = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          image.src = URL.createObjectURL(await response.blob());
+          image.removeAttribute("data-capture-url");
+        } catch {
+          const error = document.createElement("div");
+          error.className = "agent-visual-error";
+          error.textContent = "캡처 이미지를 불러오지 못했습니다.";
+          image.replaceWith(error);
+        }
+      }));
+    }
+
+    function renderSavedActions(actions = []) {
+      state.agentSavedActions = actions;
+      $("agent-saved-actions").innerHTML = actions.length
+        ? actions.slice().reverse().slice(0, 6).map((item) => `<div class="agent-saved-action">${escapeHtml(item.text || item)}</div>`).join("")
+        : `<div class="agent-context-empty">저장된 실행안이 없습니다.</div>`;
+    }
+
+    function renderAgentContext(answer = {}, meta = {}) {
+      const evidence = answer.observations || answer.evidence || [];
+      $("agent-context-evidence").innerHTML = evidence.length
+        ? evidence.slice(0, 5).map((item) => `<div class="agent-evidence-row">${escapeHtml(typeof item === "string" ? item : item.statement || item.id || "")}</div>`).join("")
+        : `<div class="agent-context-empty">표시할 근거가 없습니다.</div>`;
+      const period = meta.period;
+      if (period) {
+        $("agent-context-period").innerHTML = `<strong>${escapeHtml(period.start || period.startDate || "")} ~ ${escapeHtml(period.end || period.endDate || "")}</strong><span>${escapeHtml(meta.source === "gemini" ? "Gemini 해석 + 서버 검증 수치" : "서버 검증 수치 + 운영 규칙 해석")}</span>`;
+      }
+      const chips = followUpsFor(answer, meta);
+      $("agent-context-chips").innerHTML = chips.map((question) => `<button type="button" data-question="${escapeHtml(question)}">${escapeHtml(question)}</button>`).join("");
+    }
+
+    function appendAgentMessage(role, content, meta = {}) {
+      const box = $("agent-messages");
+      if (box.querySelector(".empty, .agent-empty, .agent-empty-state")) box.innerHTML = "";
+      const node = document.createElement("div");
+      node.className = `agent-message ${role}`;
+      node.innerHTML = role === "assistant" ? renderAgentAnswer(content, meta) : `<div class="agent-message-label">분석 요청</div><strong>${escapeHtml(content)}</strong>`;
+      box.appendChild(node);
+      if (role === "assistant") {
+        const key = meta.request_id || `answer_${Date.now()}`;
+        state.agentAnswers.set(key, { answer: content, meta });
+        renderAgentContext(content, meta);
+        loadAgentVisualImages(node);
+      }
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function relativeAgentTime(value) {
+      const diff = Date.now() - new Date(value || 0).getTime();
+      if (diff < 60_000) return "방금 전";
+      if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}분 전`;
+      if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}시간 전`;
+      return new Intl.DateTimeFormat("ko-KR", { month:"numeric", day:"numeric" }).format(new Date(value));
+    }
+
+    function renderAgentThreads() {
+      const rows = state.agentThreads;
+      $("agent-thread-list").innerHTML = rows.length
+        ? rows.map((thread) => `<button class="agent-thread-item ${thread.thread_id === state.agentThreadId ? 'active' : ''}" type="button" data-thread-id="${escapeHtml(thread.thread_id)}"><strong>${escapeHtml(thread.title)}</strong><span>${escapeHtml(thread.preview || '대화를 계속하세요.')}</span><span class="agent-thread-meta"><span>${relativeAgentTime(thread.updated_at)}</span><span>${thread.saved_action_count ? `실행안 ${thread.saved_action_count}` : `${Math.ceil((thread.message_count || 0) / 2)}회`}</span></span></button>`).join("")
+        : `<div class="agent-thread-empty">아직 저장된 대화가 없습니다.<br>새 운영 대화를 시작해보세요.</div>`;
+    }
+
+    async function agentApi(path, options = {}) {
+      const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+      if (siteKey) headers["X-GT-Key"] = siteKey;
+      // 수집 시작일부터 전체 기간을 집계하면 두 기간 Mongo 집계와 Gemini 해석이
+      // 이어져 1분을 넘을 수 있다. 일반 대시보드 polling과 분리해 충분히 기다린다.
+      const response = await fetch(path, { ...options, headers, signal: AbortSignal.timeout(140_000) });
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 401 || response.status === 403) {
+        bounceToLogin(response.status === 401 ? "missing" : "invalid");
+        throw new Error(body.error || "접근 키를 확인할 수 없습니다.");
+      }
+      if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+      return body;
+    }
+
+    async function loadAgentThread(threadId, { preserveList = false } = {}) {
+      state.agentThreadId = threadId;
+      try { localStorage.setItem(AGENT_THREAD_STORAGE, threadId); } catch {}
+      const thread = await agentApi(`/api/agent/threads/${encodeURIComponent(threadId)}`);
+      const messages = thread.messages || [];
+      const firstQuestion = messages.find((message) => message.role === "user")?.content || "새 운영 대화";
+      $("agent-thread-title").textContent = String(firstQuestion).slice(0, 48);
+      $("agent-messages").innerHTML = messages.length ? "" : agentEmptyMarkup();
+      state.agentAnswers.clear();
+      messages.forEach((message) => appendAgentMessage(message.role, message.content, {
+        request_id: message.request_id,
+        feedback: message.feedback,
+        plan: message.query_plan,
+        period: message.query_plan?.period,
+        source: "stored",
+        used_tools: message.used_tools,
+      }));
+      renderSavedActions(thread.saved_actions || []);
+      if (!preserveList) renderAgentThreads();
+    }
+
+    async function refreshAgentThreadList() {
+      const payload = await agentApi("/api/agent/threads");
+      state.agentThreads = payload.threads || [];
+      renderAgentThreads();
+    }
+
+    async function loadAgentWorkspace() {
+      try {
+        const [profile, list] = await Promise.all([
+          agentApi("/api/agent/profile"),
+          agentApi("/api/agent/threads"),
+        ]);
+        state.agentProfile = profile;
+        state.agentThreads = list.threads || [];
+        $("agent-scope-name").textContent = String(profile.tenant_id || profile.name || "")
+          .replace(/^https?:\/\//, "")
+          .replace(/^www\./, "")
+          .replace(/\s+운영 제안 에이전트$/, "");
+        $("agent-scope-description").textContent = profile.description;
+        if (!state.agentThreads.some((thread) => thread.thread_id === state.agentThreadId)) {
+          state.agentThreadId = state.agentThreads[0]?.thread_id || `ops_${Date.now()}`;
+        }
+        renderAgentThreads();
+        await loadAgentThread(state.agentThreadId, { preserveList: true });
+        state.agentLoaded = true;
+      } catch (error) {
+        $("agent-messages").innerHTML = `<div class="agent-empty-state"><span class="agent-empty-mark">!</span><h3>에이전트를 연결하지 못했습니다.</h3><p>${escapeHtml(error.message)}</p></div>`;
+      }
+    }
+
+    function startAgentProgress() {
+      const steps = [
+        ["요청을 이해하고 있습니다", "질문의 기간·채널·분석 대상을 확인합니다."],
+        ["필요한 데이터를 조회하고 있습니다", "구매 여정과 종료 신호를 같은 기간으로 집계합니다."],
+        ["근거를 검증하고 있습니다", "서버 집계 수치와 화면 신호가 일치하는지 확인합니다."],
+        ["실행안을 작성하고 있습니다", "운영자가 바로 바꿀 위치와 성공 기준을 정리합니다."],
+      ];
+      let index = 0;
+      const render = () => {
+        $("agent-run-title").textContent = steps[index][0];
+        $("agent-run-detail").textContent = steps[index][1];
+        $("agent-run-status").hidden = false;
+        index = Math.min(index + 1, steps.length - 1);
+      };
+      render();
+      clearInterval(state.agentProgressTimer);
+      state.agentProgressTimer = setInterval(render, 2200);
+    }
+
+    function stopAgentProgress() {
+      clearInterval(state.agentProgressTimer);
+      state.agentProgressTimer = null;
+      $("agent-run-status").hidden = true;
+    }
+
+    function newAgentThread() {
+      state.agentThreadId = `ops_${Date.now()}`;
+      try { localStorage.setItem(AGENT_THREAD_STORAGE, state.agentThreadId); } catch {}
+      state.agentAnswers.clear();
+      state.agentSavedActions = [];
+      $("agent-thread-title").textContent = "새 운영 대화";
+      $("agent-messages").innerHTML = agentEmptyMarkup();
+      $("agent-context-evidence").innerHTML = `<div class="agent-context-empty">답변의 근거가 이곳에 연결됩니다.</div>`;
+      $("agent-context-period").innerHTML = `<strong>최근 ${$("agent-days").value}일</strong><span>질문을 시작하면 실제 기간이 표시됩니다.</span>`;
+      $("agent-context-chips").innerHTML = "";
+      renderSavedActions([]);
+      renderAgentThreads();
+      $("agent-question").focus();
+    }
+
+    async function askAgent(question) {
+      const value = String(question || '').trim();
+      if (!value || state.agentInFlight) return;
+      state.agentInFlight = true;
+      appendAgentMessage("user", value);
+      $("agent-question").value = "";
+      $("agent-send").disabled = true;
+      document.querySelectorAll(".agent-suggestion").forEach((button) => { button.disabled = true; });
+      $("agent-send").classList.add("is-loading");
+      startAgentProgress();
+      const requestId = globalThis.crypto?.randomUUID?.().replaceAll("-", "") || `req_${Date.now()}`;
+      try {
+        const result = await agentApi("/api/agent/chat", {
+          method: "POST",
+          body: JSON.stringify({
+            question: value,
+            thread_id: state.agentThreadId,
+            days: Number($("agent-days").value),
+            request_id: requestId,
+          }),
+        });
+        appendAgentMessage("assistant", result.answer, { request_id: result.request_id || requestId, plan: result.plan, period: result.period, source: result.source, used_tools: result.used_tools });
+        if ($("agent-thread-title").textContent === "새 운영 대화") $("agent-thread-title").textContent = value.slice(0, 48);
+        await refreshAgentThreadList();
+      } catch (error) {
+        appendAgentMessage("assistant", { summary: "분석을 완료하지 못했습니다.", caveats: [error.message] }, { request_id: requestId });
+      } finally {
+        stopAgentProgress();
+        state.agentInFlight = false;
+        $("agent-send").disabled = false;
+        document.querySelectorAll(".agent-suggestion").forEach((button) => { button.disabled = false; });
+        $("agent-send").classList.remove("is-loading");
+      }
+    }
+
+    async function saveAgentActions(requestId, button) {
+      const item = state.agentAnswers.get(requestId);
+      const actions = item?.answer?.actions || [];
+      if (!actions.length) return;
+      button.disabled = true;
+      try {
+        const result = await agentApi(`/api/agent/threads/${encodeURIComponent(state.agentThreadId)}/actions`, {
+          method: "POST", body: JSON.stringify({ actions }),
+        });
+        renderSavedActions(result.saved_actions || []);
+        button.textContent = "실행안 저장됨";
+        button.classList.add("saved");
+        await refreshAgentThreadList();
+      } catch (error) {
+        button.textContent = "저장 실패";
+        button.title = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function sendAgentFeedback(requestId, value, button) {
+      if (!requestId) return;
+      try {
+        await agentApi(`/api/agent/threads/${encodeURIComponent(state.agentThreadId)}/feedback`, {
+          method: "POST", body: JSON.stringify({ request_id: requestId, value }),
+        });
+        button.closest(".agent-response-actions").querySelectorAll("[data-agent-feedback]").forEach((item) => item.classList.remove("saved"));
+        button.classList.add("saved");
+      } catch (error) {
+        button.title = error.message;
+      }
     }
 
     /* ── 접근 키 문제 처리 ───────────────────────────────────────────
@@ -2588,6 +3191,7 @@
       state.commerceLastLoadedAt = 0;
       state.fullReportOrigin = null;
       state.weeklyReportWeek = "";
+      state.agentLoaded = false;
       $("session-input").value = "";
       $("session-input").dataset.sessionId = "";
       $("timeline-box").innerHTML = `<div class="empty">새 사이트의 고객을 선택해주세요.</div>`;
@@ -2599,6 +3203,7 @@
       if (state.activeView === "reports" && state.reportMode === "weekly") {
         loadWeeklyReportWeeks().then(() => loadFullReport(true));
       }
+      if (state.activeView === "agent") loadAgentWorkspace();
     });
     // 전문가 화면도 같은 키를 써야 데이터가 보인다 (localStorage 공유라 최초 1회만 필요)
     // withKey를 붙이는 이유: 시크릿 모드처럼 localStorage 쓰기가 막힌 브라우저에서는
@@ -2673,6 +3278,67 @@
       loadFullReport(true);
     });
     $("open-reports").addEventListener("click", () => switchView("reports"));
+    $("agent-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      askAgent($("agent-question").value);
+    });
+    $("agent-question").addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        $("agent-form").requestSubmit();
+      }
+    });
+    $("agent-question").addEventListener("input", (event) => {
+      event.currentTarget.style.height = "50px";
+      event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 120)}px`;
+    });
+    $("agent-new-thread").addEventListener("click", newAgentThread);
+    $("agent-new-thread-mobile").addEventListener("click", () => {
+      newAgentThread();
+      document.querySelector(".agent-thread-rail").classList.remove("show-mobile");
+    });
+    $("agent-mobile-threads").addEventListener("click", () => document.querySelector(".agent-thread-rail").classList.toggle("show-mobile"));
+    window.matchMedia("(max-width: 1260px)").addEventListener("change", () => {
+      document.querySelector(".agent-context-panel")?.classList.remove("show-detail");
+    });
+    $("view-agent").addEventListener("click", async (event) => {
+      const question = event.target.closest("[data-question]");
+      if (question) {
+        askAgent(question.dataset.question || question.textContent);
+        return;
+      }
+      const thread = event.target.closest("[data-thread-id]");
+      if (thread && !state.agentInFlight) {
+        await loadAgentThread(thread.dataset.threadId);
+        renderAgentThreads();
+        document.querySelector(".agent-thread-rail").classList.remove("show-mobile");
+        return;
+      }
+      const save = event.target.closest("[data-agent-save]");
+      if (save) {
+        await saveAgentActions(save.dataset.agentSave, save);
+        return;
+      }
+      const feedback = event.target.closest("[data-agent-feedback]");
+      if (feedback) {
+        await sendAgentFeedback(feedback.dataset.requestId, feedback.dataset.agentFeedback, feedback);
+        return;
+      }
+      const context = event.target.closest("[data-agent-context]");
+      if (context) {
+        const item = state.agentAnswers.get(context.dataset.agentContext);
+        if (item) {
+          renderAgentContext(item.answer, item.meta);
+          const panel = document.querySelector(".agent-context-panel");
+          panel?.classList.add("show-detail");
+          if (panel) panel.scrollTop = 0;
+        }
+        return;
+      }
+      if (event.target.closest("#agent-context-close")) {
+        document.querySelector(".agent-context-panel")?.classList.remove("show-detail");
+      }
+    });
     document.querySelectorAll(".nav-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
     document.querySelectorAll(".report-mode").forEach((button) => button.addEventListener("click", () => {
       state.reportMode = button.dataset.reportMode;
@@ -2694,7 +3360,7 @@
 
     // 사이트 목록 로드 -> 첫 데이터 갱신 -> 최근 세션 자동 선택 -> 10초마다 polling
     (async function init() {
-      const initialView = ["loss", "overview", "marketing", "visits", "reports"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "loss";
+      const initialView = ["loss", "overview", "marketing", "visits", "agent", "reports"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "loss";
       switchView(initialView);
       await loadSites();
       await refresh();
