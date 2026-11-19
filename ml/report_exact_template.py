@@ -22,6 +22,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
+import hashlib
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +39,26 @@ def split_pages(source: str) -> list[str]:
 def display_site(origin: str) -> str:
     host = (urlparse(origin).hostname or origin or "Dignolucir").split(".")[0]
     return host[:1].upper() + host[1:]
+
+def site_capture_dir(origin: str, start: str, end:str) -> Path:
+    normalized_origin = origin.strip().lower().rstrip("/")
+
+    if not normalized_origin:
+        raise ValueError("쇼핑몰 Origin이 필요합니다.")
+    
+    site_key = hashlib.sha256(
+        normalized_origin.encode("utf-8")
+    ).hexdigest()[:16]
+
+    return (
+        ROOT
+        / "ml"
+        / "output"
+        / "reports"
+        / "exit_captures"
+        / site_key
+        / f"{start}_{end}"
+    )
 
 
 def load_inputs(metrics_path: str = "", commerce_path: str = "", result_path: str = "") -> dict:
@@ -224,9 +245,8 @@ def report_channels(channels: list[dict], limit: int = 6) -> list[dict]:
 
 
 def load_exit_hotspots(start: str, end: str, origin: str) -> list[dict]:
-    capture_dir = ROOT / "ml" / "output" / "reports" / "exit_captures"
-    cache_name = re.sub(r"[^a-zA-Z0-9._-]+", "_", f"{display_site(origin)}_{start}_{end}") + ".json"
-    cache_path = capture_dir / cache_name
+    capture_dir = site_capture_dir(origin, start, end)
+    cache_path = capture_dir / "hotspots.json"
     if cache_path.exists():
         try:
             cached = json.loads(cache_path.read_text(encoding="utf-8"))
@@ -1400,34 +1420,64 @@ def replace_conic_charts(page: str) -> str:
     return pattern.sub(convert, page)
 
 
-def insert_capture_images(page: str) -> str:
-    capture_dir = ROOT / "ml" / "output" / "reports" / "exit_captures"
-    captures = sorted(capture_dir.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
-    chosen = []
-    for index in (1, 2, 3):
-        match = next((p for p in captures if p.name.startswith(f"exit_hotspot_{index}_")), None)
-        if match:
-            chosen.append(match)
-    if not chosen:
-        return page
+def insert_capture_images(
+    page: str,
+    hotspots: list[dict],
+    origin: str,
+    start: str,
+    end: str
+) -> str:
+    """
+    현재 쇼핑몰의 이탈 화면 캡처만 리포트에 삽입한다.
+    다른 쇼핑몰의 캡처 파일은 절대 사용하지 않는다.
+    """
 
-    image_iter = iter(chosen)
+    # 현재 쇼핑몰 + 분석 기간의 전용 폴더
+    capture_dir = site_capture_dir(origin, start, end).resolve()
+
     placeholder = re.compile(
         r'<div style="(?P<style>[^"]*border:[^;\"]*dashed[^"]*)">\s*캡처 이미지 영역[^<]*</div>',
         flags=re.S,
     )
 
+    index = 0
+
     def replace(match: re.Match[str]) -> str:
-        try:
-            path = next(image_iter)
-        except StopIteration:
+        nonlocal index
+
+        # 현재 순서에 해당하는 이탈 지점 데이터
+        item = hotspots[index] if index < len(hotspots) else {}
+        index += 1
+
+        capture_path = item.get("capture_path")
+
+        # 캡처가 없다면 다른 쇼핑몰 이미지를 대신 사용하지 않는다.
+        if not capture_path:
             return match.group(0)
-        image_data = base64.b64encode(path.read_bytes()).decode("ascii")
+
+        path = Path(capture_path).resolve()
+
+        # 현재 쇼핑몰 전용 폴더에 있는 파일인지 확인
+        if not path.is_relative_to(capture_dir):
+            return match.group(0)
+
+        # 파일이 존재하지 않으면 빈 상태 유지
+        if not path.is_file():
+            return match.group(0)
+
+        # 검증된 이미지 파일만 Base64로 변환
+        image_data = base64.b64encode(
+            path.read_bytes()
+        ).decode("ascii")
+
         image_uri = f"data:image/png;base64,{image_data}"
+
         return (
             f'<div style="{match.group("style")};overflow:hidden">'
             f'<img src="{image_uri}" '
-            f'style="width:100%;height:100%;object-fit:cover;object-position:top;display:block"/></div>'
+            f'style="width:100%;height:100%;'
+            f'object-fit:cover;object-position:top;display:block"/>'
+            f'</div>'
         )
 
     return placeholder.sub(replace, page)
@@ -1671,7 +1721,13 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
         page = page.replace("2026.10.21 – 2026.10.27", date_short)
         page = replace_conic_charts(page)
         if source_index == 12:
-            page = insert_capture_images(page)
+            page = insert_capture_images(
+                page,
+                (inputs or {}).get("exit_hotspots") or [],
+                origin,
+                start,
+                end
+            )
         # Keep the original footer typography while making numbering truthful.
         page = re.sub(r"\d+\s*/\s*\d+", f"{page_no} / {len(selected)}", page)
         rendered.append(f'<section class="report-page source-page-{source_index + 1}">{page}</section>')
