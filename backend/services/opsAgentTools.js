@@ -297,13 +297,13 @@ async function visualHotspotTool(origin, plan) {
         : '이 기간에는 캡처할 수 있는 이탈 집중 구역을 찾지 못했습니다.',
     };
   } catch (error) {
-    console.warn('[ops-agent/visual-capture]', error.message);
+    console.warn('[ops-agent/visual-capture]', error.captureDetail || error.message);
     return {
       period: plan.period,
       run_id: null,
       captures: [],
       evidence: [],
-      note: `이탈 위치 집계는 완료했지만 화면 캡처를 생성하지 못했습니다: ${error.message}`,
+      note: '이탈 위치 집계는 완료했지만 현재 화면 캡처를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.',
     };
   }
 }

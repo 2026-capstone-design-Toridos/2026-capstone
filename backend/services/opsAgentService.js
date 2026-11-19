@@ -141,24 +141,23 @@ function fallbackNarrative(plan, tools) {
     actions.push(transitionAction(top));
     if (top) {
       const currentReach = Math.round((100 - top.stop_rate) * 10) / 10;
-      const target = Math.min(Math.round((currentReach + Math.max(3, currentReach * 0.15)) * 10) / 10, 100);
-      kpis.push(`'${top.from} → ${top.to}' 도달률: 현재 ${currentReach}%에서 7일 후 ${target}% 이상`);
+      kpis.push(`'${top.from} → ${top.to}' 도달률: 현재 ${currentReach}%에서 상승했는지 7일 후 비교`);
     }
   }
   if (has('get_visual_exit_hotspots')) {
     const first = tools.get_visual_exit_hotspots?.captures?.[0];
     actions.push(`캡처의 '${first?.section || '빨간 표시'}' 영역 바로 위에 다음 행동 버튼을 1개만 배치하고, 버튼 문구를 “자세히 보기” 대신 이동할 목적이 드러나는 말로 바꾸세요.`);
-    if (first) kpis.push(`'${first.section}' 구역 종료 신호: 현재 ${first.count}건에서 다음 7일 동안 10% 이상 감소`);
+    if (first) kpis.push(`'${first.section}' 구역 종료 신호: 현재 ${first.count}건보다 감소했는지 7일 후 비교`);
   }
   if (has('get_channel_performance') || has('get_campaign_performance')) {
     hypotheses.push('유입 메시지와 실제 랜딩 화면의 연결 정도에 따라 채널별 성과 차이가 발생했을 가능성이 있습니다.');
     actions.push('방문이 가장 많은 광고의 링크를 대표 상품 또는 기획전 화면으로 직접 연결하고, 광고에 쓴 상품명·혜택 문구를 랜딩 화면 첫 제목에도 동일하게 넣으세요.');
-    kpis.push('해당 유입의 상품 조회율을 현재보다 3%p 이상 높이고, 주문 수가 줄지 않는지 7일 단위로 비교');
+    kpis.push('해당 유입의 상품 조회율이 상승하고 주문 수가 줄지 않았는지 7일 단위로 비교');
   }
   if (has('get_product_opportunities')) {
     const product = tools.get_product_opportunities?.products?.[0];
     actions.push(`'${product?.name || '관심도가 가장 높은 상품'}' 상세 화면에서 가격 아래에 배송·교환·후기 요약을 붙이고, 옵션 선택 다음에 장바구니 버튼이 바로 보이도록 순서를 바꾸세요.`);
-    kpis.push('수정 상품의 상세 조회 대비 장바구니 담기율을 7일 전과 비교해 3%p 이상 상승 여부 확인');
+    kpis.push('수정 상품의 상세 조회 대비 장바구니 담기율이 7일 전보다 상승했는지 확인');
   }
   if (has('get_customer_type_insights')) {
     actions.push('비중이 큰 고객 유형의 대표 행동과 신뢰도를 함께 보고 유형별 안내 우선순위를 정하세요.');
@@ -174,6 +173,25 @@ function fallbackNarrative(plan, tools) {
     actions: actions.slice(0, 4),
     kpis: [...new Set(kpis)].slice(0, 5),
     caveats: ['관측된 행동과 종료 화면만으로 고객 의도나 이탈 원인을 단정할 수 없습니다.'],
+  };
+}
+
+function previousAssistantAnswer(history) {
+  return [...history].reverse().find((message) => message?.role === 'assistant' && message?.content)?.content || null;
+}
+
+function executionPlanNarrative(previous, fallback) {
+  const sourceActions = cleanList(previous?.actions, 3);
+  const actions = (sourceActions.length ? sourceActions : fallback.actions).slice(0, 3).map((action, index) => {
+    const timing = index === 0 ? '월요일' : index === 1 ? '화~수요일' : '목~금요일';
+    return `${index + 1}순위 · ${timing}: ${String(action).replace(/^\d+순위\s*[·:-]?\s*/, '')}`;
+  });
+  return {
+    summary: '이번 주에는 영향이 큰 수정부터 적용하고, 주 후반에 같은 지표로 결과를 확인하세요.',
+    hypotheses: [],
+    actions,
+    kpis: cleanList(previous?.kpis, 3).length ? cleanList(previous.kpis, 3) : fallback.kpis,
+    caveats: [],
   };
 }
 
@@ -210,6 +228,21 @@ function serverSummary(plan, tools) {
   return '선택한 기간의 운영 지표를 검증된 집계 기준으로 분석했습니다.';
 }
 
+function verifiedKpis(plan, tools) {
+  const rows = [];
+  const top = tools.get_funnel_overview?.transitions?.slice().sort((a, b) => b.stopped - a.stopped)[0];
+  if (top) {
+    const reach = Math.round((100 - Number(top.stop_rate || 0)) * 10) / 10;
+    rows.push(`${top.from} → ${top.to} 도달률: 현재 ${reach}%에서 상승했는지 7일 후 비교`);
+    rows.push(`${top.from} → ${top.to} 중단율: 현재 ${top.stop_rate}%에서 감소했는지 7일 후 비교`);
+  }
+  const visual = tools.get_visual_exit_hotspots?.captures?.[0];
+  if (visual) rows.push(`${visual.section} 구역 종료 신호: 현재 ${visual.count}건보다 감소했는지 7일 후 비교`);
+  const channel = tools.get_channel_performance?.channels?.[0];
+  if (!top && channel) rows.push(`${channel.name} 상품 조회율: 현재 ${channel.product_reach_rate}%에서 상승했는지 7일 후 비교`);
+  return [...new Set(rows)].slice(0, 3);
+}
+
 async function generateNarrative({ profile, question, plan, tools, usedTools, history }) {
   const safeHistory = history.slice(-4).map((message) => ({
     role: message.role === 'assistant' ? 'model' : 'user',
@@ -229,9 +262,15 @@ async function generateNarrative({ profile, question, plan, tools, usedTools, hi
     'hypotheses는 최대 2개만 쓰며 반드시 가능성·확인 방법을 포함하고 인과관계로 단정하지 마라.',
     'actions는 1~3개만 작성한다. 각 문장은 수정 위치, 바꿀 요소, 바꾸는 방법을 모두 포함해야 한다.',
     '“강화하세요”, “개선하세요”, “검토하세요”, “점검하세요”만으로 끝나는 모호한 조치는 금지한다.',
-    'kpis는 현재값을 도구에서 확인할 수 있으면 현재값과 7일 후 목표값 또는 명확한 성공·실패 판정 기준을 함께 쓴다.',
+    'kpis에 임의의 목표 숫자를 만들지 마라. 서버 도구에 있는 현재값만 인용하고 7일 후 상승·감소·유지 여부처럼 판정 방향만 써라.',
     'caveats는 의사결정에 실제 영향을 주는 제한만 최대 1개 작성한다.',
     '상품·주문·고객·DB를 변경한다고 말하지 마라.',
+    plan.response_mode === 'execution_plan'
+      ? '이번 요청은 실행 순서 정리다. 최초 진단을 반복하지 말고 이전 답변의 조치를 1~3순위와 요일별 실행 순서로 재구성하라. hypotheses는 빈 배열로 반환하라.'
+      : '',
+    plan.response_mode === 'visual_diagnosis'
+      ? '이번 요청은 화면 캡처 확인이다. 캡처가 있으면 표시 위치를 기준으로 수정안을 쓰고, 없으면 진단 전체를 반복하지 말고 캡처 불가 사실과 대신 확인할 정확한 화면 구역만 짧게 써라.'
+      : '',
     '한국어로 간결하게 작성하라.',
   ].join(' ');
   const payload = { question, structured_request: plan, server_selected_tools: toolPayload };
@@ -279,13 +318,30 @@ async function answerQuestion({ origin, question, days = 7, history = [], snapsh
     narrative = fallbackNarrative(plan, built.tools);
     source = 'rules_fallback';
   }
+  const priorAnswer = previousAssistantAnswer(history);
+  if (plan.response_mode === 'execution_plan') {
+    narrative = executionPlanNarrative(priorAnswer, narrative);
+  }
+  if (plan.response_mode === 'visual_diagnosis' && !built.tools.get_visual_exit_hotspots?.captures?.length) {
+    narrative.hypotheses = [];
+    narrative.actions = [
+      "홈 화면 첫 화면과 대표 상품 영역의 배치·버튼 연결을 우선 확인하세요. 캡처가 생성되면 종료 신호가 표시된 위치를 기준으로 수정 대상을 다시 좁힙니다.",
+    ];
+    narrative.kpis = [];
+  }
   const answer = {
     // 요약과 모든 수치 근거는 서버가 작성한다. Gemini는 가설·조치 문장만 담당한다.
-    summary: serverSummary(plan, built.tools),
-    observations,
+    response_mode: plan.response_mode,
+    summary: plan.response_mode === 'execution_plan' ? narrative.summary : serverSummary(plan, built.tools),
+    observations: plan.response_mode === 'execution_plan'
+      ? []
+      : plan.response_mode === 'visual_diagnosis'
+        ? observations.filter((row) => /visual_exit|exit\.top_page|funnel\.top_stop/.test(row.id)).slice(0, 2)
+        : observations,
     hypotheses: narrative.hypotheses,
     actions: narrative.actions,
-    kpis: narrative.kpis,
+    // 목표 수치는 Agent가 추정하지 않는다. 서버가 실제 현재값과 판정 방향만 만든다.
+    kpis: verifiedKpis(plan, built.tools),
     caveats: [...new Set([
       ...narrative.caveats,
       ...toolNotes.filter((note) => /없|못|초과|녹화가 아닙니다/.test(note)),

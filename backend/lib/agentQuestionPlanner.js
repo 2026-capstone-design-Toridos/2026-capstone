@@ -74,6 +74,14 @@ function detectedCampaign(question) {
   return /^(유입|분석|성과|고객)$/i.test(value) ? null : value || null;
 }
 
+function responseMode(question) {
+  const text = String(question || '');
+  if (/캡처|스크린샷|화면\s*(?:위치|구역|영역).*보여|이탈.*화면.*보여/.test(text)) return 'visual_diagnosis';
+  if (/실행\s*(?:순서|계획)|이번\s*주.*(?:순서|계획)|우선순위.*정리|순서로\s*정리/.test(text)) return 'execution_plan';
+  if (/지난\s*(?:동일\s*)?기간|이전\s*기간|전주|비교/.test(text)) return 'period_comparison';
+  return 'diagnosis';
+}
+
 function planQuestion(question, { days = 7, now = new Date(), previousPlan = null } = {}) {
   const text = String(question || '').trim();
   if (!text) throw validationError('질문이 비어 있습니다.');
@@ -124,6 +132,7 @@ function planQuestion(question, { days = 7, now = new Date(), previousPlan = nul
   }
 
   return {
+    response_mode: responseMode(text),
     period,
     filters: {
       channel: channel || (contextualFollowUp ? previousPlan?.filters?.channel || null : null),
@@ -136,4 +145,4 @@ function planQuestion(question, { days = 7, now = new Date(), previousPlan = nul
   };
 }
 
-module.exports = { planQuestion, daysPeriod, explicitPeriod, collectionPeriod, detectedChannel, shiftDate };
+module.exports = { planQuestion, daysPeriod, explicitPeriod, collectionPeriod, detectedChannel, responseMode, shiftDate };

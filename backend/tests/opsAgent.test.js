@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const { planQuestion } = require('../lib/agentQuestionPlanner');
 const { agentProfile, decideAsOf } = require('../services/opsAgentService');
+const { capturePython } = require('../services/visualHotspotService');
 
 const NOW = new Date('2026-11-18T03:00:00Z');
 
@@ -74,4 +75,27 @@ test('후속 질문의 이 화면 표현은 직전 분석 대상과 Tool을 상�
   assert.equal(plan.context_inherited, true);
   assert.ok(plan.targets.includes('funnel'));
   assert.ok(plan.required_tools.includes('get_funnel_overview'));
+});
+
+test('실행 순서 후속 질문은 이전 분석을 상속하되 실행 계획 모드로 구분한다', () => {
+  const previousPlan = planQuestion('지금 가장 먼저 개선할 부분은?', { days: 7, now: NOW });
+  const plan = planQuestion('이 제안을 이번 주 실행 순서로 정리해줘', { days: 7, now: NOW, previousPlan });
+  assert.equal(plan.response_mode, 'execution_plan');
+  assert.equal(plan.context_inherited, true);
+  assert.ok(plan.required_tools.includes('get_funnel_overview'));
+});
+
+test('캡처 후속 질문은 시각 진단 모드로 구분한다', () => {
+  const previousPlan = planQuestion('구매 여정에서 가장 많이 멈추는 단계는?', { days: 7, now: NOW });
+  const plan = planQuestion('이 구간의 이탈 화면을 캡처해서 보여줘', { days: 7, now: NOW, previousPlan });
+  assert.equal(plan.response_mode, 'visual_diagnosis');
+  assert.ok(plan.required_tools.includes('get_visual_exit_hotspots'));
+});
+
+test('화면 캡처 Python은 운영 전용 3.11 설정을 우선한다', () => {
+  const old = process.env.AGENT_CAPTURE_PYTHON_BIN;
+  process.env.AGENT_CAPTURE_PYTHON_BIN = '/tmp/python3.11';
+  assert.equal(capturePython(), '/tmp/python3.11');
+  if (old === undefined) delete process.env.AGENT_CAPTURE_PYTHON_BIN;
+  else process.env.AGENT_CAPTURE_PYTHON_BIN = old;
 });

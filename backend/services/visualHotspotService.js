@@ -17,8 +17,17 @@ function runIdFor(plan) {
   return `${plan.period.startDate}_${plan.period.endDate}`.replace(/[^0-9_-]/g, '_');
 }
 
+function capturePython() {
+  if (process.env.AGENT_CAPTURE_PYTHON_BIN) return process.env.AGENT_CAPTURE_PYTHON_BIN;
+  const productionPython = '/home/opc/ghosttracker-venv/bin/python3.11';
+  if (fs.existsSync(productionPython)) return productionPython;
+  const configured = process.env.PYTHON_BIN || process.env.PYTHON;
+  if (configured) return configured;
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
+
 function runPython(args, timeoutMs = 90_000) {
-  const python = process.env.PYTHON_BIN || process.env.PYTHON || 'python';
+  const python = capturePython();
   return new Promise((resolve, reject) => {
     const child = spawn(python, args, { cwd: ROOT, windowsHide: true });
     let stdout = '';
@@ -32,9 +41,17 @@ function runPython(args, timeoutMs = 90_000) {
     child.on('error', (error) => { clearTimeout(timer); reject(error); });
     child.on('close', (code) => {
       clearTimeout(timer);
-      if (code !== 0) return reject(new Error(stderr.trim() || `캡처 프로세스 종료 (${code})`));
+      if (code !== 0) {
+        const error = new Error('화면 캡처 생성에 실패했습니다.');
+        error.captureDetail = stderr.trim().slice(-2000) || `exit code ${code}`;
+        return reject(error);
+      }
       try { resolve(JSON.parse(stdout.trim() || '[]')); }
-      catch { reject(new Error(`캡처 결과를 읽지 못했습니다: ${stderr.trim().slice(-300)}`)); }
+      catch {
+        const error = new Error('화면 캡처 결과를 읽지 못했습니다.');
+        error.captureDetail = stderr.trim().slice(-2000);
+        reject(error);
+      }
     });
   });
 }
@@ -84,4 +101,4 @@ function resolveCapturePath(origin, runId, filename) {
   return target;
 }
 
-module.exports = { captureVisualHotspots, resolveCapturePath, tenantHash, runIdFor };
+module.exports = { captureVisualHotspots, resolveCapturePath, tenantHash, runIdFor, capturePython };

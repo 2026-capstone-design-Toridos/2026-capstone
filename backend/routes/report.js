@@ -510,9 +510,34 @@ async function ensureWeeklyReport(origin, period = previousCompletedWeek()) {
 }
 
 function artifactExists(report) {
-  return report?.status === 'ready'
-    && report.html_path && report.pdf_path
-    && fs.existsSync(report.html_path) && fs.existsSync(report.pdf_path);
+  const artifacts = resolveReportArtifacts(report);
+  return Boolean(report?.status === 'ready'
+    && artifacts.htmlPath && artifacts.pdfPath
+    && fs.existsSync(artifacts.htmlPath) && fs.existsSync(artifacts.pdfPath));
+}
+
+/**
+ * DB에는 다른 서버/OS에서 생성한 절대경로가 남을 수 있다. 저장된 경로가
+ * 현재 호스트에 없으면 파일명과 주차로 현재 REPORTS_DIR의 산출물을 찾는다.
+ */
+function resolveReportArtifacts(report) {
+  if (!report) return { htmlPath: '', pdfPath: '' };
+  const resolveOne = (stored, extension) => {
+    if (stored && fs.existsSync(stored)) return stored;
+    if (stored) {
+      const byName = path.join(REPORTS_DIR, path.basename(stored));
+      if (fs.existsSync(byName)) return byName;
+    }
+    if (report.origin && report.week_start) {
+      const expected = weeklyArtifactPaths(report.origin, report.week_start)[extension === '.html' ? 'htmlPath' : 'pdfPath'];
+      if (fs.existsSync(expected)) return expected;
+    }
+    return '';
+  };
+  return {
+    htmlPath: resolveOne(report.html_path, '.html'),
+    pdfPath: resolveOne(report.pdf_path, '.pdf'),
+  };
 }
 
 async function runWeeklyReportGeneration(origin, period = previousCompletedWeek(), options = {}) {
@@ -590,6 +615,19 @@ function queueWeeklyReport(origin, period = previousCompletedWeek(), options = {
     .finally(() => reportGenerationJobs.delete(jobKey));
   reportGenerationJobs.set(jobKey, job);
   return job;
+}
+
+async function recoverMissingWeeklyArtifact(report, origin, period) {
+  if (artifactExists(report)) return false;
+  if (report && report.status !== 'generating') {
+    await WeeklyReport.updateOne(
+      { _id: report._id },
+      { $set: { status: 'pending', next_generation_attempt_at: new Date(), generation_error: '' } },
+    );
+    report.status = 'pending';
+  }
+  queueWeeklyReport(origin, period, { force: true });
+  return true;
 }
 
 // ── Gemini API 호출 (재시도 포함) ────────────────────────────────────────────
@@ -1117,11 +1155,10 @@ router.get('/weekly/download', async (req, res) => {
     const period = previousCompletedWeek();
     const report = await ensureWeeklyReport(origin, period);
     if (!artifactExists(report)) {
-      const legacy = findLegacyReportPair(origin);
-      if (legacy) return res.download(legacy.pdfPath, `SEER_주간리포트_기존자료.pdf`);
+      await recoverMissingWeeklyArtifact(report, origin, period);
       return res.status(202).json({ status: report.status, message: '주간 리포트를 백그라운드에서 준비하고 있습니다.' });
     }
-    res.download(report.pdf_path, `SEER_주간리포트_${period.weekStart}_${period.weekEnd}.pdf`);
+    res.download(resolveReportArtifacts(report).pdfPath, `SEER_주간리포트_${period.weekStart}_${period.weekEnd}.pdf`);
   } catch (err) {
     console.error('[report/weekly/download] 오류:', err.message);
     res.status(500).json({ error: err.message });
@@ -1138,9 +1175,7 @@ router.get('/weekly/status', async (req, res) => {
       status: 'ready', week_start: report.week_start, week_end: report.week_end,
       generated_at: report.generated_at,
     });
-    if (findLegacyReportPair(origin)) return res.json({
-      status: 'ready', source: 'local_fallback', week_start: period.weekStart, week_end: period.weekEnd,
-    });
+    await recoverMissingWeeklyArtifact(report, origin, period);
     const code = report.status === 'failed' ? 503 : 202;
     return res.status(code).json({
       status: report.status,
@@ -1164,8 +1199,7 @@ router.get('/weekly/view', async (req, res) => {
     const period = previousCompletedWeek();
     const report = await ensureWeeklyReport(origin, period);
     if (!artifactExists(report)) {
-      const legacy = findLegacyReportPair(origin);
-      if (legacy) return sendLegacyHtml(res, legacy);
+      await recoverMissingWeeklyArtifact(report, origin, period);
       return res.status(202).json({
         status: report.status,
         week_start: period.weekStart,
@@ -1173,7 +1207,7 @@ router.get('/weekly/view', async (req, res) => {
         message: '주간 리포트를 백그라운드에서 준비하고 있습니다.',
       });
     }
-    res.sendFile(report.html_path);
+    res.sendFile(resolveReportArtifacts(report).htmlPath);
   } catch (err) {
     console.error('[report/weekly/view] 오류:', err.message);
     res.status(500).send(`<html lang="ko"><body><p>리포트를 준비하지 못했습니다. ${String(err.message).replace(/[<>&"]/g, '')}</p></body></html>`);
@@ -1186,18 +1220,27 @@ router.get('/weekly/weeks', async (req, res) => {
     const origin = req.siteOrigin || null;
     if (!origin) return res.status(400).json({ error: '쇼핑몰을 먼저 선택해주세요.' });
     const reports = await WeeklyReport.find({ origin: canonicalOrigin(origin) })
-      .select('week_start week_end status generated_at generation_error email_status emailed_at')
+      .select('origin week_start week_end status html_path pdf_path generated_at generation_error email_status emailed_at')
       .sort({ week_start: -1 })
       .limit(52)
       .lean();
     const currentPeriod = previousCompletedWeek();
+    for (const report of reports) {
+      report.available = artifactExists(report);
+      if (report.status === 'ready' && !report.available && report.week_start === currentPeriod.weekStart) {
+        await recoverMissingWeeklyArtifact(report, origin, currentPeriod);
+      }
+    }
     const current = reports.find((report) => report.week_start === currentPeriod.weekStart);
     const legacy = findLegacyReportPair(origin);
-    if (!artifactExists(current) && legacy) {
+    // DB에 주차 기록이 하나라도 있으면 날짜가 다른 legacy 파일을 최신 주차처럼
+    // 표시하지 않는다. 생성 기록 자체가 전혀 없는 초기 설치에서만 사용한다.
+    if (!reports.length && !artifactExists(current) && legacy) {
       reports.unshift({
         week_start: currentPeriod.weekStart,
         week_end: currentPeriod.weekEnd,
         status: 'ready',
+        available: true,
         source: 'local_fallback',
         display_start: legacy.displayStart,
         display_end: legacy.displayEnd,
@@ -1205,7 +1248,8 @@ router.get('/weekly/weeks', async (req, res) => {
         email_status: current?.email_status || 'disabled',
       });
     }
-    return res.json({ reports });
+    const publicReports = reports.map(({ _id, html_path, pdf_path, origin: reportOrigin, ...report }) => report);
+    return res.json({ reports: publicReports });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -1223,7 +1267,7 @@ router.get('/weekly/weeks/:weekStart/view', async (req, res) => {
       if (legacy) return sendLegacyHtml(res, legacy);
       return res.status(404).send('<p>이 주차의 리포트가 아직 준비되지 않았습니다.</p>');
     }
-    return res.sendFile(report.html_path);
+    return res.sendFile(resolveReportArtifacts(report).htmlPath);
   } catch (err) {
     return res.status(400).send(`<p>${String(err.message).replace(/[<>&"]/g, '')}</p>`);
   }
@@ -1241,7 +1285,7 @@ router.get('/weekly/weeks/:weekStart/download', async (req, res) => {
       if (legacy) return res.download(legacy.pdfPath, `SEER_주간리포트_기존자료.pdf`);
       return res.status(404).json({ error: '이 주차의 리포트가 아직 준비되지 않았습니다.' });
     }
-    return res.download(report.pdf_path, `SEER_주간리포트_${report.week_start}_${report.week_end}.pdf`);
+    return res.download(resolveReportArtifacts(report).pdfPath, `SEER_주간리포트_${report.week_start}_${report.week_end}.pdf`);
   } catch (err) {
     return res.status(400).json({ error: err.message });
   }

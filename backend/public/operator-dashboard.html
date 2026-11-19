@@ -1587,7 +1587,10 @@
       const visuals = (Array.isArray(answer.visuals) ? answer.visuals : []).map((item) => `<figure class="agent-visual-card"><img data-capture-url="${escapeHtml(item.image_url || '')}" alt="${escapeHtml(item.title || '이탈 집중 구역 캡처')}" loading="lazy"><figcaption><strong>${escapeHtml(item.title || '이탈 집중 구역')}</strong><span>${escapeHtml(item.description || '')}</span><span class="agent-visual-url">${escapeHtml(item.url || '')}</span></figcaption></figure>`).join("");
       const requestId = escapeHtml(meta.request_id || "");
       const feedback = escapeHtml(meta.feedback || "");
-      return `<div class="agent-analysis-head"><div class="agent-message-label">SEER 운영 Agent</div></div><div class="agent-answer-body"><h3 class="agent-answer-title">${escapeHtml(answer.summary || "우선 실행할 항목을 찾지 못했습니다.")}</h3>${visuals ? `<div class="agent-visual-grid">${visuals}</div>` : ''}<div class="agent-answer-grid">${section("이 판단을 한 이유", observations, "wide")}${section("확인할 가능성", answer.hypotheses)}${section("오늘 바꿀 것", answer.actions, "actions wide")}${section("7일 뒤 성공 기준", answer.kpis, "kpis")}${section("판단할 때 참고", caveats, "caveats")}</div><div class="agent-response-actions"><button type="button" data-agent-save="${requestId}">실행안 저장</button><button type="button" data-agent-context="${requestId}">근거 상세</button>${requestId ? `<button type="button" data-agent-feedback="helpful" data-request-id="${requestId}" class="${feedback === 'helpful' ? 'saved' : ''}">도움됨</button><button type="button" data-agent-feedback="not_helpful" data-request-id="${requestId}" class="${feedback === 'not_helpful' ? 'saved' : ''}">맞지 않음</button>` : ''}</div></div>`;
+      const mode = answer.response_mode || "diagnosis";
+      const reasonTitle = mode === "visual_diagnosis" ? "캡처 대상 근거" : "이 판단을 한 이유";
+      const actionTitle = mode === "execution_plan" ? "이번 주 실행 순서" : mode === "visual_diagnosis" ? "캡처 전 확인할 위치" : "오늘 바꿀 것";
+      return `<div class="agent-analysis-head"><div class="agent-message-label">SEER 운영 Agent</div></div><div class="agent-answer-body"><h3 class="agent-answer-title">${escapeHtml(answer.summary || "우선 실행할 항목을 찾지 못했습니다.")}</h3>${visuals ? `<div class="agent-visual-grid">${visuals}</div>` : ''}<div class="agent-answer-grid">${section(reasonTitle, observations, "wide")}${section("확인할 가능성", answer.hypotheses)}${section(actionTitle, answer.actions, "actions wide")}${section("7일 뒤 확인할 지표", answer.kpis, "kpis")}${section("판단할 때 참고", caveats, "caveats")}</div><div class="agent-response-actions"><button type="button" data-agent-save="${requestId}">실행안 저장</button><button type="button" data-agent-context="${requestId}">근거 상세</button>${requestId ? `<button type="button" data-agent-feedback="helpful" data-request-id="${requestId}" class="${feedback === 'helpful' ? 'saved' : ''}">도움됨</button><button type="button" data-agent-feedback="not_helpful" data-request-id="${requestId}" class="${feedback === 'not_helpful' ? 'saved' : ''}">맞지 않음</button>` : ''}</div></div>`;
     }
 
     async function loadAgentVisualImages(scope) {
@@ -2982,6 +2985,13 @@
           if (response.status === 202) throw new Error("보고서 생성이 오래 걸리고 있습니다. 잠시 후 리포트 메뉴를 다시 열어주세요.");
         let html = await response.text();
         if (!response.ok) throw new Error("전체 보고서를 불러오지 못했습니다.");
+        // srcdoc iframe은 file:// 폰트를 읽을 수 없고 스크립트 실행도 허용하지
+        // 않는다. 오래된 리포트의 로컬 폰트와 런타임 스크립트를 제거해 콘솔
+        // 경고 없이 정적 보고서만 표시한다.
+        html = html
+          .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+          .replace(/@font-face\s*\{[^}]*file:\/\/[^}]*\}/gi, "")
+          .replace(/url\(\s*(['"]?)file:\/\/[^)'"\s]+\1\s*\)/gi, "none");
         const responsiveStyle = `<style id="seer-dashboard-report-view">@media screen{body{background:#eef3f8!important}.page{max-width:100%!important;margin:0 auto 18px!important;box-shadow:0 8px 24px rgba(23,32,51,.08)!important}}@media screen and (max-width:720px){.page{width:100%!important;height:auto!important;min-height:0!important;padding:18px!important}.summary-kpi-row,.charts-row,.stats-row{flex-wrap:wrap!important}.chart-box{min-width:100%!important}.rec-table,table{display:block!important;width:100%!important;overflow-x:auto!important;white-space:nowrap!important;font-size:11px!important}.rec-table tbody,table tbody{display:table!important;min-width:760px!important}}</style>`;
         if (html.includes("</head>")) html = html.replace("</head>", `${responsiveStyle}</head>`);
         frame.srcdoc = html;
@@ -3009,7 +3019,7 @@
       }
       try {
         const payload = await api(`/api/report/weekly/weeks?origin=${encodeURIComponent(state.origin)}`);
-        const ready = (payload.reports || []).filter((report) => report.status === "ready");
+        const ready = (payload.reports || []).filter((report) => report.status === "ready" && report.available !== false);
         select.innerHTML = ready.length
           ? ready.map((report, index) => {
               const start = report.display_start || report.week_start;
