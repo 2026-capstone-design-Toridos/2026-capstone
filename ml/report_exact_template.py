@@ -334,6 +334,281 @@ def update_bar_group(soup, heading: str, items: list[dict]) -> None:
             set_style_value(bar, "width", f"{value / maximum * 100:.1f}%")
 
 
+def exact_text_tag(soup, text: str):
+    return next((tag for tag in soup.find_all(True) if tag.get_text(" ", strip=True) == text and not tag.find(True)), None)
+
+
+def set_label_value(soup, label: str, value: str) -> None:
+    tag = exact_text_tag(soup, label)
+    if tag:
+        sibling = tag.find_next_sibling()
+        if not sibling and tag.parent:
+            sibling = tag.parent.find_next_sibling()
+        if sibling:
+            sibling.string = value
+
+
+def bind_overview_page(page: str, inputs: dict) -> str:
+    """Bind the approved compact overview design to the weekly aggregates."""
+    soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+    metrics = inputs.get("metrics") or {}
+    overview = metrics.get("overview") or {}
+    commerce = inputs.get("commerce") or {}
+    profiles = profile_order(inputs.get("profiles") or [])
+    ai = inputs.get("ai") or {}
+    sessions = int(overview.get("sessions") or 0)
+    product = int(overview.get("product_sessions") or 0)
+    cart = int(overview.get("cart_sessions") or 0)
+    orders = int(overview.get("orders") or 0)
+    channels = metrics.get("channels") or []
+    direct = next((row for row in channels if str(row.get("name") or "").lower() in {"direct", "직접 방문", "직접 유입"}), {})
+    direct_sessions = int(direct.get("sessions") or 0)
+    product_rate = pct(product, sessions)
+    direct_rate = pct(direct_sessions, sessions)
+    set_label_value(soup, "이번 주 방문(세션)", f"{sessions:,}")
+    set_label_value(soup, "상품 조회 도달률", f"{product_rate}%")
+    set_label_value(soup, "주문 완료", f"{orders:,}건")
+    set_label_value(soup, "직접 방문 비중", f"{direct_rate}%")
+
+    headline = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == "방문은 있었지만, 구매로 이어지지 않았어요."), None)
+    if headline:
+        headline.string = "구매 여정의 핵심 흐름을 한눈에 확인하세요."
+        detail = headline.find_next_sibling("div")
+        if detail:
+            detail.clear()
+            detail.append(f"전체 방문 {sessions:,}건 중 상품 조회 도달은 {product:,}건({product_rate}%), 주문 완료는 {orders:,}건입니다.")
+
+    text_changes = {
+        "도달 105": f"도달 {product:,}",
+        "상품 조회 미도달 129": f"상품 조회 미도달 {max(sessions - product, 0):,}",
+        "234건": f"{sessions:,}건",
+        "▼ 129건 상품 조회에 도달하지 못함 (전체의 55%)": f"▼ {max(sessions-product, 0):,}건 상품 조회 미도달 (전체의 {pct(max(sessions-product, 0), sessions)}%)",
+        "105건": f"{product:,}건",
+        "45%": f"{product_rate}%",
+        "▼ 105건 장바구니로 이어지지 않음 (진행 0%)": f"▼ {max(product-cart, 0):,}건 장바구니 미도달 (진행 {pct(cart, product)}%)",
+        "▼ 구매로 이어지지 않음 (진행 0%)": f"▼ {max(cart-orders, 0):,}건 주문 미완료 (진행 {pct(orders, cart)}%)",
+    }
+    used = set()
+    for tag in soup.find_all(True):
+        if tag.find(True):
+            continue
+        raw = tag.get_text(" ", strip=True)
+        if raw in text_changes and (raw, id(tag)) not in used:
+            tag.string = text_changes[raw]
+            used.add((raw, id(tag)))
+    journey = exact_text_tag(soup, "구매 여정")
+    journey_panel = journey.parent.parent if journey and journey.parent else None
+    if journey_panel:
+        stages = (("방문", sessions), ("상품 조회", product), ("장바구니", cart), ("구매", orders))
+        for label, value in stages:
+            label_tag = next((tag for tag in journey_panel.find_all("div") if tag.get_text(" ", strip=True) == label and not tag.find("div")), None)
+            row = label_tag.parent if label_tag else None
+            parts = row.find_all("div", recursive=False) if row else []
+            if len(parts) < 3:
+                continue
+            count_tag = parts[2].find("b")
+            share_tag = parts[2].find("span")
+            if count_tag:
+                count_tag.string = f"{value:,}건"
+            if share_tag:
+                share_tag.string = rate_text(rate(value, sessions))
+            bar = parts[1].find("div")
+            if bar:
+                set_style_value(bar, "width", f"{max(rate(value, sessions), 0.4):.1f}%")
+
+    weekday = [int(value or 0) for value in (metrics.get("weekday") or [0] * 7)][:7]
+    weekday += [0] * (7 - len(weekday))
+    hourly = [int(value or 0) for value in (metrics.get("hourly") or [0] * 24)][:24]
+    hourly += [0] * (24 - len(hourly))
+    weekday_total = sum(weekday) or 1
+    weekday_share = pct(sum(weekday[:5]), weekday_total)
+    peak_day = max(range(7), key=lambda idx: weekday[idx])
+    buckets = [sum(hourly[start:start + 3]) for start in range(0, 24, 3)]
+    peak_bucket = max(range(8), key=lambda idx: buckets[idx])
+    for old, new in {
+        "평일 69%": f"평일 {weekday_share}%", "주말 31%": f"주말 {100-weekday_share}%",
+        "금요일": ["월요일","화요일","수요일","목요일","금요일","토요일","일요일"][peak_day],
+        "0~3시": f"{peak_bucket*3}~{peak_bucket*3+3}시",
+        "직접 유입 91%": f"직접 유입 {direct_rate}%", "214건": f"{direct_sessions:,}건",
+        "기타 유입 9%": f"기타 유입 {100-direct_rate}%", "20건": f"{max(sessions-direct_sessions, 0):,}건",
+    }.items():
+        tag = exact_text_tag(soup, old)
+        if tag:
+            tag.string = new
+    donut_value = exact_text_tag(soup, "91%")
+    if donut_value:
+        donut_value.string = f"{direct_rate}%"
+
+    profile_total = sum(int(row.get("count") or 0) for row in profiles)
+    baseline_names = ["짧은 방문·행동 정보 부족", "상품·가격 확인 중심", "다양한 상호작용·구매 시도", "리뷰 관련 신호 중심", "상품·카테고리 반복 탐색"]
+    for baseline, profile in zip(baseline_names, profiles):
+        name_tag = exact_text_tag(soup, baseline)
+        if not name_tag:
+            continue
+        name_tag.string = str(profile.get("name") or "고객 유형")
+        row = name_tag.parent
+        texts = [tag for tag in row.find_all("div") if not tag.find("div")]
+        if len(texts) >= 3:
+            texts[-2].string = f"{pct(int(profile.get('count') or 0), profile_total)}%"
+            texts[-1].string = f"{int(profile.get('count') or 0):,}건"
+    classified = next((tag for tag in soup.find_all(True) if "분류된 186건 기준" in tag.get_text(" ", strip=True) and not tag.find(True)), None)
+    if classified:
+        classified.string = f"분류된 {profile_total:,}건 기준 (전체 방문 {sessions:,}건 중)"
+
+    counts = commerce.get("counts") or {}
+    for label, key in (("상품 클릭", "product_clicks"), ("리뷰 확인", "review_views"), ("장바구니 담기", "add_to_cart")):
+        set_label_value(soup, label, f"{int(counts.get(key) or 0):,}회")
+    tasks = ai.get("weekly_tasks") or []
+    task_title = exact_text_tag(soup, "이번 주 운영 개선 제안")
+    if task_title and tasks:
+        card_row = task_title.parent.find_next_sibling("div")
+        cards = card_row.find_all("div", recursive=False) if card_row else []
+        for card, task in zip(cards, tasks):
+            set_style_value(card, "min-height", "68px")
+            set_style_value(card, "box-sizing", "border-box")
+            leaves = [tag for tag in card.find_all("div") if not tag.find("div")]
+            if len(leaves) >= 3:
+                leaves[-2].string = str(task.get("title") or "운영 개선")
+                reason = str(task.get("reason") or task.get("action") or "")
+                leaves[-1].string = reason
+                set_style_value(leaves[-1], "font-size", "10.5px")
+                set_style_value(leaves[-1], "line-height", "1.35")
+                set_style_value(leaves[-1], "overflow-wrap", "anywhere")
+    if not tasks:
+        deterministic = {
+            "방문 234 → 상품 조회 105 · 미도달 129": f"방문 {sessions:,} → 상품 조회 {product:,} · 미도달 {max(sessions-product, 0):,}",
+            "리뷰 확인 45 · 상품 클릭 19 · 장바구니 담기 0": (
+                f"리뷰 확인 {int(counts.get('review_views') or 0):,} · 상품 클릭 {int(counts.get('product_clicks') or 0):,} · "
+                f"장바구니 담기 {int(counts.get('add_to_cart') or 0):,}"
+            ),
+        }
+        for old, new in deterministic.items():
+            tag = exact_text_tag(soup, old)
+            if tag:
+                tag.string = new
+    return str(soup)
+
+
+def bind_interest_page(page: str, inputs: dict) -> str:
+    """Bind the event page only to explicit UTM campaign sessions and observed products."""
+    soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+    metrics = inputs.get("metrics") or {}
+    commerce = inputs.get("commerce") or {}
+    profiles = profile_order(inputs.get("profiles") or [])
+    campaigns = metrics.get("campaigns") or []
+    campaign = campaigns[0] if campaigns else {}
+    event_sessions = int(campaign.get("sessions") or 0)
+    interested = int(campaign.get("product_sessions") or 0)
+    total_sessions = int((metrics.get("overview") or {}).get("sessions") or 0)
+    campaign_name = str(campaign.get("name") or "식별 가능한 이벤트 없음")
+    campaign_channel = str(campaign.get("channel") or "UTM 캠페인 미수집")
+    set_label_value(soup, "이벤트로 유입된 고객", f"{event_sessions:,}명")
+    set_label_value(soup, "상품에 관심을 가진 고객", f"{interested:,}명")
+    set_label_value(soup, "이벤트 유입 고객 비율", f"{rate_text(rate(event_sessions, total_sessions))}")
+    campaign_label = next((tag for tag in soup.find_all(True) if tag.get_text(" ", strip=True) == "캠페인: Instagram" and not tag.find(True)), None)
+    if campaign_label:
+        campaign_label.string = f"캠페인: {campaign_name} · {campaign_channel}"
+    detail = exact_text_tag(soup, "상품 상세 도달 · 모두 직접 방문")
+    if detail:
+        detail.string = f"캠페인 유입 중 상품 상세 도달 {interested:,}명"
+    total = exact_text_tag(soup, "총 8명 중 5명")
+    if total:
+        total.string = f"전체 {total_sessions:,}명 중 {event_sessions:,}명"
+
+    hourly = [int(value or 0) for value in (campaign.get("hourly") or [0] * 24)][:24]
+    hourly += [0] * (24 - len(hourly))
+    peak_hour = max(range(24), key=lambda idx: hourly[idx]) if hourly else 0
+    visit_copy = next((tag for tag in soup.find_all(True) if "약 37분 안에 몰렸어요" in tag.get_text(" ", strip=True) and not tag.find(True)), None)
+    if visit_copy:
+        visit_copy.string = (f"{event_sessions:,}명 중 {hourly[peak_hour]:,}명이 {peak_hour}시에 방문했어요" if event_sessions else "UTM 캠페인으로 식별된 방문이 없습니다")
+    time_labels = ["오전 9시", "10시", "11시", "오후 12시"]
+    bucket_labels = ["0~5시", "6~11시", "12~17시", "18~23시"]
+    bucket_values = [sum(hourly[start:start + 6]) for start in range(0, 24, 6)]
+    bucket_max = max(bucket_values, default=0) or 1
+    for old_label, new_label, value in zip(time_labels, bucket_labels, bucket_values):
+        label_tag = exact_text_tag(soup, old_label)
+        column = label_tag.parent if label_tag else None
+        parts = column.find_all("div", recursive=False) if column else []
+        if len(parts) >= 3:
+            parts[0].string = f"{value:,}명"
+            set_style_value(parts[1], "height", f"{max(value / bucket_max * 56, 2):.1f}px")
+            set_style_value(parts[1], "background", "#b45309" if value == bucket_max and value else "#8aa5d8")
+            label_tag.string = new_label
+    risky = int(campaign.get("risky_sessions") or 0)
+    action_copy = next((tag for tag in soup.find_all(True) if tag.get_text(" ", strip=True) == "탐색 중지 신호와 홈 화면 머묾이 가장 많았어요" and not tag.find(True)), None)
+    if action_copy:
+        action_copy.string = f"캠페인 유입 {event_sessions:,}명 중 탐색 중지 신호 {risky:,}명이 관측됐어요"
+    set_label_value(soup, "탐색 중지 신호", f"{risky:,}명")
+    home_exit = next((row for row in (metrics.get("exit_pages") or []) if "홈" in str(row.get("label") or "")), {})
+    set_label_value(soup, "홈 화면에서 머묾", f"{int(home_exit.get('sessions') or 0):,}명")
+    home_label = exact_text_tag(soup, "홈 화면에서 머묾")
+    if home_label:
+        home_label.string = "전체 홈 종료"
+    if not campaign:
+        visit_title = exact_text_tag(soup, "방문 시점")
+        action_title = exact_text_tag(soup, "가장 많은 행동")
+        for title in (visit_title, action_title):
+            panel = title.parent if title else None
+            if not panel:
+                continue
+            children = panel.find_all("div", recursive=False)
+            for child in children[2:]:
+                set_style_value(child, "display", "none")
+
+    profile_total = sum(int(row.get("count") or 0) for row in profiles)
+    profile_labels = ["짧은 방문형", "상품·가격 확인", "다양한 상호작용", "리뷰 신호 중심", "반복 탐색"]
+    note = exact_text_tag(soup, "유형별 분류 데이터가 연결되면 채워져요")
+    if note:
+        note.string = "이번 주 전체 고객 유형 분포입니다"
+    for label, profile in zip(profile_labels, profiles):
+        tag = exact_text_tag(soup, label)
+        if tag:
+            raw_name = str(profile.get("name") or label).replace(" 고객", "").replace("형", "")
+            concise_name = next((short for keyword, short in (
+                ("짧은", "짧은 방문"), ("가격", "상품·가격 확인"), ("상호작용", "다양한 상호작용"),
+                ("리뷰", "리뷰 신호 중심"), ("카테고리", "반복 탐색"),
+            ) if keyword in raw_name), raw_name[:8] + ("…" if len(raw_name) > 8 else ""))
+            tag.string = concise_name
+            tag["title"] = raw_name
+            set_style_value(tag, "font-size", "10.5px")
+            value = tag.parent.find_all("span")[-1] if tag.parent.find_all("span") else None
+            if value:
+                value.string = f"{pct(int(profile.get('count') or 0), profile_total)}%"
+
+    products = (commerce.get("products") or [])[:4]
+    heading = next((tag for tag in soup.find_all("h2") if "상품 관심 TOP" in tag.get_text()), None)
+    if heading:
+        rows = heading.find_next_sibling("div").find_all("div", recursive=False)
+        for row, product in zip(rows, products):
+            leaves = [tag for tag in row.find_all("div") if not tag.find("div")]
+            if len(leaves) >= 2:
+                leaves[0].string = str(product.get("name") or "상품")
+                leaves[-1].string = f"{int(product.get('detail_views') or product.get('clicks') or 0):,}회"
+        for row in rows[len(products):]:
+            set_style_value(row, "display", "none")
+    guide = next((tag for tag in soup.find_all("div") if "Instagram 유입 5명" in tag.get_text(" ", strip=True) and len(tag.get_text(" ", strip=True)) < 260), None)
+    if guide:
+        guide.clear()
+        if campaign:
+            product_rate = rate(interested, event_sessions)
+            risky_rate = rate(risky, event_sessions)
+            if event_sessions < 30:
+                guide.append(
+                    f"{campaign_name} 캠페인 유입 {event_sessions:,}명 중 상품 상세 도달은 {interested:,}명({product_rate:.1f}%), "
+                    f"탐색 중지 신호는 {risky:,}명({risky_rate:.1f}%)입니다. 표본이 작아 성과 확정보다 점검 대상으로 읽어주세요."
+                )
+            else:
+                guide.append(
+                    f"{campaign_name} 캠페인 유입 {event_sessions:,}명 중 상품 상세 도달은 {interested:,}명({product_rate:.1f}%), "
+                    f"탐색 중지 신호는 {risky:,}명({risky_rate:.1f}%)입니다. 캠페인 랜딩에서 상품 상세로 이어지는 동선을 우선 점검하세요."
+                )
+        else:
+            guide.append("이번 주에는 UTM 캠페인으로 식별된 이벤트 유입이 없습니다. 상품 관심 순위는 전체 방문의 실제 상품 상세 조회를 기준으로 확인하세요.")
+        set_style_value(guide, "font-size", "13px")
+        set_style_value(guide, "line-height", "1.55")
+    return str(soup)
+
+
 def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
     metrics = inputs.get("metrics") or {}
     commerce = inputs.get("commerce") or {}
@@ -1343,8 +1618,12 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
     if len(pages) < 20:
         raise ValueError(f"Expected 20 design pages, found {len(pages)}")
 
-    # Cover A + every unique body design. Cover alternatives B-E are excluded.
-    selected: list[int | str] = [0, *range(5, 19), "cafe24-appendix", 19]
+    # Cover A + the three newly approved opening pages + the remaining body.
+    # The previous source_index 5 summary is intentionally excluded because the
+    # new overview replaces it rather than duplicating the same information.
+    selected: list[int | str] = [
+        0, "overview", "system", "interest", *range(6, 19), "cafe24-appendix", "event-summary", 19,
+    ]
     start_dt = datetime.strptime(start, "%Y-%m-%d")
     end_dt = datetime.strptime(end, "%Y-%m-%d")
     date_long = f"{start_dt:%Y.%m.%d} – {end_dt:%m.%d}"
@@ -1357,6 +1636,28 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
         if source_index == "cafe24-appendix":
             appendix = build_cafe24_appendix(start_dt, end_dt, site, page_no, len(selected), inputs or {})
             rendered.append(f'<section class="report-page source-page-cafe24">{appendix}</section>')
+            continue
+        if source_index in {"overview", "system", "interest", "event-summary"}:
+            insert_path = ROOT / "ml" / "templates" / "weekly_report" / {
+                "overview": "insert-page-02-overview.html",
+                "system": "insert-page-03-system.html",
+                "interest": "insert-page-04-interest.html",
+                "event-summary": "insert-page-event-summary.html",
+            }[source_index]
+            insert_pages = split_pages(insert_path.read_text(encoding="utf-8"))
+            if not insert_pages:
+                raise ValueError(f"Inserted weekly template has no x-dc page: {insert_path}")
+            page = insert_pages[0]
+            if source_index == "overview":
+                page = bind_overview_page(page, inputs or {})
+            elif source_index == "interest":
+                page = bind_interest_page(page, inputs or {})
+            page = page.replace("Dignolucir", site)
+            page = page.replace("2026.10.21 – 10.27", date_long)
+            page = page.replace("2026.10.21 - 10.27", date_long)
+            page = replace_conic_charts(page)
+            page = re.sub(r"\d+\s*/\s*\d+", f"{page_no} / {len(selected)}", page)
+            rendered.append(f'<section class="report-page source-page-{source_index}">{page}</section>')
             continue
         assert isinstance(source_index, int)
         page = pages[source_index]

@@ -145,6 +145,37 @@ function devicesOf(sessions) {
   return [...map.values()].sort((a, b) => b.sessions - a.sessions);
 }
 
+/** UTM 캠페인이 실제로 붙은 세션만 이벤트 유입으로 집계한다. */
+function campaignsOf(sessions) {
+  const map = new Map();
+  for (const session of sessions) {
+    const name = String(session.utm_campaign || '').trim();
+    if (!name) continue;
+    const row = map.get(name) || {
+      name,
+      channel: deriveSourceName(session),
+      sessions: 0,
+      product_sessions: 0,
+      cart_sessions: 0,
+      orders: 0,
+      risky_sessions: 0,
+      hourly: Array(24).fill(0),
+    };
+    const reached = reach(session);
+    row.sessions += 1;
+    if (reached.product) row.product_sessions += 1;
+    if (reached.cart) row.cart_sessions += 1;
+    if (reached.completed) row.orders += 1;
+    if (session.risky && !session.completed) row.risky_sessions += 1;
+    if (session.first_at) {
+      const kst = new Date(new Date(session.first_at).getTime() + KST_OFFSET_MS);
+      row.hourly[kst.getUTCHours()] += 1;
+    }
+    map.set(name, row);
+  }
+  return [...map.values()].sort((a, b) => b.sessions - a.sessions).slice(0, 5);
+}
+
 /** 탐색 중지 세션만 모아 라벨별 상위 N개. share 는 대시보드와 같은 정수 % 이다. */
 function topLabels(sessions, labelOf) {
   const risky = sessions.filter((s) => s.risky && !s.completed);
@@ -208,6 +239,7 @@ async function buildReportMetrics(origin, { startDate, endDate, asOf = null }) {
     prev_overview: overviewOf(previous),
     funnel: funnelOf(overview),
     channels: channelsOf(current),
+    campaigns: campaignsOf(current),
     devices: devicesOf(current),
     exit_pages: topLabels(current, (s) => screenLabel(s.pathname, s.page_type)),
     exit_causes: topLabels(current, causeLabel),
