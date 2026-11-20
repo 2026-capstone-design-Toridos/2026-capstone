@@ -47,6 +47,77 @@ function responseSchema() {
   };
 }
 
+const MIN_SAMPLE = 20;
+
+function fmt(value) {
+  return Number(value || 0).toLocaleString('ko-KR');
+}
+
+// 이 질문이 실제로 바라보는 세션 수. 채널을 물었으면 그 채널 세션만 센다.
+function focusSessions(plan, tools) {
+  const channelTool = tools.get_channel_performance;
+  const asksChannel = plan.filters.channel || (plan.filters.channels || []).length;
+  if (asksChannel && channelTool) {
+    return (channelTool.channels || []).reduce((sum, row) => sum + Number(row.sessions || 0), 0);
+  }
+  const overview = tools.get_period_overview?.sessions?.current;
+  if (overview !== undefined) return Number(overview || 0);
+  const firstStage = tools.get_funnel_overview?.stages?.[0]?.sessions;
+  return firstStage === undefined ? null : Number(firstStage || 0);
+}
+
+// 방문은 충분한데 상품 조회로 가장 덜 이어지는 채널. 일반론 대신 이 채널을 짚는다.
+function weakestChannel(tools) {
+  const rows = (tools.get_channel_performance?.channels || []).filter((row) => Number(row.sessions || 0) >= MIN_SAMPLE);
+  return rows.sort((a, b) => a.product_reach_rate - b.product_reach_rate || b.sessions - a.sessions)[0] || null;
+}
+
+function insufficientAnswer(plan, sampleSize, observations) {
+  const target = plan.filters.channel
+    ? `${plan.filters.channel} 유입`
+    : (plan.filters.channels || []).length ? `${plan.filters.channels.join('·')} 유입` : '이 기간';
+  return {
+    summary: sampleSize === 0
+      ? `${target} 세션이 아직 없어 분석할 수 없습니다. 수집된 데이터가 생긴 뒤 다시 확인하세요.`
+      : `${target} 세션이 ${fmt(sampleSize)}건뿐이라 운영 조치를 제안하기엔 표본이 부족합니다. 최소 ${MIN_SAMPLE}건 이상 모인 뒤 다시 확인하세요.`,
+    observations,
+    hypotheses: [],
+    actions: [],
+    kpis: [],
+    caveats: ['분석 기간을 늘리거나(예: "최근 30일") 채널 조건을 빼고 다시 질문하면 판단할 수 있는 표본이 생길 수 있습니다.'],
+  };
+}
+
+function channelComparisonAnswer(plan, tools) {
+  const rows = [...(tools.get_channel_performance?.channels || [])].sort((a, b) => b.sessions - a.sessions);
+  const enough = rows.filter((row) => Number(row.sessions || 0) >= MIN_SAMPLE);
+  const observations = rows.map((row) => ({
+    id: `channel_compare.${row.name}`,
+    statement: `${row.name}: 방문 ${fmt(row.sessions)}건 · 상품 조회 ${row.product_reach_rate}% · 장바구니 ${row.cart_rate}% · 주문 ${fmt(row.orders)}건(${row.order_rate}%)`,
+  }));
+  const missing = tools.get_channel_performance?.missing || [];
+  let summary;
+  if (enough.length >= 2) {
+    const best = [...enough].sort((a, b) => b.product_reach_rate - a.product_reach_rate)[0];
+    const worst = [...enough].sort((a, b) => a.product_reach_rate - b.product_reach_rate)[0];
+    summary = best.name === worst.name
+      ? `${enough.map((row) => row.name).join('·')}의 상품 조회율이 ${best.product_reach_rate}%로 같습니다.`
+      : `상품 조회로 더 잘 이어지는 채널은 ${best.name}(${best.product_reach_rate}%)이고, ${worst.name}은 ${worst.product_reach_rate}%로 가장 낮습니다. 먼저 손볼 곳은 ${worst.name} 광고가 도착하는 첫 화면입니다.`;
+  } else if (enough.length === 1) {
+    summary = `비교할 만큼 표본이 있는 채널은 ${enough[0].name}(${fmt(enough[0].sessions)}건)뿐이라 채널 간 우열은 판단하기 어렵습니다.`;
+  } else {
+    summary = `비교한 채널 모두 세션이 ${MIN_SAMPLE}건 미만이라 우열을 판단하기 어렵습니다.`;
+  }
+  const worst = enough.length >= 2 ? [...enough].sort((a, b) => a.product_reach_rate - b.product_reach_rate)[0] : null;
+  return {
+    summary,
+    observations,
+    kpis: worst ? [`${worst.name} 상품 조회율: 현재 ${worst.product_reach_rate}%에서 상승했는지 7일 후 비교`] : [],
+    caveats: missing.length ? [`${missing.join(', ')} 유입은 이 기간 세션이 없어 비교에서 빠졌습니다.`] : [],
+    worst,
+  };
+}
+
 function transitionAction(top) {
   if (!top) return '가장 많이 줄어드는 화면에서 다음 단계 버튼과 필수 정보를 한 화면 안에 배치하세요.';
   const key = `${top.from} ${top.to}`;
@@ -71,8 +142,28 @@ async function gemini(body, timeoutMs = 45_000) {
     signal: AbortSignal.timeout(timeoutMs),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`Gemini API 오류 (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(`Gemini API 오류 (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
   return payload;
+}
+
+// 429(요청 한도)·503(일시 과부하)은 잠깐 뒤 다시 하면 되는 경우가 많다.
+// 바로 규칙 기반 답변으로 떨어지지 않고 2초 쉬고 1번만 더 시도한다.
+async function geminiWithRetry(body, timeoutMs, {
+  call = gemini,
+  wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+} = {}) {
+  try {
+    return await call(body, timeoutMs);
+  } catch (error) {
+    if (![429, 500, 503].includes(error.status)) throw error;
+    console.warn(`[ops-agent] Gemini ${error.status} - 2초 후 재시도`);
+    await wait(2000);
+    return call(body, timeoutMs);
+  }
 }
 
 function firstText(payload) {
@@ -150,9 +241,12 @@ function fallbackNarrative(plan, tools) {
     if (first) kpis.push(`'${first.section}' 구역 종료 신호: 현재 ${first.count}건보다 감소했는지 7일 후 비교`);
   }
   if (has('get_channel_performance') || has('get_campaign_performance')) {
-    hypotheses.push('유입 메시지와 실제 랜딩 화면의 연결 정도에 따라 채널별 성과 차이가 발생했을 가능성이 있습니다.');
-    actions.push('방문이 가장 많은 광고의 링크를 대표 상품 또는 기획전 화면으로 직접 연결하고, 광고에 쓴 상품명·혜택 문구를 랜딩 화면 첫 제목에도 동일하게 넣으세요.');
-    kpis.push('해당 유입의 상품 조회율이 상승하고 주문 수가 줄지 않았는지 7일 단위로 비교');
+    const weak = weakestChannel(tools);
+    if (weak) {
+      hypotheses.push(`${weak.name} 유입은 방문 ${fmt(weak.sessions)}건 중 상품 조회가 ${weak.product_reach_rate}%에 그쳐, 광고가 도착하는 첫 화면과 광고 내용이 어긋났을 가능성이 있습니다.`);
+      actions.push(`${weak.name} 광고·게시물의 링크가 홈으로 연결돼 있다면 광고에 나온 상품의 상세 화면으로 바꾸고, 광고 문구의 상품명·혜택을 그 화면 첫 제목에 그대로 넣으세요.`);
+      kpis.push(`${weak.name} 상품 조회율: 현재 ${weak.product_reach_rate}%에서 상승했는지 7일 후 비교`);
+    }
   }
   if (has('get_product_opportunities')) {
     const product = tools.get_product_opportunities?.products?.[0];
@@ -217,7 +311,16 @@ function serverSummary(plan, tools) {
     return `${channel ? `${channel} 유입에서 ` : ''}관심 행동이 많이 관찰된 상품과 다음 구매 단계의 연결을 점검할 필요가 있습니다.`;
   }
   if (plan.required_tools.includes('get_channel_performance')) {
-    return `${channel || '유입 채널별'} 방문이 상품 조회·장바구니·주문으로 이어지는 흐름을 비교했습니다.`;
+    const rows = tools.get_channel_performance?.channels || [];
+    const row = channel ? rows[0] : null;
+    if (row) {
+      return `${row.name} 유입은 방문 ${fmt(row.sessions)}건 중 상품 조회 ${row.product_reach_rate}%, 장바구니 ${row.cart_rate}%, 주문 ${fmt(row.orders)}건입니다.`;
+    }
+    const weak = weakestChannel(tools);
+    if (weak) {
+      return `방문 대비 상품 조회로 가장 덜 이어지는 채널은 ${weak.name}(방문 ${fmt(weak.sessions)}건, 상품 조회 ${weak.product_reach_rate}%)입니다.`;
+    }
+    return '유입 채널별 방문이 상품 조회·장바구니·주문으로 이어지는 흐름을 비교했습니다.';
   }
   if (plan.required_tools.includes('get_funnel_overview')) {
     const top = tools.get_funnel_overview?.transitions?.slice().sort((a, b) => b.stopped - a.stopped)[0];
@@ -244,8 +347,23 @@ function comparisonAnswer(tools) {
   };
 }
 
+// 캡처 없이 화면 질문에 답할 때는 그 화면의 종료 세션 수를 확인 지표로 둔다.
+function exitKpis(tools) {
+  const top = tools.get_exit_signals?.exit_pages?.[0];
+  return top ? [`'${top.label}' 화면에서 끝난 세션: 현재 ${fmt(top.sessions)}건(${top.share}%)에서 줄었는지 7일 후 비교`] : [];
+}
+
 function verifiedKpis(plan, tools) {
   const rows = [];
+  // 채널을 물었으면 사이트 전체 지표가 아니라 그 채널 지표부터 확인 항목으로 둔다.
+  if (plan.filters.channel) {
+    const row = tools.get_channel_performance?.channels?.[0];
+    if (row) {
+      rows.push(`${row.name} 상품 조회율: 현재 ${row.product_reach_rate}%에서 상승했는지 7일 후 비교`);
+      rows.push(`${row.name} 장바구니 도달률: 현재 ${row.cart_rate}%에서 상승했는지 7일 후 비교`);
+      return rows;
+    }
+  }
   const top = tools.get_funnel_overview?.transitions?.slice().sort((a, b) => b.stopped - a.stopped)[0];
   if (top) {
     const reach = Math.round((100 - Number(top.stop_rate || 0)) * 10) / 10;
@@ -281,6 +399,8 @@ async function generateNarrative({ profile, question, plan, tools, usedTools, hi
     'kpis에 임의의 목표 숫자를 만들지 마라. 서버 도구에 있는 현재값만 인용하고 7일 후 상승·감소·유지 여부처럼 판정 방향만 써라.',
     'caveats는 의사결정에 실제 영향을 주는 제한만 최대 1개 작성한다.',
     '상품·주문·고객·DB를 변경한다고 말하지 마라.',
+    '채널·상품·화면을 언급할 때는 도구 결과에 있는 이름을 그대로 쓰고, 어느 채널에도 해당될 수 있는 일반론(“광고 링크를 대표 상품으로 연결” 등)만 쓰지 마라.',
+    plan.filters.channel ? `이번 질문은 ${plan.filters.channel} 유입에 대한 질문이다. 사이트 전체 수치가 아니라 ${plan.filters.channel} 수치를 기준으로 판단하라.` : '',
     plan.response_mode === 'execution_plan'
       ? '이번 요청은 실행 순서 정리다. 최초 진단을 반복하지 말고 이전 답변의 조치를 1~3순위와 요일별 실행 순서로 재구성하라. hypotheses는 빈 배열로 반환하라.'
       : '',
@@ -300,13 +420,13 @@ async function generateNarrative({ profile, question, plan, tools, usedTools, hi
       responseSchema: responseSchema(),
     },
   };
-  const result = await gemini(request);
+  const result = await geminiWithRetry(request);
   try {
     return parseAnswer(firstText(result));
   } catch (firstError) {
     const finishReason = result?.candidates?.[0]?.finishReason || 'UNKNOWN';
     console.warn(`[ops-agent] Gemini JSON 재생성: ${finishReason} / ${firstError.message}`);
-    const retry = await gemini({
+    const retry = await geminiWithRetry({
       ...request,
       systemInstruction: { parts: [{ text: `${system} 반드시 완결된 JSON 객체 하나만 반환하고 모든 문자열과 배열을 닫아라.` }] },
       generationConfig: { ...request.generationConfig, temperature: 0, maxOutputTokens: 4096 },
@@ -325,6 +445,65 @@ async function answerQuestion({ origin, question, days = 7, history = [], snapsh
   const usedTools = plan.required_tools.filter((name) => built.tools[name]);
   const observations = collectedObservations(built.tools, usedTools);
   const toolNotes = usedTools.map((name) => built.tools[name]?.note).filter(Boolean);
+  const sampleSize = focusSessions(plan, built.tools);
+  const baseResult = {
+    used_tools: usedTools,
+    period: built.period,
+    plan,
+    snapshot: {
+      id: built.id,
+      as_of: built.as_of,
+      period: { startDate: plan.period.startDate, endDate: plan.period.endDate },
+      metric_digest: built.metric_digest,
+    },
+  };
+
+  // 표본이 너무 적으면 Gemini를 부르지 않고 "판단 불가"를 그대로 말한다.
+  // (예전엔 0건이어도 그럴듯한 조치를 지어냈다.)
+  // 숫자만 나란히 보여주는 비교 모드와 이전 답변을 재정리하는 실행 계획은 제외한다.
+  const guardedMode = !['execution_plan', 'channel_comparison', 'period_comparison'].includes(plan.response_mode);
+  if (guardedMode && sampleSize !== null && sampleSize < MIN_SAMPLE) {
+    return {
+      ...baseResult,
+      source: 'sample_guard',
+      answer: { response_mode: plan.response_mode, ...insufficientAnswer(plan, sampleSize, observations), visuals: [] },
+    };
+  }
+
+  // 채널 비교는 서버가 숫자로 직접 답한다. Gemini는 가장 약한 채널에 대한 조치만 보탠다.
+  if (plan.response_mode === 'channel_comparison') {
+    const compared = channelComparisonAnswer(plan, built.tools);
+    let actions = [];
+    let source = 'server';
+    if (compared.worst) {
+      actions = [`${compared.worst.name} 광고·게시물의 링크가 홈으로 연결돼 있다면 광고에 나온 상품의 상세 화면으로 바꾸고, 광고 문구의 상품명·혜택을 그 화면 첫 제목에 그대로 넣으세요.`];
+      try {
+        const narrative = await generateNarrative({ profile, question, plan, tools: built.tools, usedTools, history });
+        if (narrative.actions.length) {
+          actions = narrative.actions.slice(0, 2);
+          source = 'gemini';
+        }
+      } catch (error) {
+        console.warn('[ops-agent] Gemini 분석 대체:', error.message);
+        source = 'rules_fallback';
+      }
+    }
+    return {
+      ...baseResult,
+      source,
+      answer: {
+        response_mode: plan.response_mode,
+        summary: compared.summary,
+        observations: compared.observations,
+        hypotheses: [],
+        actions,
+        kpis: compared.kpis,
+        caveats: compared.caveats,
+        visuals: [],
+      },
+    };
+  }
+
   let narrative;
   let source = 'gemini';
   try {
@@ -340,12 +519,15 @@ async function answerQuestion({ origin, question, days = 7, history = [], snapsh
   }
   if (plan.response_mode === 'visual_diagnosis' && !built.tools.get_visual_exit_hotspots?.captures?.length) {
     narrative.hypotheses = [];
-    narrative.actions = [
-      "홈 화면 첫 화면과 대표 상품 영역의 배치·버튼 연결을 우선 확인하세요. 캡처가 생성되면 종료 신호가 표시된 위치를 기준으로 수정 대상을 다시 좁힙니다.",
-    ];
+    // 캡처가 없을 때 무조건 "홈 화면"이라고 하지 않고, 실제로 가장 많이 나간 화면을 짚는다.
+    const topExit = built.tools.get_exit_signals?.exit_pages?.[0];
+    narrative.actions = topExit
+      ? [`캡처는 만들지 못했지만, 탐색이 가장 많이 끝난 화면은 '${topExit.label}'(${fmt(topExit.sessions)}건, ${topExit.share}%)입니다. 이 화면에서 다음 단계 버튼과 핵심 정보가 첫 화면 안에 보이는지 먼저 확인하세요.`]
+      : ['이번 기간에는 캡처도, 이탈이 몰린 화면 집계도 없어 수정할 위치를 특정할 수 없습니다. 기간을 늘려 다시 질문해 주세요.'];
     narrative.kpis = [];
   }
   const comparison = plan.response_mode === 'period_comparison' ? comparisonAnswer(built.tools) : null;
+  const visualWithoutCapture = plan.response_mode === 'visual_diagnosis' && !built.tools.get_visual_exit_hotspots?.captures?.length;
   const answer = {
     // 요약과 모든 수치 근거는 서버가 작성한다. Gemini는 가설·조치 문장만 담당한다.
     response_mode: plan.response_mode,
@@ -358,26 +540,17 @@ async function answerQuestion({ origin, question, days = 7, history = [], snapsh
     hypotheses: comparison ? [] : narrative.hypotheses,
     actions: comparison ? [] : narrative.actions,
     // 목표 수치는 Agent가 추정하지 않는다. 서버가 실제 현재값과 판정 방향만 만든다.
-    kpis: comparison ? [] : verifiedKpis(plan, built.tools),
+    kpis: comparison ? [] : visualWithoutCapture ? exitKpis(built.tools) : verifiedKpis(plan, built.tools),
     caveats: [...new Set([
       ...narrative.caveats,
       ...toolNotes.filter((note) => /없|못|초과|녹화가 아닙니다/.test(note)),
     ])].slice(0, 2),
     visuals: (built.tools.get_visual_exit_hotspots?.captures || []).slice(0, 2),
   };
-  return {
-    answer,
-    used_tools: usedTools,
-    source,
-    period: built.period,
-    plan,
-    snapshot: {
-      id: built.id,
-      as_of: built.as_of,
-      period: { startDate: plan.period.startDate, endDate: plan.period.endDate },
-      metric_digest: built.metric_digest,
-    },
-  };
+  return { ...baseResult, answer, source };
 }
 
-module.exports = { agentProfile, answerQuestion, periodForDays: daysPeriod, samePeriod, decideAsOf };
+module.exports = {
+  agentProfile, answerQuestion, periodForDays: daysPeriod, samePeriod, decideAsOf,
+  focusSessions, weakestChannel, channelComparisonAnswer, insufficientAnswer, verifiedKpis, geminiWithRetry, MIN_SAMPLE,
+};

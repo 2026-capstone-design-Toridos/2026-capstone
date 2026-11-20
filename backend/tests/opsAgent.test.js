@@ -105,3 +105,104 @@ test('화면 캡처 Python은 운영 전용 3.11 설정을 우선한다', () => 
   if (old === undefined) delete process.env.AGENT_CAPTURE_PYTHON_BIN;
   else process.env.AGENT_CAPTURE_PYTHON_BIN = old;
 });
+
+// ── 에이전트 피드백 반영 (질문 분류·표본 가드·채널 비교) ───────────────
+const {
+  focusSessions, weakestChannel, channelComparisonAnswer, insufficientAnswer, verifiedKpis, geminiWithRetry, MIN_SAMPLE,
+} = require('../services/opsAgentService');
+
+const channelRows = [
+  { name: 'Instagram', sessions: 120, product_sessions: 24, cart_sessions: 3, orders: 1, product_reach_rate: 20, cart_rate: 2.5, order_rate: 0.8 },
+  { name: 'Naver', sessions: 80, product_sessions: 40, cart_sessions: 6, orders: 2, product_reach_rate: 50, cart_rate: 7.5, order_rate: 2.5 },
+  { name: 'Kakao', sessions: 5, product_sessions: 0, cart_sessions: 0, orders: 0, product_reach_rate: 0, cart_rate: 0, order_rate: 0 },
+];
+
+test('채널 두 개를 비교하면 기간 비교가 아니라 채널 비교로 분류한다', () => {
+  const plan = planQuestion('인스타랑 네이버 비교해줘', { days: 7, now: NOW });
+  assert.equal(plan.response_mode, 'channel_comparison');
+  assert.deepEqual(plan.filters.channels, ['Instagram', 'Naver']);
+  assert.equal(plan.filters.channel, null);
+  assert.ok(plan.required_tools.includes('get_channel_performance'));
+});
+
+test('"비교"만 있고 시간 표현이 없으면 기간 비교로 보내지 않는다', () => {
+  const plan = planQuestion('상품 비교해줘', { days: 7, now: NOW });
+  assert.notEqual(plan.response_mode, 'period_comparison');
+});
+
+test('지난주 단독 질문은 직전 월~일 주간을 분석 기간으로 잡는다', () => {
+  const plan = planQuestion('지난주 매출 어때?', { days: 7, now: NOW });
+  assert.equal(plan.period.startDate, '2026-11-09');
+  assert.equal(plan.period.endDate, '2026-11-15');
+  assert.ok(plan.required_tools.includes('get_period_overview'));
+  assert.ok(plan.required_tools.includes('get_funnel_overview'));
+});
+
+test('지난주와 비교하는 질문은 기간 비교 모드다', () => {
+  const plan = planQuestion('지난주랑 비교해서 주문 줄었어?', { days: 7, now: NOW });
+  assert.equal(plan.response_mode, 'period_comparison');
+});
+
+test('광고·이유 질문은 채널/캠페인과 이탈/퍼널 도구를 고른다', () => {
+  const ad = planQuestion('광고 효과 있어?', { days: 7, now: NOW });
+  assert.ok(ad.required_tools.includes('get_channel_performance'));
+  assert.ok(ad.required_tools.includes('get_campaign_performance'));
+  const why = planQuestion('왜 다들 상품만 보고 나가?', { days: 7, now: NOW });
+  assert.ok(why.required_tools.includes('get_exit_signals'));
+  assert.ok(why.required_tools.includes('get_funnel_overview'));
+});
+
+test('채널 질문의 표본 수는 사이트 전체가 아니라 그 채널 세션이다', () => {
+  const plan = planQuestion('카카오 유입 분석', { days: 7, now: NOW });
+  const tools = {
+    get_period_overview: { sessions: { current: 900 } },
+    get_channel_performance: { channels: [channelRows[2]] },
+  };
+  assert.equal(focusSessions(plan, tools), 5);
+  assert.ok(focusSessions(plan, tools) < MIN_SAMPLE);
+  const answer = insufficientAnswer(plan, 5, []);
+  assert.deepEqual(answer.actions, []);
+  assert.deepEqual(answer.kpis, []);
+  assert.match(answer.summary, /Kakao 유입 세션이 5건/);
+});
+
+test('채널 조언은 표본이 충분한 채널 중 상품 조회율이 가장 낮은 곳을 짚는다', () => {
+  const weak = weakestChannel({ get_channel_performance: { channels: channelRows } });
+  assert.equal(weak.name, 'Instagram');
+});
+
+test('채널 비교 답변은 채널별 수치와 가장 약한 채널 KPI를 만든다', () => {
+  const plan = planQuestion('인스타랑 네이버 비교해줘', { days: 7, now: NOW });
+  const result = channelComparisonAnswer(plan, { get_channel_performance: { channels: channelRows.slice(0, 2), missing: [] } });
+  assert.match(result.summary, /Naver\(50%\)/);
+  assert.match(result.summary, /Instagram은 20%/);
+  assert.equal(result.observations.length, 2);
+  assert.match(result.kpis[0], /^Instagram 상품 조회율: 현재 20%/);
+});
+
+test('단일 채널 질문의 KPI는 사이트 전체 퍼널이 아니라 채널 지표다', () => {
+  const plan = planQuestion('인스타그램 유입 분석', { days: 7, now: NOW });
+  const kpis = verifiedKpis(plan, {
+    get_channel_performance: { channels: [channelRows[0]] },
+    get_funnel_overview: { transitions: [{ from: '방문', to: '상품 조회', stopped: 500, stop_rate: 70 }] },
+  });
+  assert.ok(kpis.every((row) => row.startsWith('Instagram')));
+});
+
+test('Gemini 429는 한 번 재시도하고, 400은 재시도하지 않는다', async () => {
+  const fail = (status) => Object.assign(new Error(`HTTP ${status}`), { status });
+  let calls = 0;
+  const ok = await geminiWithRetry({}, 1000, {
+    call: async () => { calls += 1; if (calls === 1) throw fail(429); return { ok: true }; },
+    wait: async () => {},
+  });
+  assert.deepEqual(ok, { ok: true });
+  assert.equal(calls, 2);
+
+  calls = 0;
+  await assert.rejects(geminiWithRetry({}, 1000, {
+    call: async () => { calls += 1; throw fail(400); },
+    wait: async () => {},
+  }));
+  assert.equal(calls, 1);
+});
