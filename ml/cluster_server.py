@@ -476,9 +476,12 @@ class ClusterPredictor:
         meaningful = [parts for parts in parsed if parts[1] not in LIFECYCLE_ACTIONS]
         action_counts: Dict[str, int] = {}
         page_counts: Dict[str, int] = {}
+        action_page_counts: Dict[str, Dict[str, int]] = {}
         for page, action, _ in parsed:
             action_counts[action] = action_counts.get(action, 0) + 1
             page_counts[page] = page_counts.get(page, 0) + 1
+            pages = action_page_counts.setdefault(action, {})
+            pages[page] = pages.get(page, 0) + 1
 
         # 정보가 거의 없는 방문도 버리지 않고 전용 유형으로 포함한다.
         if len(parsed) < 3 or not meaningful:
@@ -495,6 +498,7 @@ class ClusterPredictor:
                 "rejection_reasons": [],
                 "semantic_action_counts": action_counts,
                 "page_counts": page_counts,
+                "action_page_counts": action_page_counts,
                 "distances": {},
                 "seq_len": len(tokens),
                 "mode": self.mode,
@@ -541,6 +545,7 @@ class ClusterPredictor:
             "rejection_reasons": [],
             "semantic_action_counts": action_counts,
             "page_counts": page_counts,
+            "action_page_counts": action_page_counts,
             "distances": {
                 str(cid): round(float(distance), 4)
                 for cid, distance in zip(self.factorized_model["cluster_ids"], distances)
@@ -596,6 +601,7 @@ class ClusterPredictor:
         }
         semantic_action_counts: Dict[str, int] = {}
         page_counts: Dict[str, int] = {}
+        action_page_counts: Dict[str, Dict[str, int]] = {}
         for token in tokens:
             parts = token.split("|")
             if len(parts) != 3:
@@ -603,6 +609,8 @@ class ClusterPredictor:
             page, action, _ = parts
             semantic_action_counts[action] = semantic_action_counts.get(action, 0) + 1
             page_counts[page] = page_counts.get(page, 0) + 1
+            pages = action_page_counts.setdefault(action, {})
+            pages[page] = pages.get(page, 0) + 1
 
         rejection_reasons = []
         if len(tokens) < self.quality_gate["min_tokens"]:
@@ -630,6 +638,7 @@ class ClusterPredictor:
             "rejection_reasons": rejection_reasons,
             "semantic_action_counts": semantic_action_counts,
             "page_counts": page_counts,
+            "action_page_counts": action_page_counts,
             "distances":  distances_map,
             "seq_len":    len(tokens),
             "mode":       self.mode,

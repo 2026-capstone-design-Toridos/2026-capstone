@@ -20,6 +20,7 @@ import time
 import urllib.error
 import urllib.request
 from datetime import datetime
+from html import escape
 from pathlib import Path
 from urllib.parse import urlparse
 import hashlib
@@ -74,6 +75,7 @@ def load_inputs(metrics_path: str = "", commerce_path: str = "", result_path: st
                 row["count"] = int(float(row.get("count") or 0))
                 row["top_actions"] = json.loads(row.get("top_actions_json") or "[]")
                 row["page_dist"] = json.loads(row.get("page_dist_json") or "{}")
+                row["action_page_counts"] = json.loads(row.get("action_page_counts_json") or "{}")
                 profiles.append(row)
     return {"metrics": load_json(metrics_path), "commerce": load_json(commerce_path), "profiles": profiles}
 
@@ -295,6 +297,16 @@ def profile_order(profiles: list[dict]) -> list[dict]:
     return ordered[:5]
 
 
+def profile_display_indices(profiles: list[dict]) -> list[int]:
+    return sorted(
+        range(len(profiles)),
+        key=lambda index: (
+            "짧은 방문" in str(profiles[index].get("name") or ""),
+            -int(profiles[index].get("count") or 0),
+        ),
+    )
+
+
 def first_sentences(text: str, count: int = 1, limit: int = 0) -> str:
     """긴 AI 문구를 앞 문장 count개만 남긴다. 리포트 표·박스가 글로 뒤덮이지 않게 한다."""
     text = re.sub(r"\s+", " ", str(text or "")).strip()
@@ -326,6 +338,85 @@ def sub_visible_text(page: str, pattern: str, replacement: str) -> str:
 
 def pct(value: int, total: int) -> int:
     return round(value / total * 100) if total else 0
+
+
+PAGE_LABELS = {
+    "PRODUCT": "상품 상세", "HOME": "홈 화면", "CATEGORY": "카테고리", "SEARCH": "검색",
+    "CART": "장바구니", "CHECKOUT": "결제", "ORDER_SUCCESS": "주문 완료", "REVIEW": "리뷰",
+    "BOARD": "게시판", "MYPAGE": "마이페이지", "MEMBER": "회원", "UNKNOWN": "미분류 화면",
+}
+
+
+def render_action_bars(soup, profile: dict) -> None:
+    heading = soup.find("div", string=re.compile(r"^주요 행동 TOP\s*\d+$"))
+    pie_title = soup.find("div", string="페이지별 방문 비율")
+    if not heading or not pie_title:
+        return
+
+    actions = (profile.get("top_actions") or [])[:7]
+    by_action = profile.get("action_page_counts") or {}
+    page_totals: dict[str, int] = {}
+    for item in actions:
+        for page, count in by_action.get(item.get("action"), {}).items():
+            if count > 0:
+                page_totals[page] = page_totals.get(page, 0) + count
+
+    top_pages = sorted(page_totals, key=lambda page: (-page_totals[page], page))[:4]
+    colors = dict(zip(top_pages, ["#a07800", "#47729e", "#358774", "#bb6d83"]))
+    names = {page: PAGE_LABELS.get(page, page) for page in top_pages}
+    if len(page_totals) > len(top_pages):
+        colors["__other"] = "#8372a5"
+        names["__other"] = "기타 화면"
+    if any(sum(by_action.get(item.get("action"), {}).values()) < int(item.get("count") or 0)
+           for item in actions):
+        colors["__untracked"] = "#8794a6"
+        names["__untracked"] = "화면 미집계"
+
+    maximum = max((int(item.get("count") or 0) for item in actions), default=1) or 1
+    rows = []
+    for item in actions:
+        label = str(item.get("label") or item.get("action") or "행동")
+        total = int(item.get("count") or 0)
+        pages = by_action.get(item.get("action"), {})
+        counts = {page: pages.get(page, 0) for page in top_pages}
+        counts["__other"] = sum(count for page, count in pages.items() if page not in top_pages)
+        counts["__untracked"] = max(0, total - sum(pages.values()))
+        segments = []
+        for page, color in colors.items():
+            count = counts[page]
+            if count > 0:
+                detail = escape(f"{names[page]} {count}회 ({pct(count, total)}%)", quote=True)
+                segments.append(
+                    f'<span title="{detail}" style="width:{count / maximum * 100:.4f}%;background:{color}"></span>'
+                )
+        rows.append(
+            f'<div class="report-action-row"><span>{escape(label)}</span>'
+            f'<div class="report-action-track">{"".join(segments)}</div><b>{total:,}회</b></div>'
+        )
+
+    legend = "".join(
+        f'<div><i style="background:{color}"></i>{escape(names[page])}</div>'
+        for page, color in colors.items()
+    )
+    if not rows:
+        rows.append("<div>집계된 행동이 없습니다.</div>")
+    heading.string = f"주요 행동 TOP {len(actions)}" if actions else "주요 행동"
+    action_panel = heading.parent
+    action_panel["style"] = "flex:1;min-width:0"
+    layout = action_panel.parent
+    layout["class"] = ["report-action-layout"]
+    layout.attrs.pop("style", None)
+    fragment = __import__("bs4").BeautifulSoup(
+        f'<div class="report-action-rows">{"".join(rows)}</div>'
+        + (f'<aside class="report-action-legend"><b>화면</b>{legend}</aside>' if legend else ""),
+        "html.parser",
+    )
+    heading.find_next_sibling("div").replace_with(fragment.div)
+    action_panel.extract()
+    layout.clear()
+    layout.append(action_panel)
+    if legend:
+        layout.append(fragment.aside)
 
 
 def rate(value: int, total: int) -> float:
@@ -874,8 +965,20 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             )
         page = str(soup)
 
-    if source_index == 7 and overview:
+    if source_index == 7:
         soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        comparison_heading = soup.find("h2", string="평일 대 주말")
+        if comparison_heading:
+            comparison_bar = comparison_heading.find_next_sibling()
+            if comparison_bar and comparison_bar.name == "div":
+                comparison_bar.decompose()
+            comparison_heading.decompose()
+        suggestion_label = soup.find("span", string="활용 제안")
+        if suggestion_label:
+            set_style_value(suggestion_label.parent, "margin-top", "24px")
+        if not overview:
+            return str(soup)
+
         weekday_values = [int(value or 0) for value in (metrics.get("weekday") or [0] * 7)][:7]
         weekday_values += [0] * (7 - len(weekday_values))
         hourly = [int(value or 0) for value in (metrics.get("hourly") or [0] * 24)][:24]
@@ -907,29 +1010,15 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                 for percent_tag in day_tag.parent.find_all("div") if day_tag.parent else []:
                     if re.fullmatch(r"\d+(?:\.\d+)?%", percent_tag.get_text(strip=True)):
                         percent_tag.string = f"{share:.0f}%"
+                        set_style_value(percent_tag, "color", "#8a4a00" if day_index == max_day else "#1d2a44")
                 candidates = day_tag.parent.find_all("div", recursive=False) if day_tag.parent else []
                 if len(candidates) >= 2:
                     set_style_value(candidates[0], "height", "auto")
                     set_style_value(candidates[1], "height", f"{max(share / max(max(shares), 1) * 140, 4):.1f}px")
                     set_style_value(candidates[1], "background", "#e0852a" if day_index == max_day else "#9fb4e6")
-        weekday_share = sum(weekday_values[:5]) / total * 100
-        weekend_share = sum(weekday_values[5:]) / total * 100
-        # 평일/주말 막대: 예전엔 "평일 "로 시작하는 첫 div(=두 칸을 감싼 바깥 막대)를
-        # 찾아 글자로 덮어써서 막대가 통째로 사라졌다. 자식이 없는 칸만 고친다.
-        for label, value in (("평일", weekday_share), ("주말", weekend_share)):
-            node = next((tag for tag in soup.find_all("div")
-                         if not tag.find("div") and re.fullmatch(rf"{label}\s*\d+%", tag.get_text(" ", strip=True))), None)
-            if node:
-                node.string = f"{label} {value:.0f}%"
-                if label == "평일":
-                    set_style_value(node, "width", f"{max(min(value, 92), 8):.1f}%")
-                    set_style_value(node, "white-space", "nowrap")
-                else:
-                    set_style_value(node, "white-space", "nowrap")
         placeholder = next((tag for tag in soup.find_all("div") if "전주 일별 방문 데이터를 넣으면" in tag.get_text() and not tag.find("div")), None)
         if placeholder:
             placeholder.decompose()
-        suggestion_label = next((tag for tag in soup.find_all("span") if tag.get_text(strip=True) == "활용 제안"), None)
         suggestion = suggestion_label.find_next_sibling("div") if suggestion_label else None
         if suggestion:
             suggestion.string = (
@@ -1002,7 +1091,16 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
 
     if source_index == 9 and overview:
         soup = __import__("bs4").BeautifulSoup(page, "html.parser")
-        channels = report_channels(metrics.get("channels") or [])
+        channel_metrics = metrics.get("channels") or []
+        channels = report_channels(channel_metrics)
+        if sum(int(item.get("orders") or 0) > 0 for item in channel_metrics) == 1:
+            reference = soup.find("span", string="읽을 때 참고")
+            guide = reference.find_next_sibling("div") if reference else None
+            if guide:
+                for node in guide.find_all(string=True, recursive=False):
+                    if "이번 기간에는 주문이 없어" in node:
+                        node.replace_with(node.replace("이번 기간에는 주문이 없어", "이번 기간에는 주문이 한 곳에서만 있어서", 1))
+                        break
         tables = soup.find_all("sc-raw-table")
         if tables and channels:
             rows = tables[0].find_all("sc-raw-tr")[1:]
@@ -1081,8 +1179,8 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                 text_node.replace_with(new_text)
         page = str(text_soup)
         likelihoods = purchase_likelihoods(profiles)
-        # 유형별 색은 상세 페이지와 같게 두고, 이 페이지에서만 방문이 많은 순으로 정렬한다.
-        ranked = sorted(zip(colors, profiles, likelihoods), key=lambda item: -int(item[1].get("count") or 0))
+        # Keep each type's template color when changing the display order.
+        ranked = [(colors[index], profiles[index], likelihoods[index]) for index in profile_display_indices(profiles)]
         page = replace_first_conic(page, [c for c, _, _ in ranked], [int(p.get("count") or 0) for _, p, _ in ranked])
         soup = __import__("bs4").BeautifulSoup(page, "html.parser")
         high_visits = sum(int(profile.get("count") or 0) for profile, grade in zip(profiles, likelihoods) if grade == "높음")
@@ -1093,7 +1191,8 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                 high_value.string = f"{pct(high_visits, profile_total)}%"
         intro = soup.find("h1").find_next_sibling("p") if soup.find("h1") else None
         if intro:
-            intro.string = str((inputs.get("ai") or {}).get("type_summary_intro") or f"가장 많은 고객은 {ranked[0][1].get('name', '첫 번째 유형')}이에요.")
+            largest = max(profiles, key=lambda profile: int(profile.get("count") or 0))
+            intro.string = str((inputs.get("ai") or {}).get("type_summary_intro") or f"가장 많은 고객은 {largest.get('name', '첫 번째 유형')}이에요.")
         priority = next((tag for tag in soup.find_all("b") if tag.get_text(strip=True) == "우선 조치"), None)
         if priority and priority.parent:
             priority_box = priority.parent
@@ -1101,8 +1200,8 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             label = soup.new_tag("b")
             label.string = "우선 조치"
             priority_box.extend([label, " · ", str((inputs.get("ai") or {}).get("type_priority_action") or profiles[0].get("action") or "")])
-        legend_rows = [tag for tag in soup.find_all("div") if tag.find("span", recursive=False) and tag.find("b", recursive=False)]
-        for row, (color, profile, _) in zip(legend_rows[:5], ranked):
+        legend_rows = [tag for tag in soup.find_all("div") if tag.find("span", recursive=False) and tag.find("b", recursive=False)][:5]
+        for row, (color, profile, _) in zip(legend_rows, ranked):
             spans = row.find_all("span", recursive=False)
             if spans:
                 set_style_value(spans[0], "background", color)
@@ -1116,16 +1215,12 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                 set_style_value(children[1], "white-space", "nowrap")
         if legend_rows:
             set_style_value(legend_rows[0].parent, "width", "340px")
+        for row in legend_rows[len(ranked):]:
+            row.decompose()
         table = soup.find("sc-raw-table")
         if table:
-            # 유형 이름이 "정 / 보부족형"처럼 글자 단위로 끊기지 않게 단어 단위 줄바꿈 +
-            # 숫자 칸은 좁게, 대표 행동 칸은 넓게.
-            widths = ["38%", "10%", "9%", "13%", "30%"]
-            header_cells = table.find("sc-raw-tr").find_all("sc-raw-th") if table.find("sc-raw-tr") else []
-            for cell, width in zip(header_cells, widths):
-                set_style_value(cell, "width", width)
-                set_style_value(cell, "white-space", "nowrap")
-            for row, (color, profile, likelihood) in zip(table.find_all("sc-raw-tr")[1:], ranked):
+            rows = table.find_all("sc-raw-tr")[1:]
+            for row, (color, profile, likelihood) in zip(rows, ranked):
                 cells = row.find_all("sc-raw-td")
                 if len(cells) >= 5:
                     swatch = cells[0].find("span")
@@ -1136,11 +1231,7 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     name_tag = soup.new_tag("span")
                     name_tag.string = str(profile.get("name") or "고객 유형")
                     cells[0].append(name_tag)
-                    set_style_value(cells[0], "word-break", "keep-all")
-                    set_style_value(cells[0], "overflow-wrap", "normal")
                     set_style_value(cells[4], "word-break", "keep-all")
-                    for cell in cells[1:4]:
-                        set_style_value(cell, "white-space", "nowrap")
                     cells[1].string = f"{profile['count']}건"
                     cells[2].string = f"{pct(profile['count'], profile_total)}%"
                     badge = cells[3].find("span")
@@ -1149,13 +1240,15 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     else:
                         cells[3].string = likelihood
                     cells[4].string = top_action_text(profile)
+            for row in rows[len(ranked):]:
+                row.decompose()
         page = str(soup)
 
     detail_baselines = {
         13: (0, 110, 59), 14: (1, 33, 18), 15: (2, 19, 10),
         16: (3, 17, 9), 17: (4, 7, 4),
     }
-    if source_index in detail_baselines and profiles:
+    if source_index in detail_baselines:
         position, old_count, old_share = detail_baselines[source_index]
         if position < len(profiles):
             profile = profiles[position]
@@ -1224,120 +1317,29 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                 insight_box.append(action_tag)
                 set_style_value(insight_box, "font-size", "13.5px")
                 set_style_value(insight_box, "line-height", "1.65")
-            action_heading = next((tag for tag in soup.find_all(["h2", "h3", "div"]) if tag.get_text(" ", strip=True).startswith("주요 행동 TOP") and len(tag.get_text(" ", strip=True)) < 20), None)
-            action_group = action_heading.find_next_sibling("div") if action_heading else None
-            actions = profile.get("top_actions") or []
-            if action_group:
-                rows = action_group.find_all("div", recursive=False)
-                maximum = max((int(item.get("count") or 0) for item in actions[:7]), default=1) or 1
-                for row, item in zip(rows, actions[:7]):
-                    parts = row.find_all("div", recursive=False)
-                    if len(parts) >= 3:
-                        value = int(item.get("count") or 0)
-                        parts[0].string = str(item.get("label") or item.get("action") or "행동")
-                        parts[-1].string = f"{value}회"
-                        bar = parts[1].find("div")
-                        if bar:
-                            set_style_value(bar, "width", f"{value / maximum * 100:.1f}%")
-                for row in rows[len(actions[:7]):]:
-                    set_style_value(row, "display", "none")
             page_dist = profile.get("page_dist") or {}
-            page_labels = {
-                "PRODUCT": "상품 상세", "HOME": "홈 화면", "CATEGORY": "카테고리", "SEARCH": "검색",
-                "CART": "장바구니", "CHECKOUT": "결제", "ORDER_SUCCESS": "주문 완료", "REVIEW": "리뷰",
-                "BOARD": "게시판", "MYPAGE": "마이페이지", "MEMBER": "회원", "UNKNOWN": "기타·미분류",
-            }
-            detail_palettes = [
-                ["#332288", "#7064AC", "#9990C4", "#BEB8D9", "#DAD7EA"],
-                ["#168477", "#44AA99", "#76C4B8", "#A8DED5", "#D7F0EC"],
-                ["#A07800", "#C6A83B", "#DDCC77", "#EADFAD", "#F4EED5"],
-                ["#A73E50", "#CC6677", "#D98D99", "#E7B6BE", "#F4DDE1"],
-                ["#167AA6", "#4CA8CE", "#88CCEE", "#B1DDF1", "#DCEFF8"],
-            ]
-            sorted_pages = sorted(page_dist.items(), key=lambda item: -int(item[1]))[:5]
-            top_page_label = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == "주요 페이지"), None)
+            sorted_pages = sorted(page_dist.items(), key=lambda item: -int(item[1]))
+            top_page_label = soup.find("div", string="주요 페이지")
             if top_page_label:
                 value = top_page_label.find_next_sibling("div")
                 if value:
-                    value.string = ", ".join(page_labels.get(str(name), str(name)) for name, _ in sorted_pages[:3])
-            top_action_label = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == "TOP 행동"), None)
+                    value.string = ", ".join(PAGE_LABELS.get(name, name) for name, _ in sorted_pages[:3])
+            top_action_label = soup.find("div", string="TOP 행동")
             if top_action_label:
                 value = top_action_label.find_next_sibling("div")
                 if value:
                     value.string = top_action_text(profile, 3)
-            legend_rows = []
-            for row in soup.find_all("div"):
-                children = row.find_all(recursive=False)
-                if len(children) == 3 and children[0].name == "span" and children[1].name == "span" and children[2].name == "b":
-                    legend_rows.append(row)
-            total_pages = sum(int(value) for _, value in sorted_pages) or 1
-            if legend_rows:
-                legend_parent = legend_rows[0].parent
-                template_row = legend_rows[0]
-                for row in legend_rows:
-                    row.extract()
-                for index, (name, value) in enumerate(sorted_pages):
-                    row = copy.copy(template_row)
-                    children = row.find_all(recursive=False)
-                    color = detail_palettes[position][index]
-                    set_style_value(children[0], "background", color)
-                    children[1].string = page_labels.get(str(name), str(name))
-                    children[2].string = f"{pct(int(value), total_pages)}%"
-                    set_style_value(row, "display", "flex")
-                    set_style_value(row, "width", "118px")
-                    legend_parent.append(row)
-                pie_title = next((
-                    tag for tag in soup.find_all("div")
-                    if tag.get_text(strip=True) == "페이지별 방문 비율" and not tag.find("div")
-                ), None)
-                pie_panel = pie_title.parent if pie_title else None
-                if pie_panel:
-                    set_style_value(pie_panel, "display", "flex")
-                    set_style_value(pie_panel, "flex-direction", "column")
-                    set_style_value(pie_panel, "align-items", "center")
-                    set_style_value(pie_panel, "width", "270px")
-                    set_style_value(pie_panel, "height", "260px")
-                    set_style_value(pie_panel, "flex", "none")
-                    set_style_value(pie_title, "width", "260px")
-                    chart_holder = pie_title.find_next_sibling("div")
-                    if chart_holder:
-                        set_style_value(chart_holder, "width", "260px")
-                        set_style_value(chart_holder, "height", "150px")
-                        set_style_value(chart_holder, "gap", "0")
-                    legend_grid = soup.new_tag("div")
-                    legend_grid["style"] = "display:flex;width:250px;gap:10px;margin:2px auto 0;align-items:flex-start"
-                    left_column = soup.new_tag("div")
-                    left_column["style"] = "display:flex;flex-direction:column;gap:4px;width:120px"
-                    right_column = soup.new_tag("div")
-                    right_column["style"] = "display:flex;flex-direction:column;gap:4px;width:120px"
-                    current_rows = list(legend_parent.find_all("div", recursive=False))
-                    for index, row in enumerate(current_rows):
-                        row.extract()
-                        (left_column if index < 3 else right_column).append(row)
-                    legend_grid.extend([left_column, right_column])
-                    pie_panel.append(legend_grid)
-                    legend_parent.decompose()
+
             page = str(soup)
             page = sub_visible_text(page, rf"(?<!\d){old_count}(?!\d)", str(profile["count"]))
-            page = re.sub(r"주요 행동 TOP\s*\d+", f"주요 행동 TOP {min(len(actions), 7)}", page)
             page = page.replace(f"{old_share}%", f"{pct(profile['count'], profile_total)}%")
             page = page.replace(
                 ["짧은 방문·행동 정보 부족형", "상품·가격 확인 중심 고객", "다양한 상호작용·구매 시도 고객", "리뷰 관련 신호 중심 고객", "상품·카테고리 반복 탐색 고객"][position],
                 profile.get("name", ""),
             )
-            actions = profile.get("top_actions") or []
-            for action in actions[:7]:
-                label, count = str(action.get("label") or action.get("action") or ""), int(action.get("count") or 0)
-                # Counts are rendered next to the same label; update the first matching row.
-                page = re.sub(
-                    rf"({re.escape(label)}.*?)(\d+)(회)",
-                    lambda m: f"{m.group(1)}{count}{m.group(3)}", page, count=1,
-                )
-            page_dist = profile.get("page_dist") or {}
-            labels = list(page_dist.keys())[:5]
-            values = [int(page_dist[k]) for k in labels]
-            palette = detail_palettes[position]
-            page = replace_first_conic(page, palette[:len(values)], values)
+            soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+            render_action_bars(soup, profile)
+            page = str(soup)
             translations = {
                 "Scroll Category": "카테고리 스크롤",
                 "View Section": "특정 영역 확인",
@@ -1348,6 +1350,10 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             }
             for english, korean in translations.items():
                 page = page.replace(english, korean)
+        else:
+            soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+            render_action_bars(soup, {})
+            page = str(soup)
 
     # Commerce page values and rows.
     if source_index == 11 and commerce:
@@ -1778,8 +1784,10 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
     # Cover A + the three newly approved opening pages + the remaining body.
     # The previous source_index 5 summary is intentionally excluded because the
     # new overview replaces it rather than duplicating the same information.
+    profiles = profile_order((inputs or {}).get("profiles") or [])
+    detail_pages = [13 + index for index in profile_display_indices(profiles)] if profiles else range(13, 18)
     selected: list[int | str] = [
-        0, "overview", "system", "interest", *range(6, 19), "cafe24-appendix", "event-summary", 19,
+        0, "overview", "system", "interest", *range(6, 13), *detail_pages, 18, "cafe24-appendix", "event-summary", 19,
     ]
     start_dt = datetime.strptime(start, "%Y-%m-%d")
     end_dt = datetime.strptime(end, "%Y-%m-%d")
@@ -1852,6 +1860,15 @@ html, body {{ margin:0; padding:0; background:#fff; }}
 .report-page:last-child {{ break-after:auto; page-break-after:auto; }}
 x-dc {{ display:block; width:794px; height:1123px; }}
 helmet {{ display:none; }}
+.report-action-layout {{ display:flex; gap:16px; align-items:flex-start; }}
+.report-action-rows {{ display:grid; gap:7px; }}
+.report-action-row {{ display:grid; grid-template-columns:150px minmax(0,1fr) 52px; gap:8px; align-items:center; min-height:20px; font-size:12px; line-height:1.35; }}
+.report-action-row b {{ text-align:right; white-space:nowrap; }}
+.report-action-track {{ display:flex; height:16px; background:#eef2fa; overflow:hidden; }}
+.report-action-track span {{ flex:none; }}
+.report-action-legend {{ flex:0 0 105px; display:grid; gap:5px; font-size:11px; line-height:1.35; margin-top:1px; }}
+.report-action-legend div {{ display:flex; gap:5px; align-items:center; overflow-wrap:anywhere; }}
+.report-action-legend i {{ flex:0 0 8px; height:8px; }}
 /* The supplied design uses renderer-specific table tags.  Map them to the
    native CSS table model before Chrome prints the document. */
 sc-raw-table {{ display:table !important; width:100% !important; border-collapse:collapse !important; table-layout:fixed; }}
@@ -1861,6 +1878,15 @@ sc-raw-tr {{ display:table-row !important; }}
 sc-raw-th {{ display:table-cell !important; vertical-align:middle; }}
 sc-raw-td {{ display:table-cell !important; vertical-align:middle; overflow-wrap:anywhere; }}
 sc-raw-tr:nth-child(odd):not(:first-child) sc-raw-td {{ background:#f3f5f9; }}
+.source-page-11 sc-raw-th {{ box-sizing:border-box; white-space:nowrap; }}
+.source-page-11 sc-raw-th:nth-child(1) {{ width:42% !important; }}
+.source-page-11 sc-raw-th:nth-child(2) {{ width:8% !important; }}
+.source-page-11 sc-raw-th:nth-child(3) {{ width:7% !important; }}
+.source-page-11 sc-raw-th:nth-child(4) {{ width:13% !important; }}
+.source-page-11 sc-raw-th:nth-child(5) {{ width:30% !important; }}
+.source-page-11 sc-raw-td:first-child {{ word-break:keep-all; }}
+.source-page-11 :is(sc-raw-th,sc-raw-td):nth-child(2),
+.source-page-11 :is(sc-raw-th,sc-raw-td):nth-child(3) {{ padding-inline:6px !important; white-space:nowrap; }}
 /* Ratio graphics in the source are conic-gradient divs.  Preserve the
    intended circular chart even where the exported HTML contained radius 0. */
 [style*="conic-gradient"] {{ border-radius:50% !important; aspect-ratio:1 / 1; flex:none; }}

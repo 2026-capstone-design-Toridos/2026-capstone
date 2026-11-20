@@ -376,12 +376,12 @@ async function writeSiteResultCsv(origin, period) {
   const csvPath = path.join(REPORT_INPUT_DIR, `${siteKey(origin)}_${period.weekStart.replaceAll('-', '')}_result.csv`);
   const headers = [
     'origin', 'total_sessions', 'cluster_id', 'name', 'count',
-    'summary', 'action', 'top_actions_json', 'page_dist_json',
+    'summary', 'action', 'top_actions_json', 'page_dist_json', 'action_page_counts_json',
   ];
   const rows = result.clusters.map((cluster) => [
     canonicalOrigin(origin), result.total_sessions, cluster.cluster, cluster.label,
     cluster.count, cluster.summary || '', cluster.action || '',
-    cluster.top_actions || [], cluster.page_dist || {},
+    cluster.top_actions || [], cluster.page_dist || {}, cluster.action_page_counts || {},
   ].map(csvCell).join(','));
   fs.writeFileSync(csvPath, [headers.join(','), ...rows].join('\n'), 'utf8');
   return csvPath;

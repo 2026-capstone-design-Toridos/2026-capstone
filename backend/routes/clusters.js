@@ -796,6 +796,7 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
       count: 0,
       actionCounts: new Map(),
       pageCounts: new Map(),
+      actionPageCounts: new Map(),
       personaCounts: new Map(),
       reliableCount: 0,
       lowConfidenceCount: 0,
@@ -823,6 +824,10 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
     // Python이 학습과 같은 규칙으로 만든 semantic 분포를 사용한다.
     incrementCounts(stats.actionCounts, result.semantic_action_counts);
     incrementCounts(stats.pageCounts, result.page_counts);
+    for (const [action, counts] of Object.entries(result.action_page_counts || {})) {
+      if (!stats.actionPageCounts.has(action)) stats.actionPageCounts.set(action, new Map());
+      incrementCounts(stats.actionPageCounts.get(action), counts);
+    }
     siteStats.set(cid, stats);
   }
 
@@ -868,6 +873,9 @@ async function classifySiteSessions(origin, profiles, labels, options = {}) {
         top_actions: (topActions.length ? topActions : (profile.top_actions || []))
           .map((a) => ({ ...a, label: koAction(a.action) })),
         page_dist: Object.keys(pageDist).length ? pageDist : (profile.page_dist || {}),
+        action_page_counts: Object.fromEntries(
+          [...stats.actionPageCounts].map(([action, counts]) => [action, Object.fromEntries(counts)]),
+        ),
         funnel: stats.funnel,
         behavior_rates: {
           review_rate: stats.count ? Number((stats.funnel.review_sessions / stats.count).toFixed(4)) : 0,
