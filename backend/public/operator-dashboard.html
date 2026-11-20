@@ -835,7 +835,12 @@
     .custom-range { display:none; grid-template-columns:1fr 1fr auto; gap:8px; margin-top:12px; }
     .custom-range.active { display:grid; }
     .period-report { min-height:420px; white-space:normal; }
-    .full-report-frame { width:100%; height:980px; border:0; border-radius:10px; background:#fff; }
+    .full-report-frame { display:block; width:100%; height:980px; border:0; border-radius:10px; background:#fff; }
+    #full-report-container [hidden] { display:none; }
+    .report-view-controls { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; margin-bottom:12px; }
+    .report-view-buttons, .report-page-nav { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    .report-view-buttons button[aria-pressed="true"] { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .report-page-status { min-width:6em; text-align:center; color:var(--muted); font-variant-numeric:tabular-nums; }
     .report-loading { display:grid; place-items:center; min-height:260px; color:var(--muted); }
     .report-summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0; }
     .report-section { margin-top:18px; }
@@ -1484,6 +1489,17 @@
             </div>
           </div>
           <div class="card-body" id="full-report-container">
+            <div class="report-view-controls" id="report-view-controls" hidden>
+              <div class="report-view-buttons" role="group" aria-label="보고서 보기 방식">
+                <button type="button" class="secondary" id="report-scroll-view" aria-pressed="true" aria-controls="full-report-frame">스크롤 보기</button>
+                <button type="button" class="secondary" id="report-book-view" aria-pressed="false" aria-controls="full-report-frame">책처럼 보기</button>
+              </div>
+              <div class="report-page-nav" id="report-page-nav" role="group" aria-label="보고서 페이지 이동" hidden>
+                <button type="button" class="secondary" id="report-prev-page" aria-controls="full-report-frame">이전</button>
+                <span class="report-page-status" id="report-page-status" role="status"></span>
+                <button type="button" class="secondary" id="report-next-page" aria-controls="full-report-frame">다음</button>
+              </div>
+            </div>
             <div class="report-loading" id="full-report-loading">전체 보고서를 준비하는 중입니다.</div>
             <iframe class="full-report-frame" id="full-report-frame" title="전체 고객 행동 분석 보고서" sandbox="allow-same-origin" hidden></iframe>
           </div>
@@ -3001,16 +3017,97 @@
       }
     }
 
+    const reportFrame = $("full-report-frame");
+    let reportPages = [];
+    let reportFirstPage = 0;
+    let reportBookView = false;
+    let reportLoadId = 0;
+    let reportFrameWidth = 0;
+
+    function reportSpreadSize() {
+      return reportFrame.clientWidth >= 680 ? 2 : 1;
+    }
+
+    function renderReportView(direction = 0) {
+      if (!reportFrame.clientWidth) return;
+      const doc = reportFrame.contentDocument;
+      const root = doc.documentElement;
+      const book = reportBookView && reportPages.length > 0;
+      const spreadSize = reportSpreadSize();
+      const first = Math.floor(reportFirstPage / spreadSize) * spreadSize;
+      const end = Math.min(first + spreadSize, reportPages.length);
+      const visible = reportPages.slice(first, end);
+
+      $("report-view-controls").hidden = !reportPages.length;
+      $("report-scroll-view").setAttribute("aria-pressed", String(!book));
+      $("report-book-view").setAttribute("aria-pressed", String(book));
+      $("report-page-nav").hidden = !book;
+      root.classList.toggle("seer-report-book", book);
+      if (!book) {
+        reportFrame.style.height = "0px";
+        reportFrame.style.height = `${Math.min(Math.max(root.scrollHeight + 8, 700), 20000)}px`;
+        return;
+      }
+
+      reportPages.forEach((page, index) => {
+        page.toggleAttribute("data-seer-page-visible", index >= first && index < end);
+      });
+      const pageWidth = Math.max(...visible.map((page) => page.offsetWidth));
+      const available = Math.max(1, reportFrame.clientWidth - 24 - (spreadSize - 1) * 12);
+      root.style.setProperty("--seer-page-zoom", Math.min(1, available / (spreadSize * pageWidth)));
+      reportFrame.style.height = `${Math.ceil(doc.body.getBoundingClientRect().height) + 2}px`;
+      reportFrame.contentWindow.scrollTo(0, 0);
+      $("report-prev-page").disabled = first === 0;
+      $("report-next-page").disabled = end === reportPages.length;
+      const range = end === first + 1 ? String(end) : `${first + 1}–${end}`;
+      $("report-page-status").textContent = `${range} / ${reportPages.length}쪽`;
+
+      if (direction && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        visible.forEach((page) => page.animate([
+          { transform: `perspective(1400px) rotateY(${direction * -12}deg)`, opacity: 0.65 },
+          { transform: "none", opacity: 1 },
+        ], { duration: 220, easing: "ease-out" }));
+      }
+    }
+
+    function turnReportPage(direction) {
+      const size = reportSpreadSize();
+      const next = (Math.floor(reportFirstPage / size) + direction) * size;
+      if (next < 0 || next >= reportPages.length) return;
+      reportFirstPage = next;
+      renderReportView(direction);
+    }
+
+    $("report-scroll-view").addEventListener("click", () => {
+      reportBookView = false;
+      renderReportView();
+    });
+    $("report-book-view").addEventListener("click", () => {
+      reportBookView = true;
+      renderReportView();
+    });
+    $("report-prev-page").addEventListener("click", () => turnReportPage(-1));
+    $("report-next-page").addEventListener("click", () => turnReportPage(1));
+    new ResizeObserver(() => {
+      const width = reportFrame.clientWidth;
+      if (width === reportFrameWidth) return;
+      reportFrameWidth = width;
+      if (width) renderReportView();
+    }).observe(reportFrame);
+
     async function loadFullReport(force = false) {
       const reportKey = `${state.origin || "__all__"}:${state.weeklyReportWeek || "latest"}`;
-      const frame = $("full-report-frame");
+      const frame = reportFrame;
       const loading = $("full-report-loading");
-      if (!force && state.fullReportOrigin === reportKey && frame.srcdoc) return;
+      if (!force && state.fullReportOrigin === reportKey) return;
+      const loadId = ++reportLoadId;
       state.fullReportOrigin = reportKey;
       loading.className = "report-loading";
       loading.hidden = false;
       loading.textContent = "전체 보고서를 준비하는 중입니다. 처음 생성할 때는 시간이 걸릴 수 있습니다.";
       frame.hidden = true;
+      $("report-view-controls").hidden = true;
+      frame.onload = null;
       try {
         if (!state.origin) throw new Error("리포트를 볼 쇼핑몰을 먼저 선택해주세요.");
         const headers = siteKey ? { "X-GT-Key": siteKey } : {};
@@ -3018,10 +3115,12 @@
           ? `/api/report/weekly/weeks/${encodeURIComponent(state.weeklyReportWeek)}/view?origin=${encodeURIComponent(state.origin)}`
           : `/api/report/weekly/view?origin=${encodeURIComponent(state.origin)}`;
         let response = await fetch(reportUrl, { headers });
+        if (loadId !== reportLoadId) return;
           if (response.status === 202) {
             loading.textContent = "전체 보고서를 백그라운드에서 생성하고 있습니다. 완료되면 자동으로 표시합니다.";
             for (let attempt = 0; attempt < 90 && response.status === 202; attempt += 1) {
               await new Promise((resolve) => setTimeout(resolve, 2000));
+              if (loadId !== reportLoadId) return;
               const status = await fetch(`/api/report/weekly/status?origin=${encodeURIComponent(state.origin)}`, { headers });
               if (status.status >= 400) {
                 const body = await status.json().catch(() => ({}));
@@ -3032,6 +3131,7 @@
           }
           if (response.status === 202) throw new Error("보고서 생성이 오래 걸리고 있습니다. 잠시 후 리포트 메뉴를 다시 열어주세요.");
         let html = await response.text();
+        if (loadId !== reportLoadId) return;
         if (!response.ok) throw new Error("전체 보고서를 불러오지 못했습니다.");
         // srcdoc iframe은 file:// 폰트를 읽을 수 없고 스크립트 실행도 허용하지
         // 않는다. 오래된 리포트의 로컬 폰트와 런타임 스크립트를 제거해 콘솔
@@ -3043,18 +3143,37 @@
           .replace(/@font-face\s*\{[^}]*file:\/\/[^}]*\}/gi, "")
           .replace(/url\(\s*(['"]?)file:\/\/[^)'"\s]+\1\s*\)/gi, "none")
           .replace(/(<img\b[^>]*\bsrc=["'])file:\/{2,3}[^"']+(["'][^>]*>)/gi, "$1$2");
-        const responsiveStyle = `<style id="seer-dashboard-report-view">@media screen{body{background:#eef3f8!important}.page{max-width:100%!important;margin:0 auto 18px!important;box-shadow:0 8px 24px rgba(23,32,51,.08)!important}}@media screen and (max-width:720px){.page{width:100%!important;height:auto!important;min-height:0!important;padding:18px!important}.summary-kpi-row,.charts-row,.stats-row{flex-wrap:wrap!important}.chart-box{min-width:100%!important}.rec-table,table{display:block!important;width:100%!important;overflow-x:auto!important;white-space:nowrap!important;font-size:11px!important}.rec-table tbody,table tbody{display:table!important;min-width:760px!important}}</style>`;
+        const responsiveStyle = `<style id="seer-dashboard-report-view">
+          @media screen {
+            body { background:#eef3f8!important }
+            :root:not(.seer-report-book) .page { max-width:100%!important; margin:0 auto 18px!important; box-shadow:0 8px 24px rgba(23,32,51,.08)!important }
+            .seer-report-book { overflow:hidden }
+            .seer-report-book body { display:flex; justify-content:center; align-items:flex-start; gap:12px; margin:0; padding:12px; }
+            .seer-report-book body > :is(.report-page,.page):not([data-seer-page-visible]) { display:none!important }
+            .seer-report-book [data-seer-page-visible] { flex:none; margin:0!important; zoom:var(--seer-page-zoom,1); box-shadow:0 3px 12px rgba(23,32,51,.15); }
+          }
+          @media screen and (max-width:720px) {
+            :root:not(.seer-report-book) .page { width:100%!important; height:auto!important; min-height:0!important; padding:18px!important }
+            :root:not(.seer-report-book) :is(.summary-kpi-row,.charts-row,.stats-row) { flex-wrap:wrap!important }
+            :root:not(.seer-report-book) .chart-box { min-width:100%!important }
+            :root:not(.seer-report-book) :is(.rec-table,table) { display:block!important; width:100%!important; overflow-x:auto!important; white-space:nowrap!important; font-size:11px!important }
+            :root:not(.seer-report-book) :is(.rec-table,table) tbody { display:table!important; min-width:760px!important }
+          }
+        </style>`;
         if (html.includes("</head>")) html = html.replace("</head>", `${responsiveStyle}</head>`);
-        frame.srcdoc = html;
-        frame.addEventListener("load", () => {
-          try {
-            const height = frame.contentDocument?.documentElement?.scrollHeight || 980;
-            frame.style.height = `${Math.min(Math.max(height + 8, 700), 20000)}px`;
-          } catch {}
+        frame.onload = () => {
+          const doc = frame.contentDocument;
+          if (!doc || doc.URL !== "about:srcdoc") return;
+          frame.onload = null;
+          reportPages = Array.from(doc.querySelectorAll("body > :is(.report-page,.page)"));
+          reportFirstPage = 0;
           loading.hidden = true;
           frame.hidden = false;
-        }, { once: true });
+          renderReportView();
+        };
+        frame.srcdoc = html;
       } catch (err) {
+        if (loadId !== reportLoadId) return;
         state.fullReportOrigin = null;
         loading.className = "error-state";
         loading.textContent = err.message;
