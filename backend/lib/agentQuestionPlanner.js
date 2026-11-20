@@ -129,7 +129,8 @@ function planQuestion(question, { days = 7, now = new Date(), previousPlan = nul
   if (/왜|이유|원인/.test(text)) add('reason', 'get_funnel_overview', 'get_exit_signals');
   if (/상품|제품|카테고리|찜|리뷰/.test(text)) add('product', 'get_product_opportunities');
   if (/고객\s*유형|클러스터|페르소나|유형별/.test(text)) add('customer_type', 'get_customer_type_insights');
-  if (/이전\s*(?:제안|조치)|지난\s*(?:제안|조치)|효과|개선됐|성과\s*검증/.test(text)) add('previous_action', 'get_previous_action_outcomes');
+  // "광고 효과 있어?"는 채널 성과 질문이다. "효과"는 이전 제안·조치를 가리킬 때만 이전 제안 비교로 본다.
+  if (/이전\s*(?:제안|조치)|지난\s*(?:제안|조치)|(?:제안|조치|바꾼|수정한)[^?]*(?:효과|개선됐)|성과\s*검증/.test(text)) add('previous_action', 'get_previous_action_outcomes');
   if (/이탈|멈추|중지|떠나|종료\s*화면|막히/.test(text)) add('exit', 'get_exit_signals');
   if (/캡처|스크린샷|화면\s*(?:위치|구역|영역)|어디서\s*(?:이탈|멈추)|이탈\s*(?:위치|구역|영역)/.test(text)) {
     add('visual_exit', 'get_visual_exit_hotspots', 'get_exit_signals');
@@ -172,7 +173,7 @@ function planQuestion(question, { days = 7, now = new Date(), previousPlan = nul
     },
     targets: [...targets],
     required_tools: [...requiredTools],
-    refresh_snapshot: /최신\s*데이터|새로\s*분석|다시\s*분석|효과/.test(text),
+    refresh_snapshot: /최신\s*데이터|새로\s*분석|다시\s*분석|(?:제안|조치)[^?]*효과/.test(text),
     context_inherited: Boolean(contextualFollowUp && previousPlan),
   };
 }
