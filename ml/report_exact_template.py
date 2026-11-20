@@ -131,8 +131,8 @@ def generate_weekly_ai(inputs: dict, start: str, end: str, origin: str) -> dict:
 - commerce_summary: 상품·리뷰·카트·주문 행동을 연결한 2~3문장. 수집 오류를 임의 추정하지 말 것.
 - customer_types.operational_meaning: 상세 제목 아래에 들어갈 1문장.
 - customer_types.insight: 해당 유형의 근거 수치를 포함한 3문장. 마지막 문장은 운영상 의미를 설명.
-- customer_types.recommended_action: 쇼핑몰 운영자가 수정할 화면·정보·메시지·동선과 다음 주 확인 항목을 포함한 구체적인 실행 조치 1~2문장. '개선하세요', '강화하세요'로만 끝내지 말 것.
-- overall_recommendation: 5개 유형 전체를 아우르는 우선순위 제안 4문장.
+- customer_types.recommended_action: 쇼핑몰 운영자가 수정할 화면·정보·메시지·동선 하나를 짚는 핵심 실행 조치 1문장(60자 이내). '개선하세요', '강화하세요'로만 끝내지 말 것.
+- overall_recommendation: 이번 주 가장 먼저 할 일 하나와 그 이유를 담은 핵심 제언 2문장(합계 120자 이내).
 - next_metrics: 이번 주 문제와 연결된 추적 지표 3개. metric_baselines_percent에 있는 지표를 우선 사용. success_signal에는 반드시 입력된 현재 기준값을 포함해 '현재 0.0%에서 상승'처럼 구체적으로 작성하고 새 목표 수치는 만들지 말 것.
 
 반드시 지정된 JSON 구조로만 반환하세요.
@@ -293,6 +293,35 @@ def profile_order(profiles: list[dict]) -> list[dict]:
             ordered.append(match)
     ordered.extend(p for p in profiles if p not in ordered)
     return ordered[:5]
+
+
+def first_sentences(text: str, count: int = 1, limit: int = 0) -> str:
+    """긴 AI 문구를 앞 문장 count개만 남긴다. 리포트 표·박스가 글로 뒤덮이지 않게 한다."""
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not text:
+        return ""
+    parts = re.split(r"(?<=[.!?。])\s+", text)
+    short = " ".join(parts[:count]).strip()
+    if limit and len(short) > limit:
+        cut = short[:limit]
+        space = cut.rfind(" ")
+        short = (cut[:space] if space > limit * 0.6 else cut).rstrip(" ,·") + "…"
+    return short
+
+
+def sub_visible_text(page: str, pattern: str, replacement: str) -> str:
+    """정규식 치환을 화면에 보이는 글자에만 적용한다(style 속성·CSS 숫자는 건드리지 않음)."""
+    soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+    compiled = re.compile(pattern)
+    changed = False
+    for node in soup.find_all(string=True):
+        if node.parent and node.parent.name in {"style", "script"}:
+            continue
+        new_text = compiled.sub(replacement, str(node))
+        if new_text != str(node):
+            node.replace_with(new_text)
+            changed = True
+    return str(soup) if changed else page
 
 
 def pct(value: int, total: int) -> int:
@@ -662,7 +691,7 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             "105": str(overview.get("product_sessions", 0)),
         }
         for old, new in replacements.items():
-            page = re.sub(rf"(?<!\d){re.escape(old)}(?!\d)", new, page)
+            page = sub_visible_text(page, rf"(?<!\d){re.escape(old)}(?!\d)", new)
 
     if source_index == 5 and overview:
         soup = __import__("bs4").BeautifulSoup(page, "html.parser")
@@ -885,10 +914,21 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     set_style_value(candidates[1], "background", "#e0852a" if day_index == max_day else "#9fb4e6")
         weekday_share = sum(weekday_values[:5]) / total * 100
         weekend_share = sum(weekday_values[5:]) / total * 100
+        # 평일/주말 막대: 예전엔 "평일 "로 시작하는 첫 div(=두 칸을 감싼 바깥 막대)를
+        # 찾아 글자로 덮어써서 막대가 통째로 사라졌다. 자식이 없는 칸만 고친다.
         for label, value in (("평일", weekday_share), ("주말", weekend_share)):
-            node = next((tag for tag in soup.find_all("div") if tag.get_text(" ", strip=True).startswith(label + " ") and "%" in tag.get_text()), None)
+            node = next((tag for tag in soup.find_all("div")
+                         if not tag.find("div") and re.fullmatch(rf"{label}\s*\d+%", tag.get_text(" ", strip=True))), None)
             if node:
                 node.string = f"{label} {value:.0f}%"
+                if label == "평일":
+                    set_style_value(node, "width", f"{max(min(value, 92), 8):.1f}%")
+                    set_style_value(node, "white-space", "nowrap")
+                else:
+                    set_style_value(node, "white-space", "nowrap")
+        placeholder = next((tag for tag in soup.find_all("div") if "전주 일별 방문 데이터를 넣으면" in tag.get_text() and not tag.find("div")), None)
+        if placeholder:
+            placeholder.decompose()
         suggestion_label = next((tag for tag in soup.find_all("span") if tag.get_text(strip=True) == "활용 제안"), None)
         suggestion = suggestion_label.find_next_sibling("div") if suggestion_label else None
         if suggestion:
@@ -922,18 +962,17 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             if transition and position + 1 < len(funnel):
                 next_count = int(funnel[position + 1].get("sessions") or 0)
                 transition.string = f"▼ {pct(next_count, count)}% 진행 · {max(count - next_count, 0)}명 멈춤"
-        tables = soup.find_all("sc-raw-table")
-        devices = metrics.get("devices") or []
-        if tables and devices:
-            rows = tables[0].find_all("sc-raw-tr")[1:]
-            for row, item in zip(rows, devices):
-                cells = row.find_all("sc-raw-td")
-                total = int(item.get("sessions") or 0)
-                cart = int(item.get("cart_sessions") or 0)
-                orders = int(item.get("orders") or 0)
-                values = [item.get("name") or "-", total, f"{pct(cart, total)}%", f"{pct(orders, total)}%", f"{orders}건"]
-                for cell, value in zip(cells, values):
-                    cell.string = str(value)
+        # 제목을 "구매 여정"(추상적) 대신 이 페이지가 답하는 질문으로 바꾼다.
+        funnel_title = soup.find("h1")
+        if funnel_title and funnel_title.get_text(strip=True) == "구매 여정":
+            funnel_title.string = "고객이 가장 많이 멈춘 구간"
+        # 기기별 비교 표는 주문이 거의 없는 주에는 0%만 나열돼 읽을 거리가 없어 뺀다.
+        device_heading = next((tag for tag in soup.find_all("h2") if tag.get_text(strip=True) == "기기별 비교"), None)
+        if device_heading:
+            device_table = device_heading.find_next_sibling("sc-raw-table")
+            if device_table:
+                device_table.decompose()
+            device_heading.decompose()
         update_bar_group(soup, "고객이 마지막에 머문 화면", metrics.get("exit_pages") or [])
         update_bar_group(soup, "멈춘 흔적(추정)", metrics.get("exit_causes") or [])
         if len(funnel) >= 2:
@@ -1022,14 +1061,30 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
         old_counts = [110, 33, 19, 17, 7]
         old_shares = [59, 18, 10, 9, 4]
         colors = ["#332288", "#44AA99", "#DDCC77", "#CC6677", "#88CCEE"]
-        for old, profile in zip(old_counts, profiles):
-            page = re.sub(rf"(?<!\d){old}(?!\d)", str(profile["count"]), page)
-        for old, profile in zip(old_shares, profiles):
-            page = page.replace(f"{old}%", f"{pct(profile['count'], profile_total)}%")
-        page = page.replace("186", str(profile_total))
-        page = replace_first_conic(page, colors, [p["count"] for p in profiles])
-        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        # 예시 숫자 치환은 화면에 보이는 글자에만 한다. 예전엔 HTML 전체에 정규식을 돌려
+        # "font-size:19px" 같은 CSS 숫자까지 유형 건수로 바뀌어 주차마다 제목 크기가 달라졌다.
+        text_soup = __import__("bs4").BeautifulSoup(page, "html.parser")
+        count_map = {str(old): str(profile["count"]) for old, profile in zip(old_counts, profiles)}
+        share_map = {f"{old}%": f"{pct(profile['count'], profile_total)}%" for old, profile in zip(old_shares, profiles)}
+        count_pattern = re.compile(r"(?<!\d)(" + "|".join(map(re.escape, count_map)) + r")(?!\d)") if count_map else None
+        share_pattern = re.compile(r"(?<!\d)(" + "|".join(map(re.escape, share_map)) + r")") if share_map else None
+        for text_node in text_soup.find_all(string=True):
+            if text_node.parent and text_node.parent.name in {"style", "script"}:
+                continue
+            new_text = str(text_node)
+            if share_pattern:
+                new_text = share_pattern.sub(lambda m: share_map[m.group(1)], new_text)
+            if count_pattern:
+                new_text = count_pattern.sub(lambda m: count_map[m.group(1)], new_text)
+            new_text = new_text.replace("186", str(profile_total))
+            if new_text != str(text_node):
+                text_node.replace_with(new_text)
+        page = str(text_soup)
         likelihoods = purchase_likelihoods(profiles)
+        # 유형별 색은 상세 페이지와 같게 두고, 이 페이지에서만 방문이 많은 순으로 정렬한다.
+        ranked = sorted(zip(colors, profiles, likelihoods), key=lambda item: -int(item[1].get("count") or 0))
+        page = replace_first_conic(page, [c for c, _, _ in ranked], [int(p.get("count") or 0) for _, p, _ in ranked])
+        soup = __import__("bs4").BeautifulSoup(page, "html.parser")
         high_visits = sum(int(profile.get("count") or 0) for profile, grade in zip(profiles, likelihoods) if grade == "높음")
         high_label = next((tag for tag in soup.find_all("div") if tag.get_text(strip=True) == "구매 가능성 높은 방문"), None)
         if high_label:
@@ -1038,7 +1093,7 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                 high_value.string = f"{pct(high_visits, profile_total)}%"
         intro = soup.find("h1").find_next_sibling("p") if soup.find("h1") else None
         if intro:
-            intro.string = str((inputs.get("ai") or {}).get("type_summary_intro") or f"가장 많은 고객은 {profiles[0].get('name', '첫 번째 유형')}이에요.")
+            intro.string = str((inputs.get("ai") or {}).get("type_summary_intro") or f"가장 많은 고객은 {ranked[0][1].get('name', '첫 번째 유형')}이에요.")
         priority = next((tag for tag in soup.find_all("b") if tag.get_text(strip=True) == "우선 조치"), None)
         if priority and priority.parent:
             priority_box = priority.parent
@@ -1047,8 +1102,10 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             label.string = "우선 조치"
             priority_box.extend([label, " · ", str((inputs.get("ai") or {}).get("type_priority_action") or profiles[0].get("action") or "")])
         legend_rows = [tag for tag in soup.find_all("div") if tag.find("span", recursive=False) and tag.find("b", recursive=False)]
-        for row, profile in zip(legend_rows[:5], profiles):
+        for row, (color, profile, _) in zip(legend_rows[:5], ranked):
             spans = row.find_all("span", recursive=False)
+            if spans:
+                set_style_value(spans[0], "background", color)
             if len(spans) >= 2:
                 spans[1].string = str(profile.get("name") or "고객 유형")
             row.find("b", recursive=False).string = f"{pct(profile['count'], profile_total)}% · {profile['count']}건"
@@ -1061,10 +1118,29 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             set_style_value(legend_rows[0].parent, "width", "340px")
         table = soup.find("sc-raw-table")
         if table:
-            for row, profile, likelihood in zip(table.find_all("sc-raw-tr")[1:], profiles, likelihoods):
+            # 유형 이름이 "정 / 보부족형"처럼 글자 단위로 끊기지 않게 단어 단위 줄바꿈 +
+            # 숫자 칸은 좁게, 대표 행동 칸은 넓게.
+            widths = ["38%", "10%", "9%", "13%", "30%"]
+            header_cells = table.find("sc-raw-tr").find_all("sc-raw-th") if table.find("sc-raw-tr") else []
+            for cell, width in zip(header_cells, widths):
+                set_style_value(cell, "width", width)
+                set_style_value(cell, "white-space", "nowrap")
+            for row, (color, profile, likelihood) in zip(table.find_all("sc-raw-tr")[1:], ranked):
                 cells = row.find_all("sc-raw-td")
                 if len(cells) >= 5:
-                    cells[0].string = str(profile.get("name") or "고객 유형")
+                    swatch = cells[0].find("span")
+                    cells[0].clear()
+                    if swatch:
+                        set_style_value(swatch, "background", color)
+                        cells[0].append(swatch)
+                    name_tag = soup.new_tag("span")
+                    name_tag.string = str(profile.get("name") or "고객 유형")
+                    cells[0].append(name_tag)
+                    set_style_value(cells[0], "word-break", "keep-all")
+                    set_style_value(cells[0], "overflow-wrap", "normal")
+                    set_style_value(cells[4], "word-break", "keep-all")
+                    for cell in cells[1:4]:
+                        set_style_value(cell, "white-space", "nowrap")
                     cells[1].string = f"{profile['count']}건"
                     cells[2].string = f"{pct(profile['count'], profile_total)}%"
                     badge = cells[3].find("span")
@@ -1129,12 +1205,25 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             if likelihood_text:
                 likelihood_text.string = f"구매 가능성 {likelihood}"
             insight_label = next((tag for tag in soup.find_all(["span", "div"]) if tag.get_text(" ", strip=True) == "AI 분석 인사이트"), None)
-            if insight_label and ai_profile.get("insight"):
-                insight_box = next(iter(insight_label.parent.find_all("div", recursive=False)), None) if insight_label.parent else None
-                if insight_box:
-                    insight_box.string = f"{ai_profile['insight']} {ai_profile.get('recommended_action') or profile.get('action') or '다음 주 실행 조치를 점검하세요.'}"
-                    set_style_value(insight_box, "font-size", "13.5px")
-                    set_style_value(insight_box, "line-height", "1.65")
+            insight_box = None
+            if insight_label and insight_label.parent:
+                insight_box = next(iter(insight_label.parent.find_all("div", recursive=False)), None)
+            if insight_box:
+                # 해석(보통 글씨)과 "그래서 무엇을 고칠지"(굵게·강조색)를 나눠서 핵심 조치가 먼저 눈에 띄게 한다.
+                insight_text = str(ai_profile.get("insight") or profile.get("summary") or "").strip()
+                action_text = first_sentences(
+                    ai_profile.get("recommended_action") or profile.get("action") or "다음 주 실행 조치를 점검하세요.", 1, 90)
+                accent = ["#332288", "#168477", "#A07800", "#A73E50", "#167AA6"][position % 5]
+                insight_box.clear()
+                if insight_text:
+                    insight_box.append(insight_text)
+                    insight_box.append(soup.new_tag("br"))
+                action_tag = soup.new_tag("b")
+                action_tag["style"] = f"display:inline-block;margin-top:6px;color:{accent};font-weight:900"
+                action_tag.string = f"▶ {action_text}"
+                insight_box.append(action_tag)
+                set_style_value(insight_box, "font-size", "13.5px")
+                set_style_value(insight_box, "line-height", "1.65")
             action_heading = next((tag for tag in soup.find_all(["h2", "h3", "div"]) if tag.get_text(" ", strip=True).startswith("주요 행동 TOP") and len(tag.get_text(" ", strip=True)) < 20), None)
             action_group = action_heading.find_next_sibling("div") if action_heading else None
             actions = profile.get("top_actions") or []
@@ -1229,7 +1318,7 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     pie_panel.append(legend_grid)
                     legend_parent.decompose()
             page = str(soup)
-            page = re.sub(rf"(?<!\d){old_count}(?!\d)", str(profile["count"]), page)
+            page = sub_visible_text(page, rf"(?<!\d){old_count}(?!\d)", str(profile["count"]))
             page = re.sub(r"주요 행동 TOP\s*\d+", f"주요 행동 TOP {min(len(actions), 7)}", page)
             page = page.replace(f"{old_share}%", f"{pct(profile['count'], profile_total)}%")
             page = page.replace(
@@ -1362,7 +1451,11 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                         badge.string = likelihoods[position]
                     else:
                         cells[1].string = likelihoods[position]
-                    cells[2].string = str(ai_profile.get("recommended_action") or profile.get("action") or "행동 패턴에 맞춘 운영 전략을 적용하세요.")
+                    # 표에는 핵심 조치 한 문장만 둔다(전체 문단은 유형 상세 페이지에 있음).
+                    cells[2].string = first_sentences(
+                        ai_profile.get("recommended_action") or profile.get("action") or "행동 패턴에 맞춘 운영 전략을 적용하세요.", 1, 56)
+                    set_style_value(cells[2], "word-break", "keep-all")
+                    set_style_value(cells[2], "overflow-wrap", "normal")
         page = str(soup)
         page = re.sub(r'<h2\b[^>]*>\s*종합 제언\s*</h2>', '', page, count=1)
         soup = __import__("bs4").BeautifulSoup(page, "html.parser")
@@ -1371,10 +1464,11 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             set_style_value(label.parent, "margin-top", "18px")
             set_style_value(label.parent, "padding", "16px 18px 12px")
             overall = next(iter(label.parent.find_all("div", recursive=False)), None)
-            if overall and (inputs.get("ai") or {}).get("overall_recommendation"):
-                overall.string = str(inputs["ai"]["overall_recommendation"])
-                set_style_value(overall, "font-size", "13px")
-                set_style_value(overall, "line-height", "1.6")
+            if overall:
+                overall_text = (inputs.get("ai") or {}).get("overall_recommendation") or overall.get_text(" ", strip=True)
+                overall.string = first_sentences(overall_text, 2, 150)
+                set_style_value(overall, "font-size", "14px")
+                set_style_value(overall, "line-height", "1.7")
         page = str(soup)
     if source_index == 19:
         soup = __import__("bs4").BeautifulSoup(page, "html.parser")
