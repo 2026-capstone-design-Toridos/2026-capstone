@@ -114,15 +114,15 @@ SEER/
 
 ### 손실과 운영 현황을 한눈에
 
-<img src="backend/public/assets/readme-dashboard.png" alt="SEER 손실 요약 대시보드" width="100%" />
+<img src="backend/public/assets/readme-dashboard.gif" alt="SEER 운영자 대시보드 시연" width="100%" />
 
 ### 근거를 확인하며 대화하는 운영 Agent
 
-<img src="backend/public/assets/readme-agent.png" alt="SEER 운영 Agent" width="100%" />
+<img src="backend/public/assets/readme-agent.gif" alt="SEER 운영 Agent 시연" width="100%" />
 
 ### 웹에서 확인하고 PDF로 내보내는 주간 리포트
 
-<img src="backend/public/assets/readme-report.png" alt="SEER 주간 리포트" width="100%" />
+<img src="backend/public/assets/readme-report.gif" alt="SEER 주간 리포트 시연" width="100%" />
 
 ## SDK 설치
 
