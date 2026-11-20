@@ -168,7 +168,7 @@ function prettySourceName(raw) {
   if (value.includes('notion')) return 'Notion';
   if (value === 'ig' || value.includes('instagram') || value.includes('insta')) return 'Instagram';
   if (value.includes('threads')) return 'Threads';
-  if (value.includes('facebook') || value.includes('fban')) return 'Facebook';
+  if (value === 'fb' || value.includes('facebook') || value.includes('fban')) return 'Facebook';
   if (value.includes('github')) return 'GitHub';
   if (value.includes('kakao')) return 'Kakao';
   if (value.includes('google')) return 'Google';

@@ -206,3 +206,13 @@ test('Gemini 429는 한 번 재시도하고, 400은 재시도하지 않는다', 
   }));
   assert.equal(calls, 1);
 });
+
+test('채널 저장값 별칭(fb·ig)도 같은 채널로 본다', () => {
+  const { channelRawPattern } = require('../services/opsAgentTools');
+  const { sessionHelpers } = require('../routes/logs');
+  assert.equal(sessionHelpers.deriveSourceName({ channel: 'fb' }), 'Facebook');
+  assert.ok(channelRawPattern('Facebook').test('fb'));
+  assert.ok(channelRawPattern('Instagram').test('ig'));
+  assert.ok(!channelRawPattern('Instagram').test('fb'));
+  assert.ok(planQuestion('페이스북 유입 분석', { days: 7, now: NOW }).filters.channel === 'Facebook');
+});
