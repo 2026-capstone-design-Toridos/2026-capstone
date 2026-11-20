@@ -347,6 +347,19 @@ PAGE_LABELS = {
 }
 
 
+# 행동 패턴 막대의 화면별 색. 앞 4개 = 많이 쓰인 화면 순, 그다음 = 기타 화면, 화면 미집계.
+ACTION_BAR_PALETTE = ["#6c8cff", "#ffb86b", "#4cc9a6", "#c792ea"]
+ACTION_BAR_OTHER = "#cdd3dd"
+ACTION_BAR_UNTRACKED = "#eceff4"
+# 화면 종류마다 같은 색을 쓴다. 예전처럼 "그 유형에서 몇 번째로 많은 화면인지"로
+# 색을 주면 같은 색이 페이지마다 다른 화면을 뜻해 유형끼리 비교가 안 됐다.
+ACTION_BAR_FIXED: dict[str, str] = {
+    "PRODUCT": "#6c8cff", "HOME": "#ffb86b", "CATEGORY": "#4cc9a6", "SEARCH": "#c792ea",
+    "CART": "#ff7a90", "CHECKOUT": "#e8566c", "ORDER_SUCCESS": "#d9435c", "REVIEW": "#ffcf5c",
+    "BOARD": "#8ecdf2", "MEMBER": "#b5d98a", "MYPAGE": "#b5d98a",
+}
+
+
 def render_action_bars(soup, profile: dict) -> None:
     heading = soup.find("div", string=re.compile(r"^주요 행동 TOP\s*\d+$"))
     pie_title = soup.find("div", string="페이지별 방문 비율")
@@ -362,14 +375,17 @@ def render_action_bars(soup, profile: dict) -> None:
                 page_totals[page] = page_totals.get(page, 0) + count
 
     top_pages = sorted(page_totals, key=lambda page: (-page_totals[page], page))[:4]
-    colors = dict(zip(top_pages, ["#a07800", "#47729e", "#358774", "#bb6d83"]))
+    if ACTION_BAR_FIXED:
+        colors = {page: ACTION_BAR_FIXED.get(page, ACTION_BAR_OTHER) for page in top_pages}
+    else:
+        colors = dict(zip(top_pages, ACTION_BAR_PALETTE))
     names = {page: PAGE_LABELS.get(page, page) for page in top_pages}
     if len(page_totals) > len(top_pages):
-        colors["__other"] = "#8372a5"
+        colors["__other"] = ACTION_BAR_OTHER
         names["__other"] = "기타 화면"
     if any(sum(by_action.get(item.get("action"), {}).values()) < int(item.get("count") or 0)
            for item in actions):
-        colors["__untracked"] = "#8794a6"
+        colors["__untracked"] = ACTION_BAR_UNTRACKED
         names["__untracked"] = "화면 미집계"
 
     maximum = max((int(item.get("count") or 0) for item in actions), default=1) or 1
@@ -417,6 +433,22 @@ def render_action_bars(soup, profile: dict) -> None:
     layout.append(action_panel)
     if legend:
         layout.append(fragment.aside)
+
+
+LIKELIHOOD_STYLES = {
+    "높음": ("#e3f2e7", "#1d6b3a"),
+    "중간": ("#fff3dc", "#8a5a00"),
+    "낮음": ("#fbe9e6", "#a3341f"),
+}
+
+
+def style_likelihood_badge(badge, grade: str) -> None:
+    """구매 가능성 배지: 템플릿 행 위치의 색이 아니라 등급에 맞는 색으로, 가운데 정렬한다."""
+    background, color = LIKELIHOOD_STYLES.get(grade, LIKELIHOOD_STYLES["중간"])
+    badge.string = grade
+    set_style_value(badge, "background", background)
+    set_style_value(badge, "color", color)
+    set_style_value(badge, "text-align", "center")
 
 
 def rate(value: int, total: int) -> float:
@@ -1220,6 +1252,9 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
         table = soup.find("sc-raw-table")
         if table:
             rows = table.find_all("sc-raw-tr")[1:]
+            header_cells = table.find("sc-raw-tr").find_all("sc-raw-th")
+            if len(header_cells) > 3:
+                set_style_value(header_cells[3], "text-align", "center")
             for row, (color, profile, likelihood) in zip(rows, ranked):
                 cells = row.find_all("sc-raw-td")
                 if len(cells) >= 5:
@@ -1236,7 +1271,7 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     cells[2].string = f"{pct(profile['count'], profile_total)}%"
                     badge = cells[3].find("span")
                     if badge:
-                        badge.string = likelihood
+                        style_likelihood_badge(badge, likelihood)
                     else:
                         cells[3].string = likelihood
                     cells[4].string = top_action_text(profile)
@@ -1297,6 +1332,9 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             likelihood_text = next((tag for tag in soup.find_all(["div", "span"]) if "구매 가능성" in tag.get_text(" ", strip=True) and tag.get_text(" ", strip=True) in {"구매 가능성 높음", "구매 가능성 중간", "구매 가능성 낮음"}), None)
             if likelihood_text:
                 likelihood_text.string = f"구매 가능성 {likelihood}"
+                background, color = LIKELIHOOD_STYLES.get(likelihood, LIKELIHOOD_STYLES["중간"])
+                set_style_value(likelihood_text, "background", background)
+                set_style_value(likelihood_text, "color", color)
             insight_label = next((tag for tag in soup.find_all(["span", "div"]) if tag.get_text(" ", strip=True) == "AI 분석 인사이트"), None)
             insight_box = None
             if insight_label and insight_label.parent:
@@ -1443,6 +1481,9 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
         if table and profiles:
             rows = table.find_all("sc-raw-tr")[1:]
             likelihoods = purchase_likelihoods(profiles)
+            header_cells = table.find("sc-raw-tr").find_all("sc-raw-th")
+            if len(header_cells) > 1:
+                set_style_value(header_cells[1], "text-align", "center")
             for position, (row, profile) in enumerate(zip(rows, profiles)):
                 ai_profile = ai_for_profile(inputs, profile, position)
                 cells = row.find_all("sc-raw-td")
@@ -1454,7 +1495,7 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                     cells[0].append(str(profile.get("name") or "고객 유형"))
                     badge = cells[1].find("span")
                     if badge:
-                        badge.string = likelihoods[position]
+                        style_likelihood_badge(badge, likelihoods[position])
                     else:
                         cells[1].string = likelihoods[position]
                     # 표에는 핵심 조치 한 문장만 둔다(전체 문단은 유형 상세 페이지에 있음).
