@@ -12,6 +12,23 @@ const { buildSessionPipeline, deriveSourceName } = sessionHelpers;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_EVENTS = 50_000;
 
+// 표시용 채널명 → 이벤트에 저장된 원문 채널값 패턴 (logs.js prettySourceName과 같은 규칙)
+const CHANNEL_RAW_PATTERNS = {
+  instagram: /^ig$|insta/i,
+  facebook: /^fb$|facebook|fban/i,
+  naver: /naver/i,
+  google: /google/i,
+  kakao: /kakao/i,
+  tiktok: /tiktok/i,
+  youtube: /youtube/i,
+  '직접 방문': /^direct$/i,
+};
+
+function channelRawPattern(name) {
+  const key = String(name || '').trim().toLowerCase();
+  return CHANNEL_RAW_PATTERNS[key] || new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+}
+
 function percent(value, total) {
   return total ? Math.round((Number(value || 0) / Number(total)) * 1000) / 10 : 0;
 }
@@ -228,7 +245,9 @@ async function productTool(origin, plan, asOf) {
   if (plan.filters.channel) {
     // SDK가 첫 유입 채널을 세션의 모든 이벤트에 고정해서 붙이므로 세션 ID를
     // 먼저 전부 읽지 않고 인덱스 범위 안에서 채널을 바로 제한할 수 있다.
-    filter.channel = plan.filters.channel;
+    // 단, 저장값은 utm_source 원문("fb", "ig", "instagram" 등)이라
+    // 표시 이름("Facebook")과 정확히 같지 않다. 별칭까지 포함해 찾는다.
+    filter.channel = channelRawPattern(plan.filters.channel);
   }
   const projection = {
     session_id: 1, event_type: 1, received_at: 1, timestamp: 1, pathname: 1, page_url: 1,
@@ -403,4 +422,4 @@ async function buildAgentTools({ origin, plan, asOf, cachedTools = {}, history =
   };
 }
 
-module.exports = { buildAgentTools, resolvePlanPeriod, percent, digest };
+module.exports = { buildAgentTools, resolvePlanPeriod, percent, digest, channelRawPattern };
