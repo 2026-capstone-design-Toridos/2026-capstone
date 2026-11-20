@@ -68,6 +68,29 @@ function detectedChannel(question) {
   return CHANNEL_PATTERNS.find(([, pattern]) => pattern.test(question))?.[0] || null;
 }
 
+// "인스타랑 네이버 비교"처럼 채널을 여러 개 말하면 전부 잡는다.
+function detectedChannels(question) {
+  return CHANNEL_PATTERNS.filter(([, pattern]) => pattern.test(question)).map(([name]) => name);
+}
+
+// 기간 비교는 "비교"라는 말만으로 정하지 않는다. 시간을 가리키는 말이 있어야 한다.
+const TIME_REFERENCE = /지난\s*(?:주|달|동일\s*기간|기간)|저번\s*(?:주|달)|전주|전월|이전\s*기간|직전\s*(?:주|기간)|지난번/;
+const COMPARE_WORD = /비교|대비|보다|달라|차이|변화|늘었|줄었/;
+
+function lastCompletedWeek(now = new Date()) {
+  const today = kstDateString(now);
+  const weekday = (new Date(`${today}T12:00:00+09:00`).getUTCDay() + 6) % 7; // 월=0 (정오로 잡아야 UTC 변환 시 날짜가 안 밀림)
+  const thisMonday = shiftDate(today, -weekday);
+  return { startDate: shiftDate(thisMonday, -7), endDate: shiftDate(thisMonday, -1), days: 7, explicit: true, mode: 'last_week' };
+}
+
+// "지난주 매출 어때?"는 지난주 자체를 보는 질문, "지난주랑 비교"는 비교 질문이다.
+function lastWeekPeriod(question, now = new Date()) {
+  const text = String(question || '');
+  if (!/지난\s*주|저번\s*주|전주/.test(text) || COMPARE_WORD.test(text)) return null;
+  return lastCompletedWeek(now);
+}
+
 function detectedCampaign(question) {
   const match = String(question).match(/(?:utm[_\s-]*campaign|캠페인(?:명)?)\s*(?:은|는|:|=)?\s*["']?([A-Za-z0-9._-]{2,80})["']?/i);
   const value = match?.[1] || '';
@@ -78,15 +101,18 @@ function responseMode(question) {
   const text = String(question || '');
   if (/캡처|스크린샷|화면\s*(?:위치|구역|영역).*보여|이탈.*화면.*보여/.test(text)) return 'visual_diagnosis';
   if (/실행\s*(?:순서|계획)|이번\s*주.*(?:순서|계획)|우선순위.*정리|순서로\s*정리/.test(text)) return 'execution_plan';
-  if (/지난\s*(?:동일\s*)?기간|이전\s*기간|전주|비교/.test(text)) return 'period_comparison';
+  if (detectedChannels(text).length >= 2 || /채널(?:별)?.*비교|비교.*채널|유입(?:별)?.*비교/.test(text)) return 'channel_comparison';
+  if (TIME_REFERENCE.test(text) && COMPARE_WORD.test(text)) return 'period_comparison';
   return 'diagnosis';
 }
 
 function planQuestion(question, { days = 7, now = new Date(), previousPlan = null } = {}) {
   const text = String(question || '').trim();
   if (!text) throw validationError('질문이 비어 있습니다.');
-  const period = collectionPeriod(text, now) || explicitPeriod(text, now) || daysPeriod(days, now);
-  const channel = detectedChannel(text);
+  const period = collectionPeriod(text, now) || explicitPeriod(text, now) || lastWeekPeriod(text, now) || daysPeriod(days, now);
+  const channels = detectedChannels(text);
+  const channel = channels.length === 1 ? channels[0] : null;
+  const mode = responseMode(text);
   const campaign = detectedCampaign(text);
   const targets = new Set();
   const requiredTools = new Set();
@@ -96,8 +122,11 @@ function planQuestion(question, { days = 7, now = new Date(), previousPlan = nul
     tools.forEach((tool) => requiredTools.add(tool));
   };
   if (/구매\s*여정|퍼널|단계|장바구니|결제|전환/.test(text)) add('funnel', 'get_funnel_overview');
-  if (/유입|채널|경로|인스타|instagram|네이버|naver|구글|google|카카오|facebook|페이스북/.test(text)) add('channel', 'get_channel_performance');
+  if (/매출|주문|구매|판매|팔렸|팔리/.test(text)) add('sales', 'get_period_overview', 'get_funnel_overview');
+  if (/유입|채널|경로|인스타|instagram|네이버|naver|구글|google|카카오|facebook|페이스북|틱톡|유튜브/i.test(text)) add('channel', 'get_channel_performance');
+  if (/광고|마케팅|홍보/.test(text)) add('channel', 'get_channel_performance', 'get_campaign_performance');
   if (/캠페인|utm/i.test(text)) add('campaign', 'get_campaign_performance');
+  if (/왜|이유|원인/.test(text)) add('reason', 'get_funnel_overview', 'get_exit_signals');
   if (/상품|제품|카테고리|찜|리뷰/.test(text)) add('product', 'get_product_opportunities');
   if (/고객\s*유형|클러스터|페르소나|유형별/.test(text)) add('customer_type', 'get_customer_type_insights');
   if (/이전\s*(?:제안|조치)|지난\s*(?:제안|조치)|효과|개선됐|성과\s*검증/.test(text)) add('previous_action', 'get_previous_action_outcomes');
@@ -118,7 +147,9 @@ function planQuestion(question, { days = 7, now = new Date(), previousPlan = nul
     requiredTools.add('get_exit_signals');
     requiredTools.add('get_previous_action_outcomes');
   }
-  if (channel && !requiredTools.has('get_channel_performance')) requiredTools.add('get_channel_performance');
+  if (channels.length && !requiredTools.has('get_channel_performance')) requiredTools.add('get_channel_performance');
+  if (mode === 'channel_comparison') add('channel', 'get_channel_performance');
+  if (mode === 'period_comparison') requiredTools.add('get_period_overview');
   if (campaign) requiredTools.add('get_campaign_performance');
 
   // “이 화면”, “이 구간”, “그 제안”처럼 직전 답변을 가리키는 후속 질문은
@@ -132,10 +163,11 @@ function planQuestion(question, { days = 7, now = new Date(), previousPlan = nul
   }
 
   return {
-    response_mode: responseMode(text),
+    response_mode: mode,
     period,
     filters: {
-      channel: channel || (contextualFollowUp ? previousPlan?.filters?.channel || null : null),
+      channel: channel || (contextualFollowUp && !channels.length ? previousPlan?.filters?.channel || null : null),
+      channels: channels.length >= 2 ? channels : [],
       campaign: campaign || (contextualFollowUp ? previousPlan?.filters?.campaign || null : null),
     },
     targets: [...targets],
@@ -145,4 +177,4 @@ function planQuestion(question, { days = 7, now = new Date(), previousPlan = nul
   };
 }
 
-module.exports = { planQuestion, daysPeriod, explicitPeriod, collectionPeriod, detectedChannel, responseMode, shiftDate };
+module.exports = { planQuestion, daysPeriod, explicitPeriod, collectionPeriod, detectedChannel, detectedChannels, lastCompletedWeek, responseMode, shiftDate };

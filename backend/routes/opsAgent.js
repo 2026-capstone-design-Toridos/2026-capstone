@@ -10,12 +10,12 @@ const buckets = new Map();
 
 function tenant(req, res) {
   if (req.siteOpenMode) {
-    res.status(403).json({ error: '운영 제안 에이전트는 사이트 접근 키 보호가 활성화된 환경에서만 사용할 수 있습니다.' });
+    res.status(403).json({ code: 'AGENT_REQUIRES_KEY', error: '운영 제안 에이전트는 사이트 접근 키 보호가 활성화된 환경에서만 사용할 수 있습니다.' });
     return null;
   }
   const value = canonicalOrigin(req.siteOrigin);
   if (!value) {
-    res.status(403).json({ error: '운영 제안 에이전트는 담당 쇼핑몰이 확정된 접근 키로만 사용할 수 있습니다.' });
+    res.status(403).json({ code: 'AGENT_REQUIRES_KEY', error: '운영 제안 에이전트는 담당 쇼핑몰이 확정된 접근 키로만 사용할 수 있습니다.' });
     return null;
   }
   return value;

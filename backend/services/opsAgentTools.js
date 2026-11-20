@@ -99,9 +99,13 @@ async function baseTools(origin, plan, asOf) {
     cart_rate: percent(row.cart_sessions, row.sessions),
     order_rate: percent(row.orders, row.sessions),
   }));
-  const selectedChannels = plan.filters.channel
-    ? channels.filter((row) => row.name.toLowerCase() === plan.filters.channel.toLowerCase())
+  // 단일 채널 질문이면 그 채널만, 비교 질문이면 말한 채널들만 남긴다.
+  const wanted = [plan.filters.channel, ...(plan.filters.channels || [])].filter(Boolean).map((name) => name.toLowerCase());
+  const selectedChannels = wanted.length
+    ? channels.filter((row) => wanted.includes(String(row.name).toLowerCase()))
     : channels;
+  const missingChannels = [plan.filters.channel, ...(plan.filters.channels || [])].filter(Boolean)
+    .filter((name) => !selectedChannels.some((row) => String(row.name).toLowerCase() === name.toLowerCase()));
   const topTransition = [...transitions].sort((a, b) => b.stopped - a.stopped)[0];
   const topExit = metrics.exit_pages[0];
   const topCause = metrics.exit_causes[0];
@@ -133,13 +137,20 @@ async function baseTools(origin, plan, asOf) {
     get_channel_performance: {
       period: metrics.period,
       filter: plan.filters.channel,
+      requested: [plan.filters.channel, ...(plan.filters.channels || [])].filter(Boolean),
+      missing: missingChannels,
+      all_channels_sessions: sessions,
       channels: selectedChannels,
       evidence: selectedChannels.slice(0, 7).map((row) => evidence(
         `channel.${row.name}`,
         `${row.name} 유입은 ${row.sessions.toLocaleString('ko-KR')}개 세션이며 상품 조회 ${row.product_sessions.toLocaleString('ko-KR')}건(${row.product_reach_rate}%), 장바구니 ${row.cart_sessions.toLocaleString('ko-KR')}건(${row.cart_rate}%), 주문 ${row.orders.toLocaleString('ko-KR')}건(${row.order_rate}%)입니다.`,
         row,
       )),
-      note: selectedChannels.length ? '수집된 첫 유입 정보 기준입니다.' : '요청한 유입 채널에 해당하는 세션이 없습니다.',
+      note: !selectedChannels.length
+        ? '요청한 유입 채널에 해당하는 세션이 없습니다.'
+        : missingChannels.length
+          ? `요청한 채널 중 일부(${missingChannels.join(', ')})는 이 기간 세션이 없습니다.`
+          : '수집된 첫 유입 정보 기준입니다.',
     },
     get_exit_signals: {
       period: metrics.period,
