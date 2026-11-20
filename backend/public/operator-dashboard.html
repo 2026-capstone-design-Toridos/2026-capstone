@@ -869,7 +869,6 @@
       .topbar { position:relative; padding:10px 14px; }
       .brand h1 { font-size:.98rem; }
       .actions { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; }
-      .actions #expert-view { display:none; }
       .live { justify-self:end; padding:0 9px; }
       main { padding:0 14px 28px; }
       .workspace-nav { top:0; margin:0 -14px 16px; padding:8px 14px; }
@@ -1139,7 +1138,6 @@
       </select>
       <button class="secondary" id="rediscover-types">최신 데이터로 다시 분류</button>
       <button id="open-reports">리포트 보기</button>
-      <button class="secondary" id="expert-view">전문가 화면</button>
       <button class="secondary" id="open-help">도움말</button>
       <button class="secondary" id="sign-out">다른 키로 열기</button>
       <span class="live" id="status">연결 확인 중</span>
@@ -3412,10 +3410,6 @@
       }
       if (state.activeView === "agent") loadAgentWorkspace();
     });
-    // 전문가 화면도 같은 키를 써야 데이터가 보인다 (localStorage 공유라 최초 1회만 필요)
-    // withKey를 붙이는 이유: 시크릿 모드처럼 localStorage 쓰기가 막힌 브라우저에서는
-    // 전문가 화면이 저장소에서 키를 못 읽는다. 쿼리로 넘겨야 그런 경우에도 이어진다.
-    $("expert-view").addEventListener("click", () => { window.location.href = withKey("/dashboard.html"); });
     $("open-help").addEventListener("click", () => { window.location.href = "/help.html"; });
 
     // 담당자가 여러 쇼핑몰을 번갈아 볼 때 쓰는 버튼.

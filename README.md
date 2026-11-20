@@ -125,9 +125,9 @@ GostTracker: 소상공인을 위한 데이터 마케팅 도우미 - 세션 흐�
 
 ## STEP 3 — 대시보드에서 실시간 확인
 
-아래 링크를 열면 모든 쇼핑몰에서 수집된 이벤트를 실시간으로 볼 수 있습니다.
+아래 링크에서 쇼핑몰 접근 키를 입력하면 해당 쇼핑몰의 운영 화면을 실시간으로 볼 수 있습니다.
 
-👉 **https://capstone-toridos.duckdns.org/dashboard.html**
+👉 **https://capstone-toridos.duckdns.org/operator-dashboard.html**
 
 ---
 

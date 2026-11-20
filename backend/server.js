@@ -41,7 +41,7 @@ app.use(cors({
 }));
 
 // ── Static (Dashboard + SDK) ──────────────────────────────────
-// public 폴더에 있는 운영자/전문가 대시보드 html과 SDK 번들을 내려줌
+// public 폴더에 있는 운영자 대시보드 html과 SDK 번들을 내려줌
 //
 // gt.js는 쇼핑몰에 삽입되는 SDK라 캐시 정책이 중요하다.
 // 기본 설정으로 두면 브라우저가 옛 번들을 계속 들고 있어서,
@@ -49,6 +49,13 @@ app.use(cors({
 //
 // 'no-cache'는 "캐시하지 마라"가 아니라 "캐시하되 쓸 때마다 서버에 확인하라"다.
 // 바뀐 게 없으면 304(본문 없음)로 끝나 비용은 거의 없고, 배포는 즉시 반영된다.
+// 예전 전문가 화면(/dashboard.html)은 없앴다. 북마크·옛 링크로 들어와도
+// 빈 404 대신 운영 화면으로 보낸다(접근 키 쿼리는 그대로 넘긴다).
+app.get('/dashboard.html', (req, res) => {
+  const query = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect(301, `/operator-dashboard.html${query}`);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('gt.js')) {
