@@ -695,6 +695,20 @@
       white-space: pre-wrap;
     }
     .report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    /* 운영 액션 리포트: 진단 → 근거 → 할 일(확인 지표) */
+    .report.structured { white-space: normal; line-height: 1.6; }
+    .ar-head { font-weight: 700; font-size: 1.02rem; margin-bottom: 6px; }
+    .ar-diag { color: var(--text); margin: 0 0 12px; }
+    .ar-label { font-size: 0.78rem; font-weight: 700; color: var(--muted); letter-spacing: 0.02em; margin: 14px 0 6px; }
+    .ar-evidence { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }
+    .ar-evidence li { margin: 2px 0; }
+    .ar-actions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .ar-action { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 12px; }
+    .ar-action b { display: block; }
+    .ar-action p { margin: 4px 0 6px; font-size: 0.9rem; }
+    .ar-metric { display: inline-block; font-size: 0.78rem; color: var(--blue); background: var(--blue-soft); border-radius: 999px; padding: 2px 9px; }
+    .ar-note { margin-top: 12px; font-size: 0.8rem; color: var(--muted); }
+    .ar-warning { margin-bottom: 10px; font-size: 0.8rem; color: var(--amber); background: var(--amber-soft); border-radius: 8px; padding: 6px 10px; }
 
     .activity-list {
       position: relative;
@@ -2721,6 +2735,8 @@
         ? `${renderBehaviorFlow(initialEvents)}<div class="chips">${sourceTags(selectedSession).map((tag) => `<span class="chip">${tag}</span>`).join("")}</div><div class="helper">전체 행동 이력을 확인하는 중입니다.</div>`
         : `<div class="empty">이 고객의 전체 행동을 불러오는 중입니다.</div>`;
       $("result-box").innerHTML = `<div class="empty">“이 고객 분석”을 누르면 이 행동 흐름이 어떤 고객 유형에 가까운지 보여줍니다.</div>`;
+      $("report-box").classList.remove("structured");
+
       $("report-box").textContent = "고객 분석 후 리포트를 볼 수 있습니다.";
       $("cluster-report").disabled = true;
       $("session-report").disabled = true;
@@ -2805,6 +2821,8 @@
           </div>`;
         $("cluster-report").disabled = isUnassigned;
         $("session-report").disabled = false;
+        $("report-box").classList.remove("structured");
+
         $("report-box").textContent = "이제 “고객 리포트” 또는 “유형 리포트”를 눌러 운영 액션을 확인하세요.";
       } catch (err) {
         $("result-box").innerHTML = `<div class="empty">분석에 실패했습니다: ${err.message}</div>`;
@@ -2820,6 +2838,7 @@
         summary: state.analysis?.summary,
         action: state.analysis?.action,
         confidence: state.analysis?.confidence,
+        completed: Boolean(state.analysis?.completed),
         events: state.selectedEvents.map((e) => ({
           event_type: e.event_type,
           page: eventPage(e),
@@ -2828,9 +2847,35 @@
       };
     }
 
+    // 서버가 준 운영 액션 리포트(sections)를 진단 → 근거 → 할 일 순서로 그린다.
+    // sections 가 없는 예전 응답은 글자 그대로 보여준다.
+    function renderActionReport(result) {
+      const box = $("report-box");
+      const r = result?.sections;
+      if (!r || !Array.isArray(r.actions)) {
+        box.classList.remove("structured");
+        box.textContent = `${result?.warning ? `${result.warning}\n\n` : ""}${result?.report || "리포트가 비어 있습니다."}`;
+        return;
+      }
+      box.classList.add("structured");
+      const evidence = (r.evidence || []).map((e) => `<li>${escapeHtml(e)}</li>`).join("");
+      const actions = r.actions.map((a, i) => `
+        <li class="ar-action"><b>${i + 1}. ${escapeHtml(a.title)}</b><p>${escapeHtml(a.how)}</p>
+        <span class="ar-metric">다음 주 확인 · ${escapeHtml(a.metric)}</span></li>`).join("");
+      box.innerHTML = `
+        ${result.warning ? `<div class="ar-warning">${escapeHtml(result.warning)}</div>` : ""}
+        <div class="ar-head">${escapeHtml(r.headline)}</div>
+        <p class="ar-diag">${escapeHtml(r.diagnosis)}</p>
+        ${evidence ? `<div class="ar-label">근거</div><ul class="ar-evidence">${evidence}</ul>` : ""}
+        <div class="ar-label">이번 주 할 일</div><ol class="ar-actions">${actions}</ol>
+        ${r.note ? `<div class="ar-note">${escapeHtml(r.note)}</div>` : ""}`;
+    }
+
     // 고객 리포트 받아와서 표시
     async function loadSessionReport() {
       if (!state.analysis) return;
+      $("report-box").classList.remove("structured");
+
       $("report-box").textContent = "고객 리포트를 만드는 중입니다.";
       try {
         const result = await api("/api/report/session", {
@@ -2839,8 +2884,9 @@
           // 실제 고객 행동은 외부 AI로 보내지 않고 서버 내부 템플릿으로 즉시 요약한다.
           body: JSON.stringify({ ...sessionPayload(), prefer_local: true }),
         });
-        $("report-box").textContent = `${result.warning ? `${result.warning}\n\n` : ""}${result.report || "리포트가 비어 있습니다."}`;
+        renderActionReport(result);
       } catch (err) {
+        $("report-box").classList.remove("structured");
         $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
       }
     }
@@ -2848,6 +2894,8 @@
     // 유형 리포트 받아와서 표시
     async function loadClusterReport(clusterId = state.analysis?.cluster_id) {
       if (clusterId === undefined || clusterId === null || clusterId === "") return;
+      $("report-box").classList.remove("structured");
+
       $("report-box").textContent = "고객 유형 리포트를 만드는 중입니다.";
       try {
         const params = new URLSearchParams();
@@ -2856,9 +2904,9 @@
         if (state.analysis?.completed) params.set("completed", "1");
         const query = params.toString();
         const result = await api(`/api/report/cluster/${clusterId}${query ? `?${query}` : ""}`);
-        $("report-box").textContent = result.report || "리포트가 비어 있습니다.";
-        if (result.warning) $("report-box").textContent += `\n\n(${result.warning})`;
+        renderActionReport(result);
       } catch (err) {
+        $("report-box").classList.remove("structured");
         $("report-box").textContent = `리포트 생성 실패: ${err.message}`;
       }
     }
@@ -3209,6 +3257,8 @@
       $("session-input").dataset.sessionId = "";
       $("timeline-box").innerHTML = `<div class="empty">새 사이트의 고객을 선택해주세요.</div>`;
       $("result-box").innerHTML = `<div class="empty">고객을 선택하고 분석 버튼을 눌러주세요.</div>`;
+      $("report-box").classList.remove("structured");
+
       $("report-box").textContent = "새 사이트의 고객을 분석하면 운영 액션 리포트를 볼 수 있습니다.";
       $("cluster-report").disabled = true;
       $("session-report").disabled = true;

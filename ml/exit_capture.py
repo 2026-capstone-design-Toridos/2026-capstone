@@ -229,17 +229,42 @@ def find_exit_hotspots(base_dir: str, start: str, end: str, limit: int = 3,
 
 
 # Chrome/Edge 실행 파일 경로를 찾는다 — 없으면 빈 문자열 반환
+#
+# PDF 렌더러(report_exact_template.chrome_path)와 같은 곳을 같은 순서로 찾는다.
+# 예전에는 이 함수가 'chrome', 'msedge', Windows 경로만 봐서
+# 리눅스 서버(google-chrome, chromium, 배포 스크립트가 받아 둔
+# ~/.cache/ghosttracker-browser/**/chrome)에서는 항상 빈 값이 나왔고,
+# 리포트의 "고객이 가장 많이 나간 화면"이 매번 캡처 없이 만들어졌다.
+DEFAULT_BROWSER_CACHE = "/home/opc/.cache/ghosttracker-browser"
+
+
 def browser_executable() -> str:
+    cache_root = os.environ.get("SEER_BROWSER_CACHE", DEFAULT_BROWSER_CACHE)
+    cached = []
+    if os.path.isdir(cache_root):
+        for root, _dirs, files in os.walk(cache_root):
+            if "chrome" in files:
+                cached.append(os.path.join(root, "chrome"))
     candidates = [
         os.environ.get("GT_BROWSER_PATH"),
+        os.environ.get("CHROME_BIN"),
         shutil.which("chrome"),
+        shutil.which("google-chrome"),
+        shutil.which("google-chrome-stable"),
+        shutil.which("chromium"),
+        shutil.which("chromium-browser"),
         shutil.which("msedge"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        *cached,
     ]
-    return next((p for p in candidates if p and os.path.exists(p)), "")
+    return next(
+        (p for p in candidates if p and os.path.isfile(p) and os.access(p, os.X_OK)),
+        "",
+    )
 
 
 # 사용 가능한 무작위 로컬 포트를 반환한다
@@ -250,6 +275,9 @@ def free_port() -> int:
 
 
 # WebSocket 핸드셰이크를 직접 구현해 소켓 연결을 맺는다
+CDP_RESPONSE_TIMEOUT_SEC = 20
+
+
 def ws_connect(ws_url: str) -> socket.socket:
     p = urlparse(ws_url)
     host, port = p.hostname, p.port or 80
@@ -268,6 +296,11 @@ def ws_connect(ws_url: str) -> socket.socket:
     data = sock.recv(4096)
     if b" 101 " not in data:
         raise RuntimeError("WebSocket handshake failed")
+    # 연결 후에는 응답 대기 시한을 늘린다. wait_for_meaningful_page 는 페이지가
+    # 덜 그려졌으면 최대 약 9초(0.3초 x 25회 + 1.5초)를 기다린 뒤 답하는데,
+    # 연결용 8초 시한이 그대로 남아 있으면 그 전에 TimeoutError 로 캡처 전체가 실패했다.
+    # (Cafe24 상품 페이지처럼 lazy-loading 클래스가 남아 있는 화면에서 자주 생긴다.)
+    sock.settimeout(CDP_RESPONSE_TIMEOUT_SEC)
     return sock
 
 
@@ -448,35 +481,34 @@ def focus_hotspot_area(sock: socket.socket, seq: int, hotspot: dict) -> tuple[in
 
 
 # 캡처 이미지가 거의 흰 화면인지 PIL로 판별한다 — 빈 캡처 재시도 여부 결정에 사용
+BLANK_DIFF_LEVEL = 24      # 바탕색과 이만큼 밝기가 다르면 "내용 있는 픽셀"
+BLANK_DETAIL_RATIO = 0.01  # 내용 있는 픽셀이 1% 미만이면 빈 화면
+
+
 def capture_looks_blank(path: str) -> bool:
+    """캡처가 비었거나 로딩 화면뿐인지 판단한다.
+
+    예전 기준(220px 썸네일의 흰 픽셀 비율·명암 편차)은 밝은 배경에 글자가 많은
+    화면을 빈 화면으로 오판했다. 쇼핑몰의 리뷰·상세 설명 영역이 대표적이고,
+    이 경우 캡처를 두 번 찍고도 버려 리포트에 빈칸이 남았다.
+
+    지금은 화면의 바탕색(가장 많은 밝기 값)과 확실히 다른 픽셀이 얼마나 되는지 본다.
+    빈 화면·"Loading..." 한 줄은 0.1% 미만, 글자·이미지가 있는 화면은 수 %이상이다.
+    """
     if not path or not os.path.exists(path):
         return True
     try:
-        from PIL import Image, ImageStat
+        from PIL import Image
 
-        img = Image.open(path).convert("RGB")
-        img.thumbnail((220, 140))
-
-        def metrics(sample):
-            gray = sample.convert("L")
-            stat = ImageStat.Stat(gray)
-            pixels = list(gray.getdata())
-            white_ratio = sum(1 for px in pixels if px >= 245) / max(1, len(pixels))
-            stddev = stat.stddev[0] if stat.stddev else 0
-            mean = stat.mean[0] if stat.mean else 255
-            return white_ratio, stddev, mean
-
-        full_white, full_stddev, full_mean = metrics(img)
-        w, h = img.size
-        focus = img.crop((int(w * 0.14), int(h * 0.12), int(w * 0.86), int(h * 0.78)))
-        focus_white, focus_stddev, focus_mean = metrics(focus)
-
-        return (
-            full_white > 0.90
-            or (full_stddev < 14 and full_mean > 225)
-            or focus_white > 0.88
-            or (focus_stddev < 11 and focus_mean > 228)
+        gray = Image.open(path).convert("L")
+        gray.thumbnail((683, 400))
+        hist = gray.histogram()
+        total = sum(hist) or 1
+        background = max(range(256), key=lambda value: hist[value])
+        detail_pixels = sum(
+            count for value, count in enumerate(hist) if abs(value - background) > BLANK_DIFF_LEVEL
         )
+        return detail_pixels / total < BLANK_DETAIL_RATIO
     except Exception:
         return False
 
@@ -504,6 +536,10 @@ def capture_hotspot(hotspot: dict, out_dir: str, index: int) -> str:
                 browser,
                 "--headless=new",
                 "--disable-gpu",
+                # 리눅스 서버(컨테이너·작은 /dev/shm)에서 Chrome 이 뜨자마자 죽지 않게 한다.
+                # PDF 렌더러와 같은 옵션이다.
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
                 "--hide-scrollbars",
                 "--no-first-run",
                 "--no-default-browser-check",
@@ -535,6 +571,14 @@ def capture_hotspot(hotspot: dict, out_dir: str, index: int) -> str:
         cdp_call(sock, seq, "Page.enable")
         seq += 1
         seq = wait_for_meaningful_page(sock, seq)
+        # 주소에 접속하지 못하면 Chrome 은 자체 오류 화면(chrome-error://)을 띄운다.
+        # 글자가 있어 빈 화면 검사를 통과하므로 따로 걸러야 한다.
+        # (그대로 두면 리포트에 "This site can't be reached" 화면이 들어간다)
+        location = cdp_call(sock, seq, "Runtime.evaluate", {"expression": "location.href", "returnByValue": True})
+        seq += 1
+        if str(location.get("result", {}).get("value", "")).startswith("chrome-error:"):
+            print(f"  -> page did not load: {hotspot.get('url')}")
+            return ""
         for attempt in range(2):
             seq, focus_meta = focus_hotspot_area(sock, seq, hotspot)
             hotspot["captured_scroll_y"] = focus_meta.get("finalScrollY", int(hotspot.get("scroll_y", 0)))

@@ -18,6 +18,7 @@ const express = require('express');
 const fs      = require('fs');
 const path    = require('path');
 const { execFile } = require('child_process');
+const { buildClusterActionReport, buildSessionActionReport } = require('../lib/actionReport');
 const router  = express.Router();
 const { canonicalOrigin, originCondition } = require('../middleware/siteAccess');
 const Event = require('../models/Event');
@@ -726,125 +727,49 @@ function isGeminiUnavailable(err) {
     || message.includes('incomplete');
 }
 
-function actionLabel(action) {
-  const labels = {
-    START_SESSION: '쇼핑몰 방문',
-    ENTER_HOME: '홈 화면 진입',
-    ENTER_PRODUCT: '상품 상세 확인',
-    ENTER_CART: '장바구니 진입',
-    ENTER_CHECKOUT: '결제 화면 진입',
-    SCROLL_HOME: '홈 화면 스크롤',
-    SCROLL_PRODUCT: '상품 페이지 스크롤',
-    HOVER_ELEMENT: '요소 위에 머무름',
-    CLICK_ELEMENT: '버튼 또는 메뉴 클릭',
-    SEARCH_USE: '상품 검색',
-    CHECK_PRICE: '가격 확인',
-    CHECK_SIZE: '사이즈 확인',
-    VIEW_DETAIL: '상세정보 확인',
-    VIEW_REVIEW: '리뷰 확인',
-    VIEW_QNA: '상품 문의 확인',
-    ADD_CART: '장바구니 담기',
-    EXIT_SESSION: '탐색 중지',
-    INACTIVE: '움직임 없음',
-    TAB_OUT: '탭을 떠남',
-  };
-  return labels[action] || String(action || '').replaceAll('_', ' ').toLowerCase();
+// Gemini 없이 서버 안에서 만드는 유형 리포트 (근거 → 할 일 → 확인 지표)
+// 반환: { text, sections } — text 는 예전 화면과 호환되는 일반 문장, sections 는 구조화된 내용
+//
+// 유형 통계(방문 수·대표 행동·화면)는 이 쇼핑몰의 분류 스냅샷에서만 가져온다.
+// 스냅샷이 없을 때 쓰는 전역 메타(cluster_meta.json)는 예전 Transformer·HDBSCAN
+// 7개 군집의 통계라, 지금 분류 서버의 유형 번호(0~4)와 뜻이 다르다.
+// 예) 지금 4번 = "짧은 방문·행동 정보 부족형", 전역 메타 4번 = "리뷰 기반 구매 고려 고객".
+// 그대로 쓰면 정보 부족형 리포트에 "대표 행동: 리뷰 확인" 같은 엉뚱한 근거가 붙는다.
+function isSiteSnapshot(source) {
+  return source === 'site_snapshot';
 }
 
-// 자주 나오는 유형은 Gemini 호출 전에 미리 써둔 문장으로 대체
-function mockReportPreset(persona = '') {
-  const name = String(persona || '').trim();
-  if (!name) return null;
-
-  if (name.includes('주문을 완료한 고객')) {
-    return {
-      cluster: '주문을 완료한 고객 유형은 상품을 살펴본 뒤 장바구니와 주문서 작성 단계를 무리 없이 지나 실제 결제 완료까지 도달한 고객입니다. 운영자님께서는 이 고객의 흐름을 전환 성공 기준선으로 보고, 장바구니 진입 이후 배송 정보 입력과 결제 버튼 주변의 문구, 진행 순서, 안심 요소를 다른 고객에게도 동일하게 제공하는 것이 좋습니다. 특히 결제 직전 망설임을 줄이기 위해 배송 안내, 결제 혜택, 주문 완료 직전 확인 문구를 더 분명하게 보여주면 성공 흐름을 더 많이 재현할 수 있습니다.',
-      session: '이 고객은 장바구니 담기 이후 주문서 입력과 주문 클릭을 이어가며 실제 주문 완료까지 도달했습니다. 운영자님께서는 이 세션을 전환 성공 예시로 보고, 어떤 화면에서 다음 행동이 자연스럽게 이어졌는지 확인한 뒤 같은 안내 구조를 다른 고객의 장바구니와 결제 화면에도 확대 적용해보세요. 특히 입력 과정이 길어지지 않도록 필수 정보, 결제 수단, 최종 버튼 주변 구성을 더 단순하게 유지하는 것이 좋습니다.',
-    };
-  }
-
-  if (name.includes('결제 단계에서 망설이는 고객')) {
-    return {
-      cluster: '결제 단계에서 망설이는 고객 유형은 가격, 배송, 입력 단계까지는 진입하지만 마지막 확신이 부족해 멈추는 경우가 많은 유형입니다. 운영자님께서는 결제 화면에서 배송비, 환불 안내, 결제 혜택, 리뷰 신뢰 요소를 더 선명하게 보여주고 입력 피로를 줄이는 방향으로 우선 점검해보세요. 특히 마지막 버튼 직전의 불안 요소를 줄여주면 전환율 개선 가능성이 큽니다.',
-      session: '이 고객은 상품과 결제 흐름에 관심을 보였지만 입력이나 가격 확인 단계에서 한 번 더 머뭇거리는 패턴이 보입니다. 운영자님께서는 결제 직전 화면에서 쿠폰, 배송 안내, 결제 완료까지 남은 단계 같은 확신 요소를 보강해 고객이 마지막 결정을 더 쉽게 내리도록 도와주세요. 입력 항목이 많다면 꼭 필요한 순서만 먼저 보이게 정리하는 것도 효과적입니다.',
-    };
-  }
-
-  if (name.includes('탐색을 빠르게 멈추는 고객')) {
-    return {
-      cluster: '탐색을 빠르게 멈추는 고객 유형은 짧게 둘러본 뒤 다음 행동으로 이어지지 않고 빠르게 흐름이 끊기는 경우가 많은 유형입니다. 운영자님께서는 첫 화면과 상품 초반 구간에서 대표 상품, 혜택, 신뢰 요소, 다음 행동 버튼을 더 강하게 보여주어 고객이 멈추기 전에 방향을 잡을 수 있게 해주세요. 특히 첫 10초 안에 보이는 정보 구성이 중요합니다.',
-      session: '이 고객은 핵심 화면을 오래 보지 않고 비교적 이른 시점에 탐색 흐름이 끊겼습니다. 운영자님께서는 첫 화면 또는 상품 초반 구간에서 고객이 다음으로 무엇을 해야 하는지 더 명확하게 알려주는 문구와 버튼을 보강해보세요. 혜택 배너나 대표 상품 묶음을 먼저 보여주는 것도 이 유형의 이탈을 줄이는 데 도움이 됩니다.',
-    };
-  }
-
-  if (name.includes('페이지를 훑어보는 고객')) {
-    return {
-      cluster: '페이지를 훑어보는 고객 유형은 홈 화면과 상품 화면을 넓게 둘러보지만 다음 행동으로 깊게 들어가지 않는 경우가 많은 유형입니다. 운영자님께서는 스크롤만 이어지는 화면에 추천 상품, 후기, 카테고리 이동, 대표 CTA를 더 분명하게 배치해 고객이 다음 행동을 쉽게 선택할 수 있게 해주세요. 정보는 충분히 보지만 결정 계기가 부족한 상태로 해석하는 것이 좋습니다.',
-      session: '이 고객은 화면을 천천히 훑고 필요한 정보를 찾는 모습은 보였지만, 핵심 행동으로 강하게 이어지지는 않았습니다. 운영자님께서는 이 고객이 머문 화면에 다음 행동 버튼, 추천 상품, 후기 요약 같은 결정 보조 요소를 보강해 탐색이 클릭과 구매 흐름으로 이어지게 만들어보세요. 상품 상세 상단에 핵심 정보 요약을 더 전진 배치하는 것도 도움이 됩니다.',
-    };
-  }
-
-  if (name.includes('상품을 찾고 비교하는 고객')) {
-    return {
-      cluster: '상품을 찾고 비교하는 고객 유형은 검색, 카테고리 이동, 상세 확인을 반복하며 여러 선택지를 비교하는 경우가 많은 유형입니다. 운영자님께서는 필터, 정렬, 리뷰 요약, 가격 비교 요소를 더 빠르게 읽히게 정리하고 선택 피로를 줄이는 방향으로 화면을 다듬어보세요. 이 유형은 탐색 의도는 분명하므로 비교를 쉽게 만들어주면 전환으로 이어질 가능성이 높습니다.',
-      session: '이 고객은 원하는 상품을 찾기 위해 검색과 비교 행동을 반복하는 흐름을 보였습니다. 운영자님께서는 비교 과정에서 필요한 가격, 리뷰, 배송 정보를 한눈에 볼 수 있게 정리해 고객이 여러 페이지를 오가며 지치지 않도록 도와주세요. 추천 상품이나 비교 포인트 요약도 좋은 보조 장치가 됩니다.',
-    };
-  }
-
-  if (name.includes('행동 데이터 부족 고객')) {
-    return {
-      cluster: '이 유형은 아직 대표 행동 근거가 충분히 쌓이지 않아 명확한 해석보다 데이터 보완이 우선인 상태입니다. 운영자님께서는 SDK 수집 범위, 페이지별 이벤트 매핑, 주문 성공 직전/직후 이벤트 기록 여부를 먼저 점검해 행동 흐름이 더 또렷하게 남도록 보완해주세요. 데이터가 정리되면 이후 유형 해석도 훨씬 안정적으로 바뀔 수 있습니다.',
-      session: '이 고객 세션은 행동 기록이 충분하지 않아 성향을 단정하기 어렵습니다. 운영자님께서는 페이지 이동, 클릭, 장바구니, 결제 단계 이벤트가 빠짐없이 수집되는지 먼저 확인해 주세요. 특히 중요한 행동이 누락되면 실제 구매 의도와 다르게 해석될 수 있습니다.',
-    };
-  }
-
-  return null;
+function buildLocalClusterReport(clusterId, profile = {}, labelInfo = {}, profiles = {}, source = '') {
+  const trusted = isSiteSnapshot(source);
+  const totalSessions = trusted
+    ? Object.values(profiles || {}).reduce((sum, p) => sum + (Number(p?.count) || 0), 0)
+    : 0;
+  const sections = buildClusterActionReport({
+    clusterId,
+    typeName: labelInfo.name || labelInfo.label,
+    profile: trusted ? profile : {},
+    totalSessions,
+    statsAvailable: trusted,
+  });
+  return { text: normalizeReportText(sections.text), sections };
 }
 
-// Gemini 없이도 보여줄 클러스터 리포트를 직접 조립
-function buildLocalClusterReport(clusterId, profile = {}, labelInfo = {}) {
-  const typeName = labelInfo.name || labelInfo.label || `고객 유형 ${clusterId}`;
-  const preset = mockReportPreset(typeName);
-  if (preset?.cluster) {
-    return normalizeReportText(preset.cluster);
-  }
-  const summary = labelInfo.summary || '행동 패턴을 바탕으로 묶인 고객 유형입니다.';
-  const action = labelInfo.action || '대표 행동을 기준으로 상품 노출과 안내 문구를 점검하세요.';
-  const topActions = (profile.top_actions || [])
-    .slice(0, 3)
-    .map((a) => actionLabel(a.action))
-    .filter(Boolean)
-    .join(', ');
-  const pages = Object.entries(profile.page_dist || {})
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([page]) => page)
-    .join(', ');
-
-  const evidence = [
-    topActions ? `대표 행동은 ${topActions}입니다.` : '',
-    pages ? `주로 관찰된 화면은 ${pages}입니다.` : '',
-  ].filter(Boolean).join(' ');
-
-  return normalizeReportText(`${typeName} 유형은 ${summary} ${evidence} 지금은 AI 리포트 생성 서버가 혼잡해 자동 요약으로 보여드리고 있습니다. 운영자님은 우선 ${action}`);
+// Gemini 없이 서버 안에서 만드는 고객(방문 1건) 리포트
+function buildLocalSessionReport(body, profile = {}, source = '') {
+  const trusted = isSiteSnapshot(source);
+  const sections = buildSessionActionReport({
+    persona: body.persona || `고객 유형 ${body.cluster_id}`,
+    events: Array.isArray(body.events) ? body.events : [],
+    profile: trusted ? profile : {},
+    statsAvailable: trusted,
+    completed: Boolean(body.completed),
+  });
+  return { text: normalizeReportText(sections.text), sections };
 }
 
-// Gemini 없이도 보여줄 세션 리포트를 직접 조립
-function buildLocalSessionReport(body, profile = {}) {
-  const persona = body.persona || `고객 유형 ${body.cluster_id}`;
-  const preset = mockReportPreset(persona);
-  if (preset?.session) {
-    return normalizeReportText(preset.session);
-  }
-  const summary = body.summary || '이 고객은 최근 행동 흐름을 기준으로 가장 가까운 유형에 분류됐습니다.';
-  const action = body.action || '상세 행동 흐름을 확인해 상품 안내, 혜택, 다음 클릭 유도를 점검하세요.';
-  const events = (body.events || []).slice(0, 5).map((e) => actionLabel(e.event_type)).filter(Boolean);
-  const topActions = (profile.top_actions || []).slice(0, 3).map((a) => actionLabel(a.action)).filter(Boolean);
-  const flow = events.length ? `최근 행동 흐름은 ${events.join(' → ')} 순서로 관찰됐습니다.` : '';
-  const average = topActions.length ? `이 유형의 대표 행동은 ${topActions.join(', ')}입니다.` : '';
-
-  return normalizeReportText(`${persona} 고객은 ${summary} ${flow} ${average} 지금은 AI 리포트 생성 서버가 혼잡해 자동 요약으로 보여드리고 있습니다. 운영자님은 우선 ${action}`);
-}
+// 외부 AI 호출이 실패해 서버 안 규칙으로 대신 만들었을 때만 붙이는 안내.
+// 처음부터 서버 안에서 만들기로 한 요청(prefer_local)에는 붙이지 않는다.
+const AI_FALLBACK_NOTICE = 'AI 문장 생성이 지연돼 행동 규칙 기반 리포트로 보여드립니다.';
 
 // Gemini 호출, 503/429면 잠깐 쉬었다가 재시도
 async function callGemini(prompt, retries = 3) {
@@ -1011,9 +936,9 @@ router.get('/cluster/:clusterId', async (req, res) => {
       const overrideLabel = req.query.completed === '1'
         ? { ...labelInfo, name: String(req.query.persona || '주문을 완료한 고객') }
         : (req.query.persona ? { ...labelInfo, name: String(req.query.persona) } : labelInfo);
-      const report = buildLocalClusterReport(clusterId, profile, overrideLabel);
+      const local = buildLocalClusterReport(clusterId, profile, overrideLabel, profiles, source);
       return res.json({
-        cluster_id: clusterId, report, cached: false, fallback: true,
+        cluster_id: clusterId, report: local.text, sections: local.sections, cached: false, fallback: true,
         local_preferred: true, origin, profile_source: source,
       });
     }
@@ -1033,11 +958,11 @@ router.get('/cluster/:clusterId', async (req, res) => {
       // 왜 로컬로 내려갔는지 로그에 남긴다.
       // 이게 없으면 키 미설정인지 API 장애인지 구분할 방법이 없다.
       console.warn(`[report] Gemini 미사용 → 로컬 요약: ${err.message}`);
-      const report = buildLocalClusterReport(clusterId, profile, labelInfo);
+      const local = buildLocalClusterReport(clusterId, profile, labelInfo, profiles, source);
       res.json({
-        cluster_id: clusterId, report, cached: false, fallback: true,
+        cluster_id: clusterId, report: local.text, sections: local.sections, cached: false, fallback: true,
         origin, profile_source: source,
-        warning: 'AI 리포트 서버가 혼잡해 자동 요약을 표시했습니다.',
+        warning: AI_FALLBACK_NOTICE,
       });
     }
   } catch (err) {
@@ -1070,12 +995,14 @@ router.get('/all', async (req, res) => {
         results.push({ cluster_id: clusterId, report, cached: false });
       } catch (e) {
         if (isGeminiUnavailable(e)) {
+          const local = buildLocalClusterReport(clusterId, profile, labels[clusterId] || {}, profiles, source);
           results.push({
             cluster_id: clusterId,
-            report: buildLocalClusterReport(clusterId, profile, labels[clusterId] || {}),
+            report: local.text,
+            sections: local.sections,
             cached: false,
             fallback: true,
-            warning: 'AI 리포트 서버가 혼잡해 자동 요약을 표시했습니다.',
+            warning: AI_FALLBACK_NOTICE,
           });
         } else {
           results.push({ cluster_id: clusterId, report: null, error: e.message });
@@ -1101,21 +1028,23 @@ router.post('/session', async (req, res) => {
     }
 
     // 세션 리포트도 이 사이트 기준 프로파일로 설명한다
-    const { profiles } = loadSiteProfiles(req.siteOrigin || null);
+    const { profiles, source } = loadSiteProfiles(req.siteOrigin || null);
     const profile = profiles[String(body.cluster_id)];
 
     let report;
+    let sections;
     let fallback = false;
     let warning;
     // 프론트에서 빠른 응답을 원할 때는 외부 AI 호출 없이 로컬 문장 생성
     if (body.prefer_local) {
-      report = buildLocalSessionReport(body, profile);
+      const local = buildLocalSessionReport(body, profile, source);
       return res.json({
         session_id: body.session_id,
         cluster_id: body.cluster_id,
         persona: body.persona,
         confidence: body.confidence,
-        report,
+        report: local.text,
+        sections: local.sections,
         fallback: true,
         local_preferred: true,
       });
@@ -1131,9 +1060,11 @@ router.post('/session', async (req, res) => {
       // 왜 로컬로 내려갔는지 로그에 남긴다.
       // 이게 없으면 키 미설정인지 API 장애인지 구분할 방법이 없다.
       console.warn(`[report] Gemini 미사용 → 로컬 요약: ${err.message}`);
-      report = buildLocalSessionReport(body, profile);
+      const local = buildLocalSessionReport(body, profile, source);
+      report = local.text;
+      sections = local.sections;
       fallback = true;
-      warning = 'AI 리포트 서버가 혼잡해 자동 요약을 표시했습니다.';
+      warning = AI_FALLBACK_NOTICE;
     }
 
     res.json({
@@ -1142,6 +1073,7 @@ router.post('/session', async (req, res) => {
       persona:    body.persona,
       confidence: body.confidence,
       report,
+      sections,
       fallback,
       warning,
     });

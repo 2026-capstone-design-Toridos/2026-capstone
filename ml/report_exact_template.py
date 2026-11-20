@@ -244,13 +244,26 @@ def report_channels(channels: list[dict], limit: int = 6) -> list[dict]:
     return [*keep, rest]
 
 
+def _browser_available() -> bool:
+    try:
+        chrome_path()
+        return True
+    except FileNotFoundError:
+        return False
+
+
 def load_exit_hotspots(start: str, end: str, origin: str) -> list[dict]:
     capture_dir = site_capture_dir(origin, start, end)
     cache_path = capture_dir / "hotspots.json"
     if cache_path.exists():
         try:
             cached = json.loads(cache_path.read_text(encoding="utf-8"))
-            if cached and all(not item.get("capture_path") or Path(item["capture_path"]).exists() for item in cached):
+            files_ok = all(not item.get("capture_path") or Path(item["capture_path"]).exists() for item in cached)
+            has_capture = any(item.get("capture_path") for item in cached)
+            # 캡처가 하나도 없는 캐시는 "이번엔 브라우저를 못 찾았다"는 기록일 뿐이다.
+            # 지금 브라우저를 쓸 수 있으면 다시 찍는다. (예전에는 이 캐시를 계속 재사용해
+            # 한 번 실패한 주차는 브라우저를 고친 뒤에도 영영 캡처되지 않았다.)
+            if cached and files_ok and (has_capture or not _browser_available()):
                 print(f"[report] 이탈 화면 캐시 사용 ({len(cached)}개)", flush=True)
                 return cached
         except Exception:
@@ -1720,6 +1733,11 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
         page = page.replace("2026년 10월 4주차 운영 현황", week)
         page = page.replace("2026.10.21 – 2026.10.27", date_short)
         page = replace_conic_charts(page)
+        # Keep the original footer typography while making numbering truthful.
+        page = re.sub(r"\d+\s*/\s*\d+", f"{page_no} / {len(selected)}", page)
+        # 캡처 이미지는 쪽 번호 치환 "뒤에" 넣는다. base64 안에는 '7/9' 같은
+        # 숫자/숫자 조각이 흔해서, 먼저 넣으면 위 정규식이 이미지 데이터를
+        # '11 / 20' 으로 바꿔 깨뜨렸다 (리포트에 깨진 이미지·잘린 띠로 보임).
         if source_index == 12:
             page = insert_capture_images(
                 page,
@@ -1728,8 +1746,6 @@ def build_exact_html(source_path: Path, start: str, end: str, origin: str, input
                 start,
                 end
             )
-        # Keep the original footer typography while making numbering truthful.
-        page = re.sub(r"\d+\s*/\s*\d+", f"{page_no} / {len(selected)}", page)
         rendered.append(f'<section class="report-page source-page-{source_index + 1}">{page}</section>')
 
     return f"""<!doctype html>
