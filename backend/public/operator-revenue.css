@@ -45,10 +45,6 @@
 .ov-info-value { color: var(--blue); font: 500 1.15rem var(--font-point); }
 .ov-info-bar { grid-column: 1/-1; height: 7px; overflow: hidden; border-radius: 9px; background: var(--blue-soft); }
 .ov-info-bar i { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
-.ov-info-observation { padding: 14px 0; border-bottom: 1px solid var(--line); }
-.ov-info-observation:last-child { border-bottom: 0; }
-.ov-info-observation strong { display: block; margin: 8px 0 4px; font-size: .84rem; }
-.ov-info-observation p { margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.7; }
 .ra-customer-list { display: grid; gap: 10px; }
 .ra-customer-item { display: flex; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 9px; background: var(--soft); font-size: .8rem; }
 [hidden] { display: none !important; }

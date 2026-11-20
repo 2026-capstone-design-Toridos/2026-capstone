@@ -69,7 +69,13 @@
       row.repeated ? { label: `${row.label} 반복 확인`, count: row.repeated, detail: "같은 방문에서 해당 정보 구역을 다시 확인했습니다." } : null,
       row.ending ? { label: `${row.label} 확인 후 종료`, count: row.ending, detail: "해당 구역을 확인한 뒤 구매 완료 신호 없이 방문이 종료됐습니다." } : null,
     ]).filter(Boolean).sort((a, b) => b.count - a.count);
-    $("ov-observations").innerHTML = signals.length ? signals.slice(0, 4).map((item) => `<div class="ov-info-observation"><span class="ra-badge warn">점검 신호</span><strong>${escapeHtml(item.label)} · ${fmt(item.count)}개 방문</strong><p>${escapeHtml(item.detail)} 원인으로 단정하지 않고 화면 안내를 점검하세요.</p></div>`).join("") : empty("오늘 반복 확인 또는 확인 후 종료 신호가 없습니다.");
+    $("ov-observations").innerHTML = signals.length
+      ? signals.slice(0, 4).map((item) => `
+        <div class="insight-item">
+          <div class="insight-name">${escapeHtml(item.label)} · ${fmt(item.count)}개 방문</div>
+          <div class="insight-desc">${escapeHtml(item.detail)} 원인으로 단정하지 않고 화면 안내를 점검하세요.</div>
+        </div>`).join("")
+      : empty("오늘 반복 확인 또는 확인 후 종료 신호가 없습니다.");
   }
 
   function renderRecovery() {
