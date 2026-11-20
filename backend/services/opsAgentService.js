@@ -53,6 +53,27 @@ function fmt(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
+function shortDate(value) {
+  const [, month, day] = String(value || '').split('-');
+  return month && day ? `${Number(month)}/${Number(day)}` : '';
+}
+
+function periodLabel(plan) {
+  const { startDate, endDate } = plan.period || {};
+  return startDate && endDate ? `${shortDate(startDate)}~${shortDate(endDate)}` : '선택한 기간';
+}
+
+function previousPeriodLabel(plan) {
+  const { startDate, endDate } = plan.period || {};
+  if (!startDate || !endDate) return '직전 동일 기간';
+  const DAY = 24 * 60 * 60 * 1000;
+  const start = new Date(`${startDate}T12:00:00+09:00`);
+  const end = new Date(`${endDate}T12:00:00+09:00`);
+  const span = Math.round((end - start) / DAY) + 1;
+  const iso = (date) => new Date(date.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return `${shortDate(iso(new Date(start.getTime() - span * DAY)))}~${shortDate(iso(new Date(start.getTime() - DAY)))}`;
+}
+
 // 이 질문이 실제로 바라보는 세션 수. 채널을 물었으면 그 채널 세션만 센다.
 function focusSessions(plan, tools) {
   const channelTool = tools.get_channel_performance;
@@ -143,7 +164,9 @@ async function gemini(body, timeoutMs = 45_000) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(`Gemini API 오류 (${response.status})`);
+    // 429가 분당 한도인지 일일 한도인지 로그만 봐도 알 수 있게 사유를 남긴다(키는 포함되지 않음).
+    const reason = String(payload?.error?.message || '').split('\n')[0].slice(0, 200);
+    const error = new Error(`Gemini API 오류 (${response.status})${reason ? `: ${reason}` : ''}`);
     error.status = response.status;
     throw error;
   }
@@ -228,7 +251,10 @@ function fallbackNarrative(plan, tools) {
   if (has('get_funnel_overview')) {
     const transitions = tools.get_funnel_overview?.transitions || [];
     const top = [...transitions].sort((a, b) => b.stopped - a.stopped)[0];
-    hypotheses.push(`'${top?.from || '현재 단계'}' 화면에서 다음 행동이 눈에 띄지 않거나, 결정에 필요한 정보가 늦게 제시되는지 확인할 필요가 있습니다.`);
+    // '방문'은 화면이 아니라 단계 이름이다. 첫 단계면 실제로 가장 많이 끝난 화면 이름을 쓴다.
+    const exitLabel = tools.get_exit_signals?.exit_pages?.[0]?.label;
+    const screen = top?.from === '방문' ? (exitLabel || '첫 방문 화면') : (top?.from || '현재 단계');
+    hypotheses.push(`'${screen}'에서 상품으로 넘어가는 다음 행동이 눈에 띄지 않거나, 결정에 필요한 정보가 늦게 제시되는지 확인할 필요가 있습니다.`);
     actions.push(transitionAction(top));
     if (top) {
       const currentReach = Math.round((100 - top.stop_rate) * 10) / 10;
@@ -298,13 +324,21 @@ function serverSummary(plan, tools) {
       ? `먼저 고칠 곳은 캡처에 표시된 '${first.section}' 구역입니다. 이 위치에 종료 신호 ${first.count.toLocaleString('ko-KR')}건(${first.share_pct}%)이 모였습니다.`
       : '이탈 집중 구역을 화면으로 확인하려 했지만 이번 기간에는 표시할 캡처를 생성하지 못했습니다.';
   }
+  if (plan.targets.includes('sales') && !plan.filters.channel) {
+    const overview = tools.get_period_overview || {};
+    const sessions = Number(overview.sessions?.current || 0);
+    const orders = overview.orders || {};
+    const delta = Number(orders.delta || 0);
+    const trend = delta > 0 ? `직전 같은 기간보다 ${fmt(delta)}건 늘었습니다` : delta < 0 ? `직전 같은 기간보다 ${fmt(-delta)}건 줄었습니다` : '직전 같은 기간과 같습니다';
+    return `${periodLabel(plan)} 기간 주문 완료는 ${fmt(orders.current)}건으로 방문 ${fmt(sessions)}건 대비 ${overview.order_rate ?? 0}%이며, ${trend}.`;
+  }
   if (plan.targets.includes('previous_action')) {
     return '이전 운영 제안 당시의 핵심 지표와 현재 스냅샷을 같은 정의로 비교했습니다. 변화는 관측값이며 제안의 인과 효과로 단정하지 않습니다.';
   }
   if (plan.required_tools.includes('get_customer_type_insights')) {
     return '저장된 쇼핑몰 전용 고객 유형 스냅샷에서 유형별 비중과 대표 행동을 확인했습니다.';
   }
-  if (plan.required_tools.includes('get_campaign_performance')) {
+  if (plan.required_tools.includes('get_campaign_performance') && (campaign || !plan.targets.includes('channel'))) {
     return `${campaign ? `'${campaign}'` : 'UTM'} 캠페인의 방문과 주문 연결을 비교해 우선 점검할 대상을 정리했습니다.`;
   }
   if (plan.required_tools.includes('get_product_opportunities')) {
@@ -331,14 +365,14 @@ function serverSummary(plan, tools) {
   return '선택한 기간의 운영 지표를 검증된 집계 기준으로 분석했습니다.';
 }
 
-function comparisonAnswer(tools) {
+function comparisonAnswer(tools, plan = null) {
   const overview = tools.get_period_overview || {};
   const sessions = overview.sessions || {};
   const orders = overview.orders || {};
   const risky = overview.risky_sessions || {};
   const direction = (delta) => Number(delta) > 0 ? '증가' : Number(delta) < 0 ? '감소' : '변화 없음';
   return {
-    summary: `직전 동일 기간과 비교하면 방문 세션은 ${Math.abs(Number(sessions.delta || 0)).toLocaleString('ko-KR')}건 ${direction(sessions.delta)}했고, 주문 완료는 ${Math.abs(Number(orders.delta || 0)).toLocaleString('ko-KR')}건 ${direction(orders.delta)}했습니다.`,
+    summary: `${plan ? `${periodLabel(plan)} 기간을 직전 ${previousPeriodLabel(plan)} 기간과 비교하면` : '직전 동일 기간과 비교하면'} 방문 세션은 ${Math.abs(Number(sessions.delta || 0)).toLocaleString('ko-KR')}건 ${direction(sessions.delta)}했고, 주문 완료는 ${Math.abs(Number(orders.delta || 0)).toLocaleString('ko-KR')}건 ${direction(orders.delta)}했습니다.`,
     observations: [
       { id: 'comparison.sessions', statement: `방문 세션: 직전 ${Number(sessions.previous || 0).toLocaleString('ko-KR')}건 → 현재 ${Number(sessions.current || 0).toLocaleString('ko-KR')}건 (${Number(sessions.delta || 0) >= 0 ? '+' : ''}${Number(sessions.delta || 0).toLocaleString('ko-KR')}건)` },
       { id: 'comparison.orders', statement: `주문 완료: 직전 ${Number(orders.previous || 0).toLocaleString('ko-KR')}건 → 현재 ${Number(orders.current || 0).toLocaleString('ko-KR')}건 (${Number(orders.delta || 0) >= 0 ? '+' : ''}${Number(orders.delta || 0).toLocaleString('ko-KR')}건)` },
@@ -363,6 +397,11 @@ function verifiedKpis(plan, tools) {
       rows.push(`${row.name} 장바구니 도달률: 현재 ${row.cart_rate}%에서 상승했는지 7일 후 비교`);
       return rows;
     }
+  }
+  // "광고 효과 있어?"처럼 채널 전체를 물으면 사이트 퍼널보다 가장 약한 채널 지표를 먼저 둔다.
+  if (plan.targets.includes('channel')) {
+    const weak = weakestChannel(tools);
+    if (weak) rows.push(`${weak.name} 상품 조회율: 현재 ${weak.product_reach_rate}%에서 상승했는지 7일 후 비교`);
   }
   const top = tools.get_funnel_overview?.transitions?.slice().sort((a, b) => b.stopped - a.stopped)[0];
   if (top) {
@@ -526,7 +565,7 @@ async function answerQuestion({ origin, question, days = 7, history = [], snapsh
       : ['이번 기간에는 캡처도, 이탈이 몰린 화면 집계도 없어 수정할 위치를 특정할 수 없습니다. 기간을 늘려 다시 질문해 주세요.'];
     narrative.kpis = [];
   }
-  const comparison = plan.response_mode === 'period_comparison' ? comparisonAnswer(built.tools) : null;
+  const comparison = plan.response_mode === 'period_comparison' ? comparisonAnswer(built.tools, plan) : null;
   const visualWithoutCapture = plan.response_mode === 'visual_diagnosis' && !built.tools.get_visual_exit_hotspots?.captures?.length;
   const answer = {
     // 요약과 모든 수치 근거는 서버가 작성한다. Gemini는 가설·조치 문장만 담당한다.
@@ -542,6 +581,7 @@ async function answerQuestion({ origin, question, days = 7, history = [], snapsh
     // 목표 수치는 Agent가 추정하지 않는다. 서버가 실제 현재값과 판정 방향만 만든다.
     kpis: comparison ? [] : visualWithoutCapture ? exitKpis(built.tools) : verifiedKpis(plan, built.tools),
     caveats: [...new Set([
+      ...(plan.targets.includes('sales') ? ['매출 금액이 아니라 주문 완료 건수 기준입니다.'] : []),
       ...narrative.caveats,
       ...toolNotes.filter((note) => /없|못|초과|녹화가 아닙니다/.test(note)),
     ])].slice(0, 2),

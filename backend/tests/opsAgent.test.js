@@ -216,3 +216,20 @@ test('채널 저장값 별칭(fb·ig)도 같은 채널로 본다', () => {
   assert.ok(!channelRawPattern('Instagram').test('fb'));
   assert.ok(planQuestion('페이스북 유입 분석', { days: 7, now: NOW }).filters.channel === 'Facebook');
 });
+
+test('"광고 효과"는 이전 제안 비교가 아니라 채널 질문이고, "제안 효과"만 이전 제안 비교다', () => {
+  const ad = planQuestion('광고 효과 있어?', { days: 7, now: NOW });
+  assert.ok(!ad.targets.includes('previous_action'));
+  assert.ok(ad.targets.includes('channel'));
+  const prev = planQuestion('지난번 제안 효과 있었어?', { days: 7, now: NOW });
+  assert.ok(prev.targets.includes('previous_action'));
+});
+
+test('채널 전체 질문의 KPI 첫 줄은 가장 약한 채널 지표다', () => {
+  const plan = planQuestion('광고 효과 있어?', { days: 7, now: NOW });
+  const kpis = verifiedKpis(plan, {
+    get_channel_performance: { channels: channelRows },
+    get_funnel_overview: { transitions: [{ from: '방문', to: '상품 조회', stopped: 318, stop_rate: 71.6 }] },
+  });
+  assert.match(kpis[0], /^Instagram 상품 조회율/);
+});
