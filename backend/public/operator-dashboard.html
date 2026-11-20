@@ -586,6 +586,17 @@
       gap: 9px;
       margin-bottom: 14px;
     }
+    .selected-customer {
+      display: flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f4f7fb;
+      color: var(--muted);
+    }
+    .selected-customer.has-selection { color: var(--text); font-weight: 700; }
     .session-list { display: grid; gap: 8px; max-height: 330px; overflow: auto; padding-right: 2px; }
     .session-row {
       position: relative;
@@ -1345,7 +1356,10 @@
           <section class="card">
             <div class="card-head"><div><div class="card-title">최근 방문 고객</div><div class="card-sub">고객을 선택해 행동 타임라인을 고정합니다.</div></div></div>
             <div class="card-body">
-              <div class="session-search"><input id="session-input" placeholder="고객을 선택하거나 참조번호를 입력" /><button id="analyze-session">이 고객 분석</button></div>
+              <div class="session-search">
+                <output class="selected-customer" id="selected-customer" aria-label="선택한 고객">아래 목록에서 고객을 선택하세요</output>
+                <button id="analyze-session" disabled>이 고객 분석</button>
+              </div>
               <div class="session-list" id="session-list"><div class="empty">최근 고객을 불러오는 중입니다.</div></div>
             </div>
           </section>
@@ -2738,10 +2752,17 @@
 
     // 목록 갱신 때 이미 받은 최근 이벤트를 즉시 보여주고, 전체 이력은 뒤에서 보완한다.
     // Atlas 응답이 늦어도 고객 분석 버튼은 현재 확보된 실제 행동으로 바로 동작한다.
+    function renderSelectedCustomer() {
+      const sessionId = state.selectedSessionId;
+      const display = $("selected-customer");
+      display.textContent = sessionId ? `최근 고객 ${customerNumber(sessionId)}` : "아래 목록에서 고객을 선택하세요";
+      display.classList.toggle("has-selection", Boolean(sessionId));
+      $("analyze-session").disabled = !sessionId;
+    }
+
     function selectSession(sessionId) {
       state.selectedSessionId = sessionId;
-      $("session-input").dataset.sessionId = sessionId;
-      $("session-input").value = `최근 고객 ${customerNumber(sessionId)}`;
+      renderSelectedCustomer();
       state.analysis = null;
       const selectedSession = state.sessions.find((s) => s.session_id === sessionId);
       const initialEvents = orderedEvents(state.logs.filter((event) => event.session_id === sessionId));
@@ -2786,7 +2807,7 @@
 
     // 선택한 세션을 분류 API로 분석
     async function analyzeSession() {
-      const sessionId = $("session-input").dataset.sessionId || $("session-input").value.trim();
+      const sessionId = state.selectedSessionId;
       if (!sessionId) return;
       $("result-box").innerHTML = `<div class="empty">고객 행동을 분석하는 중입니다.</div>`;
       try {
@@ -3372,8 +3393,7 @@
       state.fullReportOrigin = null;
       state.weeklyReportWeek = "";
       state.agentLoaded = false;
-      $("session-input").value = "";
-      $("session-input").dataset.sessionId = "";
+      renderSelectedCustomer();
       $("timeline-box").innerHTML = `<div class="empty">새 사이트의 고객을 선택해주세요.</div>`;
       $("result-box").innerHTML = `<div class="empty">고객을 선택하고 분석 버튼을 눌러주세요.</div>`;
       $("report-box").classList.remove("structured");
@@ -3533,12 +3553,6 @@
     $("analyze-session").addEventListener("click", analyzeSession);
     $("cluster-report").addEventListener("click", () => loadClusterReport());
     $("session-report").addEventListener("click", loadSessionReport);
-    $("session-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") analyzeSession();
-    });
-    $("session-input").addEventListener("input", (e) => {
-      e.currentTarget.dataset.sessionId = "";
-    });
 
     // 사이트 목록 로드 -> 첫 데이터 갱신 -> 최근 세션 자동 선택 -> 10초마다 polling
     (async function init() {
