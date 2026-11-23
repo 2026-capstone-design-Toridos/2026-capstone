@@ -3264,7 +3264,7 @@
         const responsiveStyle = `<style id="seer-dashboard-report-view">
           @media screen {
             body { background:#eef3f8!important }
-            :root:not(.seer-report-book) .page { max-width:100%!important; margin:0 auto 18px!important; box-shadow:0 8px 24px rgba(23,32,51,.08)!important }
+            :root:not(.seer-report-book) :is(.report-page,.page) { display:block!important; max-width:100%!important; margin:0 auto 18px!important; box-shadow:0 8px 24px rgba(23,32,51,.08)!important }
             .seer-report-book { overflow:hidden }
             .seer-report-book body { display:flex; justify-content:center; align-items:flex-start; gap:12px; margin:0; padding:12px; }
             .seer-report-book body > :is(.report-page,.page):not([data-seer-page-visible]) { display:none!important }
