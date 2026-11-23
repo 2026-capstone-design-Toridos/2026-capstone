@@ -1342,8 +1342,9 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             if insight_box:
                 # 해석(보통 글씨)과 "그래서 무엇을 고칠지"(굵게·강조색)를 나눠서 핵심 조치가 먼저 눈에 띄게 한다.
                 insight_text = str(ai_profile.get("insight") or profile.get("summary") or "").strip()
-                action_text = first_sentences(
-                    ai_profile.get("recommended_action") or profile.get("action") or "다음 주 실행 조치를 점검하세요.", 1, 90)
+                # 문장을 자르지 않고 전부 보여준다(예전엔 90자에서 "…"로 잘렸다).
+                action_text = " ".join(str(
+                    ai_profile.get("recommended_action") or profile.get("action") or "다음 주 실행 조치를 점검하세요.").split())
                 accent = ["#332288", "#168477", "#A07800", "#A73E50", "#167AA6"][position % 5]
                 insight_box.clear()
                 if insight_text:
@@ -1498,9 +1499,11 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
                         style_likelihood_badge(badge, likelihoods[position])
                     else:
                         cells[1].string = likelihoods[position]
-                    # 표에는 핵심 조치 한 문장만 둔다(전체 문단은 유형 상세 페이지에 있음).
-                    cells[2].string = first_sentences(
-                        ai_profile.get("recommended_action") or profile.get("action") or "행동 패턴에 맞춘 운영 전략을 적용하세요.", 1, 56)
+                    # 표에서도 전략 문장을 자르지 않는다(예전엔 56자에서 "…"로 잘림).
+                    cells[2].string = " ".join(str(
+                        ai_profile.get("recommended_action") or profile.get("action") or "행동 패턴에 맞춘 운영 전략을 적용하세요.").split())
+                    set_style_value(cells[2], "font-size", "13.5px")
+                    set_style_value(cells[2], "line-height", "1.55")
                     set_style_value(cells[2], "word-break", "keep-all")
                     set_style_value(cells[2], "overflow-wrap", "normal")
         page = str(soup)
@@ -1513,7 +1516,7 @@ def bind_weekly_data(page: str, source_index: int, inputs: dict) -> str:
             overall = next(iter(label.parent.find_all("div", recursive=False)), None)
             if overall:
                 overall_text = (inputs.get("ai") or {}).get("overall_recommendation") or overall.get_text(" ", strip=True)
-                overall.string = first_sentences(overall_text, 2, 150)
+                overall.string = " ".join(str(overall_text).split())
                 set_style_value(overall, "font-size", "14px")
                 set_style_value(overall, "line-height", "1.7")
         page = str(soup)
