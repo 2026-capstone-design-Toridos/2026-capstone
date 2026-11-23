@@ -89,7 +89,7 @@
 
     .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
     select, input, button { font: inherit; }
-    select, input {
+    input {
       height: 40px;
       border: 1px solid var(--line);
       border-radius: 10px;
@@ -98,6 +98,100 @@
       padding: 0 12px;
       outline: none;
     }
+    select {
+      height: 40px;
+      min-width: 164px;
+      padding: 0 42px 0 14px;
+      border: 1px solid #e1e1e1;
+      border-radius: 8px;
+      background-color: #fff;
+      color: #777;
+      cursor: pointer;
+    }
+    .custom-select { position: relative; display: inline-block; min-width: 164px; color: #222; }
+    .custom-select-native {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      margin: -1px !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      clip: rect(0 0 0 0) !important;
+      clip-path: inset(50%) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+    button.custom-select-trigger {
+      position: relative;
+      width: 100%;
+      height: 40px;
+      padding: 0 42px 0 14px;
+      border: 1px solid #e1e1e1;
+      border-radius: 8px;
+      background: #fff;
+      color: #777;
+      box-shadow: none;
+      font-family: inherit;
+      font-weight: 400;
+      text-align: left;
+      white-space: nowrap;
+    }
+    button.custom-select-trigger::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 16px;
+      width: 8px;
+      height: 8px;
+      border-right: 1.5px solid #222;
+      border-bottom: 1.5px solid #222;
+      transform: translateY(-70%) rotate(45deg);
+      transition: transform .15s ease;
+    }
+    button.custom-select-trigger:hover { border-color: #aaa; transform: none; }
+    button.custom-select-trigger:focus-visible,
+    .custom-select.open button.custom-select-trigger { border-color: #333; color: #222; }
+    .custom-select.open button.custom-select-trigger::after { transform: translateY(-25%) rotate(225deg); }
+    button.custom-select-trigger:disabled { background: #f1f1f1; color: #8a8a8a; box-shadow: none; cursor: not-allowed; }
+    .custom-select-list {
+      position: absolute;
+      z-index: 100;
+      top: calc(100% + 8px);
+      left: 0;
+      display: none;
+      width: max-content;
+      min-width: 100%;
+      max-height: 260px;
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(17, 24, 39, .12);
+      list-style: none;
+    }
+    .custom-select.open .custom-select-list { display: block; }
+    button.custom-select-option {
+      display: block;
+      width: 100%;
+      height: 44px;
+      padding: 0 16px;
+      border: 0;
+      border-bottom: 1px solid #e8e8e8;
+      border-radius: 0;
+      background: #fff;
+      color: #222;
+      box-shadow: none;
+      font-family: inherit;
+      font-weight: 400;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .custom-select-option:last-child { border-bottom: 0; }
+    button.custom-select-option:hover,
+    button.custom-select-option:focus-visible { background: #f3f3f3; color: #222; transform: none; }
+    button.custom-select-option[aria-selected="true"] { background: #f3f3f3; }
     button {
       height: 40px;
       border: 0;
@@ -900,7 +994,7 @@
     .agent-query-title { font-family:var(--font-point); font-size:1.05rem; font-weight:700; }
     .agent-query-sub { margin-top:4px; color:var(--muted); font-size:.84rem; }
     .agent-period { display:flex; align-items:center; gap:9px; color:#4a607e; font-size:.8rem; font-weight:700; white-space:nowrap; }
-    .agent-period select { min-width:118px; padding:9px 30px 9px 11px; border:1px solid #cdd9ea; border-radius:9px; background:#fff; color:var(--text); font:inherit; }
+    .agent-period select { min-width:118px; }
     .agent-composer { display:grid; grid-template-columns:minmax(0,1fr) 52px; gap:10px; }
     .agent-composer input { height:52px; min-height:52px; border:1px solid #c8d7ec; border-radius:11px; padding:0 16px; background:#fff; color:var(--text); font:inherit; line-height:52px; box-shadow:0 4px 14px rgba(29,68,124,.04); }
     .agent-composer input:focus { outline:2px solid rgba(20,86,224,.2); border-color:var(--blue); }
@@ -1014,7 +1108,7 @@
     .agent-head-controls { display:flex; flex:0 0 auto; align-items:center; gap:8px; }
     .agent-mobile-control { display:none; min-height:36px; padding:7px 9px; border:1px solid #d6dfeb; border-radius:8px; color:#405b7b; background:#fff; box-shadow:none; font:inherit; font-size:.72rem; font-weight:800; }
     .agent-head-controls label { color:#748198; font-size:.72rem; font-weight:700; white-space:nowrap; }
-    .agent-head-controls select { min-width:104px; height:38px; padding:0 32px 0 11px; border:1px solid #d8e0eb; border-radius:9px; background-color:#fff; font:inherit; font-size:.78rem; }
+    .agent-head-controls select { min-width:104px; font-size:.78rem; }
 
     .agent-conversation .agent-messages { display:block; flex:1 1 auto; box-sizing:border-box; width:100%; min-height:0; max-height:none; overflow-y:auto; padding:28px clamp(18px,4vw,54px); background:#fff; }
     .agent-empty-state { display:grid; place-items:center; max-width:720px; min-height:430px; margin:0 auto; text-align:center; }
@@ -3539,6 +3633,100 @@
       if (event.target.closest("#agent-context-close")) {
         document.querySelector(".agent-context-panel")?.classList.remove("show-detail");
       }
+    });
+
+    function enhanceSelect(select) {
+      if (select.dataset.customSelect === "true") return;
+      select.dataset.customSelect = "true";
+      select.classList.add("custom-select-native");
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "custom-select";
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "custom-select-trigger";
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.setAttribute("aria-label", select.getAttribute("aria-label") || document.querySelector(`label[for="${select.id}"]`)?.textContent?.trim() || "선택");
+      const list = document.createElement("div");
+      list.className = "custom-select-list";
+      list.setAttribute("role", "listbox");
+
+      select.parentNode.insertBefore(wrapper, select);
+      wrapper.append(select, trigger, list);
+
+      const close = () => {
+        wrapper.classList.remove("open");
+        trigger.setAttribute("aria-expanded", "false");
+      };
+      const sync = () => {
+        const selected = select.selectedOptions[0] || select.options[0];
+        trigger.textContent = selected?.textContent || "선택";
+        trigger.disabled = select.disabled;
+        list.querySelectorAll(".custom-select-option").forEach((option) => {
+          option.setAttribute("aria-selected", String(option.dataset.value === select.value));
+        });
+      };
+      const rebuild = () => {
+        list.replaceChildren();
+        Array.from(select.options).forEach((option) => {
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "custom-select-option";
+          item.setAttribute("role", "option");
+          item.dataset.value = option.value;
+          item.textContent = option.textContent;
+          item.disabled = option.disabled;
+          item.addEventListener("click", () => {
+            select.value = option.value;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            sync();
+            close();
+            trigger.focus();
+          });
+          list.appendChild(item);
+        });
+        sync();
+      };
+
+      trigger.addEventListener("click", () => {
+        const willOpen = !wrapper.classList.contains("open");
+        document.querySelectorAll(".custom-select.open").forEach((item) => {
+          item.classList.remove("open");
+          item.querySelector(".custom-select-trigger")?.setAttribute("aria-expanded", "false");
+        });
+        wrapper.classList.toggle("open", willOpen);
+        trigger.setAttribute("aria-expanded", String(willOpen));
+      });
+      trigger.addEventListener("keydown", (event) => {
+        const options = Array.from(select.options).filter((option) => !option.disabled);
+        const current = options.findIndex((option) => option.value === select.value);
+        const direction = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+        if (direction) {
+          event.preventDefault();
+          const next = options[Math.max(0, Math.min(options.length - 1, current + direction))];
+          if (next) {
+            select.value = next.value;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            sync();
+          }
+        } else if (event.key === "Escape") {
+          close();
+        }
+      });
+      select.addEventListener("change", sync);
+      new MutationObserver(rebuild).observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "selected"] });
+      rebuild();
+    }
+
+    document.querySelectorAll("select").forEach(enhanceSelect);
+    document.addEventListener("click", (event) => {
+      document.querySelectorAll(".custom-select.open").forEach((wrapper) => {
+        if (!wrapper.contains(event.target)) {
+          wrapper.classList.remove("open");
+          wrapper.querySelector(".custom-select-trigger")?.setAttribute("aria-expanded", "false");
+        }
+      });
     });
     document.querySelectorAll(".nav-button").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
     document.querySelectorAll(".report-mode").forEach((button) => button.addEventListener("click", () => {
